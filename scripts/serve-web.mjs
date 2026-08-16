@@ -24,26 +24,37 @@ function injectWorkspaceScripts(html) {
   return html.replace("</body>", `${scripts}</body>`);
 }
 
-function resolveRequestPath(requestUrl = "/") {
+function resolveRequestPaths(requestUrl = "/") {
   const pathname = decodeURIComponent(new URL(requestUrl, "http://localhost").pathname);
   if (pathname.startsWith("/_packages/contracts/")) {
     const packagePath = path.resolve(packageRoot, pathname.slice("/_packages/contracts/".length));
-    return packagePath === packageRoot || packagePath.startsWith(`${packageRoot}${path.sep}`) ? packagePath : undefined;
+    return packagePath === packageRoot || packagePath.startsWith(`${packageRoot}${path.sep}`) ? [packagePath] : [];
   }
   const requested = pathname === "/" ? "index.html" : pathname.slice(1);
   const absolute = path.resolve(root, requested);
-  return absolute === root || absolute.startsWith(`${root}${path.sep}`) ? absolute : undefined;
+  if (absolute !== root && !absolute.startsWith(`${root}${path.sep}`)) return [];
+  const candidates = [absolute];
+  if (requested.startsWith("dist/")) candidates.push(path.resolve(root, "dist", "src", requested.slice("dist/".length)));
+  return candidates.filter((candidate) => candidate === root || candidate.startsWith(`${root}${path.sep}`));
 }
 
 const server = createServer(async (request, response) => {
-  const absolute = resolveRequestPath(request.url);
-  if (!absolute) {
+  const candidates = resolveRequestPaths(request.url);
+  if (!candidates.length) {
     response.writeHead(403).end("Forbidden");
     return;
   }
+  let absolute;
+  for (const candidate of candidates) {
+    try {
+      if ((await stat(candidate)).isFile()) { absolute = candidate; break; }
+    } catch { /* Try the next safe candidate. */ }
+  }
+  if (!absolute) {
+    response.writeHead(404).end("Not found");
+    return;
+  }
   try {
-    const details = await stat(absolute);
-    if (!details.isFile()) throw new Error("Not a file");
     if (path.extname(absolute) === ".html") {
       const html = injectWorkspaceScripts(await readFile(absolute, "utf8"));
       response.writeHead(200, {
