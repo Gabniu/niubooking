@@ -31,6 +31,7 @@ function ready(port) {
 start(process.execPath, [process.env.BOOKING_NEXT_SERVER_PATH ?? "apps/web/server.js"], { HOSTNAME: "127.0.0.1", PORT: String(nextPort), NODE_ENV: "production" });
 start(process.execPath, ["scripts/serve-web.mjs"], { HOST: "127.0.0.1", PORT: String(legacyPort), BOOKING_WEB_ROOT: process.env.BOOKING_LEGACY_WEB_ROOT ?? "legacy-web", BOOKING_CONTRACTS_ROOT: "packages/contracts/dist" });
 await ready(nextPort);
+await ready(legacyPort);
 
 const server = createServer((request, response) => proxy(request, response, nextRequest(request.url ?? "/") ? nextPort : legacyPort));
 server.listen(proxyPort, "0.0.0.0", () => console.log(`Booking Next/legacy production web: http://0.0.0.0:${proxyPort}`));

@@ -46,6 +46,7 @@ const npmArgs = process.platform === "win32" ? ["/d", "/s", "/c", "npm run dev -
 start(npmCommand, npmArgs);
 start(process.execPath, ["scripts/serve-web.mjs"], { PORT: String(legacyPort) });
 await ready(nextPort);
+await ready(legacyPort);
 
 const server = createServer((request, response) => proxy(request, response, nextRequest(request.url ?? "/") ? nextPort : legacyPort));
 server.listen(proxyPort, "127.0.0.1", () => console.log(`Booking Next/legacy web: http://127.0.0.1:${proxyPort}`));
