@@ -1,0 +1,12 @@
+{
+  "name": "@bookingapp/auth",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "dependencies": {
+    "@bookingapp/domain": "*",
+    "jose": "^6.2.8"
+  }
+}

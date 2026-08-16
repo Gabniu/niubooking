@@ -1,0 +1,21 @@
+{
+  "name": "@bookingapp/web",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@bookingapp/contracts": "*",
+    "@bookingapp/domain": "*",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "next": "^16.3.1",
+    "qrcode": "^1.5.4",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  }
+}

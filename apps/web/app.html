@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- Ownership: authenticated Booking operations entry; tenant data is never fabricated. -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Niu Booking — Operations workspace</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./src/styles.css" />
+    <link rel="stylesheet" href="./src/styles-workspace.css" />
+  </head>
+  <body data-api-base="">
+    <main class="workspace" data-app-entry>
+      <header class="topbar">
+        <div class="topbar-actions">
+          <button class="icon-button" type="button" aria-label="Search workspace"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" /></svg></button>
+          <button class="icon-button" type="button" aria-label="Notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 17h12l-1.5-2V10a4.5 4.5 0 0 0-9 0v5L6 17Zm4 3h4" /></svg></button>
+          <button class="account-button" type="button">Sign in</button>
+        </div>
+      </header>
+      <section class="workspace-content" id="overview">
+        <header class="page-intro"><div><p class="eyebrow">Operations workspace</p><h1>Bring your service work into focus.</h1><p class="intro-copy">Choose an authorized organization to load its schedule, customers, services, and resources.</p></div><a class="primary-button" href="./bookings.html">Open schedule</a></header>
+        <section class="empty-state" aria-labelledby="welcome-title">
+          <div class="empty-state-copy">
+            <div class="empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3v4m10-4v4M4 9h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm4 8h.01M14 13h.01M10 17h.01M14 17h.01" /></svg></div>
+            <p class="eyebrow">Workspace not connected</p>
+            <h2 id="welcome-title">Sign in to load your bookings</h2>
+            <p class="empty-copy">Use NOVA Auth, then choose an authorized organization and branch. Your live operational data will appear here without sample records.</p>
+            <div class="empty-actions"><button class="primary-button" type="button">Continue to sign in <span aria-hidden="true">→</span></button><a class="account-button" href="./index.html">View public experience</a></div>
+            <p class="state-note">No customers, metrics, or appointments are shown until a workspace is authorized.</p>
+          </div>
+          <div class="empty-illustration" aria-hidden="true"><img src="./assets/undraw-login.svg" alt="" /></div>
+        </section>
+      </section>
+    </main>
+    <script type="module" src="./dist/auth-page.js"></script>
+  </body>
+</html>

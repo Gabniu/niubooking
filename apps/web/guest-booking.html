@@ -1,0 +1,61 @@
+<!-- Ownership: public QR booking flow; all destination and booking state comes from the API. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Booking — Reserve a time</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./src/styles.css" />
+    <script type="importmap">{"imports":{"@bookingapp/contracts":"/_packages/contracts/index.js"}}</script>
+  </head>
+  <body>
+    <main class="workspace guest-booking-page" data-guest-booking data-api-base="">
+      <section class="guest-booking-card">
+        <p class="eyebrow">Public booking</p>
+        <h1>Reserve a time</h1>
+        <p id="guest-intro" class="intro-copy">Loading this booking link…</p>
+        <div id="guest-status" class="communication-status" role="status" aria-live="polite"></div>
+        <form id="guest-form" class="customer-form" hidden>
+          <label class="field-label" for="guest-name">Your name</label>
+          <input id="guest-name" autocomplete="name" required />
+          <label class="field-label" for="guest-service">Service</label>
+          <input id="guest-service" required />
+          <label id="guest-occurrence-label" class="field-label" for="guest-occurrence" hidden>Available service times</label>
+          <select id="guest-occurrence" hidden><option value="">Choose a published occurrence</option></select>
+          <label class="field-label" for="guest-start">Starts</label>
+          <input id="guest-start" type="datetime-local" required />
+          <label class="field-label" for="guest-end">Ends</label>
+          <input id="guest-end" type="datetime-local" required />
+          <button id="guest-find-slots" class="secondary-button" type="button">Find available times</button>
+          <label class="field-label" for="guest-slot">Available times</label>
+          <select id="guest-slot">
+            <option value="">Use a time above or find a suggested slot</option>
+          </select>
+          <p id="guest-assignment-summary" class="settings-help" hidden></p>
+          <p class="settings-help">Suggestions use the business resources currently available.</p>
+          <label class="field-label" for="guest-channel">Reminders (optional)</label>
+          <select id="guest-channel">
+            <option value="">No reminders yet</option>
+            <option value="email">Email</option>
+            <option value="sms">SMS</option>
+            <option value="voice">Voice call</option>
+          </select>
+          <input id="guest-contact" placeholder="Email or phone" autocomplete="email tel" />
+          <label class="setting-check"><input id="guest-consent" type="checkbox" /> <span>I agree to receive appointment reminders.</span></label>
+          <button class="primary-button" type="submit">Hold this time</button>
+        </form>
+        <section id="guest-confirm" class="guest-confirm" hidden>
+          <p class="eyebrow">Time held</p>
+          <h2 id="guest-hold-title">Review your booking</h2>
+          <p id="guest-hold-expiry" class="settings-help"></p>
+          <button id="guest-confirm-button" class="primary-button" type="button">Confirm booking</button>
+          <p id="guest-manage" class="settings-help" hidden><a id="guest-manage-link" href="./guest-manage.html">Manage or reschedule this booking</a></p>
+        </section>
+      </section>
+    </main>
+    <script type="module" src="./dist/guest-booking-page.js"></script>
+  </body>
+</html>

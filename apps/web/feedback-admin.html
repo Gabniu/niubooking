@@ -1,0 +1,27 @@
+<!doctype html>
+<!-- Ownership: authorized staff feedback reporting; campaign and analytics data come from the tenant API. -->
+<html lang="en">
+  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Booking — Feedback management</title><link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" /><link rel="stylesheet" href="./src/styles.css" /></head>
+  <body>
+    <main class="workspace studio-page feedback-admin-page" data-feedback-admin-page data-api-base="" data-tenant-id="">
+      <header class="topbar"><div><p class="eyebrow">Client experience</p><h1>Feedback management</h1><p class="intro-copy">Review campaign health and aggregate client sentiment without exposing individual identities.</p></div><div class="topbar-actions"><a class="account-button" href="./communications.html">Communication settings</a><a class="account-button" href="./index.html">Back to workspace</a></div></header>
+      <section class="feedback-admin-content">
+        <div id="feedback-admin-status" class="communication-status" role="status" aria-live="polite"></div>
+        <form id="feedback-campaign-form" class="settings-card campaign-form">
+          <div class="settings-card-heading"><div><p class="eyebrow">Campaign policy</p><h2>Create a feedback campaign</h2></div><span class="privacy-note">Activation stays reversible.</span></div>
+          <div class="template-fields"><label>Campaign ID<input name="campaignId" required placeholder="e.g. post-visit" /></label><label>Audience<select name="audience"><option value="any-client">Any eligible client</option><option value="completed-appointment">Completed appointment</option><option value="campaign">Campaign / event</option></select></label><label>Template version<input name="templateVersion" type="number" min="1" step="1" value="1" required /></label><label>Frequency cap (days)<input name="frequencyCapDays" type="number" min="1" step="1" value="30" required /></label><label>Link expiry (days)<input name="expiresAfterDays" type="number" min="1" step="1" value="14" required /></label></div>
+          <div class="form-actions"><button class="primary-button" type="submit">Create campaign</button></div>
+        </form>
+        <form id="feedback-template-form" class="settings-card template-form" hidden>
+          <div class="settings-card-heading"><div><p class="eyebrow">Versioned authoring</p><h2>Create a template version</h2></div><span class="privacy-note">This saves a version; it does not activate a campaign.</span></div>
+          <div class="template-fields"><label>Campaign<select name="campaignId" required aria-label="Campaign"><option value="">Select a campaign</option></select></label><label>Version<input name="version" type="number" min="1" step="1" required /></label><label>Title<input name="title" maxlength="160" required /></label><label>Introduction<textarea name="intro" maxlength="1000" rows="2"></textarea></label><label>Client experience<select name="presentation"><option value="conversation">Conversation · one question at a time</option><option value="steps">Guided steps · group questions</option><option value="compact">Compact · one scrollable form</option></select><small class="field-help">Choose how this version should feel. There is no platform question-count cap.</small></label><label id="questions-per-step-field">Questions per step<input name="questionsPerStep" type="number" min="1" step="1" value="3" /><small class="field-help">Only used for guided steps; you decide the pace.</small></label></div>
+          <div class="question-header"><div><p class="eyebrow">Survey questions</p><h3>What should clients answer?</h3></div><button id="add-feedback-question" class="account-button" type="button">+ Add question</button></div><div id="feedback-questions" class="feedback-questions"></div>
+          <div class="form-actions"><button class="primary-button" type="submit">Create template version</button></div>
+        </form>
+        <section class="feedback-workspace-grid"><article class="settings-card"><div class="settings-card-heading"><div><p class="eyebrow">Configured campaigns</p><h2>Campaigns</h2></div><label class="campaign-filter">View<select id="feedback-campaign-select" aria-label="Select feedback campaign"><option>Loading…</option></select></label></div><div id="feedback-campaigns" class="campaign-list"></div></article><article class="settings-card"><p class="eyebrow">Aggregate reporting</p><h2>Campaign insights</h2><div id="feedback-analytics" class="feedback-report"><p class="surface-message muted">Select a campaign to view aggregate insights.</p></div></article></section>
+        <section class="settings-card response-panel"><div class="settings-card-heading"><div><p class="eyebrow">Submission history</p><h2>Response summaries</h2></div><span class="privacy-note">Individual identities and raw answers stay hidden.</span></div><div id="feedback-responses" class="feedback-report"><p class="surface-message muted">Select a campaign to view response summaries.</p></div></section>
+      </section>
+    </main>
+    <script type="module" src="./dist/feedback-admin-page.js"></script>
+  </body>
+</html>

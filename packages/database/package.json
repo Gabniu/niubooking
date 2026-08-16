@@ -1,0 +1,12 @@
+{
+  "name": "@bookingapp/database",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "dependencies": {
+    "@bookingapp/domain": "*",
+    "pg": "^8.23.0"
+  }
+}

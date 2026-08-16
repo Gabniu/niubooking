@@ -1,0 +1,43 @@
+{
+  "name": "bookingapp",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@11.6.2",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "lint": "eslint apps packages scripts tests *.mjs",
+    "check:source-size": "node scripts/check-source-size.mjs",
+    "check:parity": "node scripts/check-feature-parity.mjs",
+    "check:migrations": "node scripts/check-migrations.mjs",
+    "migrate": "node scripts/run-migrations.mjs",
+    "start:api": "node apps/api/dist/main.js",
+    "start:web": "node scripts/serve-web.mjs",
+    "typecheck": "tsc -b",
+    "test": "npm run test:unit",
+    "test:unit": "node --test packages/*/dist/**/*.test.js apps/*/dist/**/*.test.js",
+    "test:database": "node scripts/run-database-tests.mjs",
+    "test:browser": "playwright test",
+    "build": "tsc -b && npm run build:web",
+    "build:web": "npm run build --workspace @bookingapp/web",
+    "verify:fast": "npm run check:source-size && npm run check:parity && npm run check:migrations && npm run lint && npm run typecheck && npm run test:unit && npm run build",
+    "verify:integration": "npm run build && npm run test:database",
+    "verify:journey": "npm run test:browser",
+    "verify:batch": "npm run verify:fast && npm run verify:integration && npm run verify:journey",
+    "verify:release": "npm run verify:batch && npm audit --audit-level=high",
+    "verify": "npm run verify:fast"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.15.5",
+    "eslint": "^10.8.1",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.67.0"
+  }
+}

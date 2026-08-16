@@ -1,0 +1,25 @@
+<!doctype html>
+<!-- Ownership: public feedback experience shell; survey data is loaded from the capability API. -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Booking — Feedback</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <main class="public-feedback-page" data-feedback-page data-api-base="">
+      <section class="feedback-card" aria-labelledby="feedback-title">
+        <p class="eyebrow">Your feedback matters</p>
+        <h1 id="feedback-title">Feedback link unavailable</h1>
+        <p id="feedback-intro" class="feedback-copy">This survey will show its organization-approved questions when a valid feedback link is opened.</p>
+        <p id="feedback-progress" class="feedback-progress" aria-live="polite"></p>
+        <div id="feedback-content"><div id="feedback-status" class="feedback-status" role="status" aria-live="polite">Opening your feedback conversation…</div></div>
+      </section>
+    </main>
+    <script type="module" src="./dist/feedback-page.js"></script>
+  </body>
+</html>

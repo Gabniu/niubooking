@@ -1,0 +1,69 @@
+name: booking-staging
+
+services:
+  booking-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${BOOKING_DB_NAME:-booking}
+      POSTGRES_USER: ${BOOKING_DB_USER:-booking}
+      POSTGRES_PASSWORD: ${BOOKING_DB_PASSWORD:?Set BOOKING_DB_PASSWORD}
+    volumes:
+      - booking-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks: [booking]
+    restart: unless-stopped
+
+  booking-api:
+    build:
+      context: ..
+      dockerfile: infra/docker/api/Dockerfile
+    environment:
+      BOOKING_ENV: staging
+      DATABASE_URL: ${BOOKING_DATABASE_URL:?Set BOOKING_DATABASE_URL with URL-encoded credentials}
+      BOOKING_HOLD_SECRET: ${BOOKING_HOLD_SECRET:?Set BOOKING_HOLD_SECRET}
+      AUTH_ISSUER: ${AUTH_ISSUER:-}
+      AUTH_CLIENT_ID: ${AUTH_CLIENT_ID:-}
+      AUTH_REDIRECT_URI: ${AUTH_REDIRECT_URI:-}
+      HOST: 0.0.0.0
+      PORT: 3100
+    command: ["sh", "-lc", "npm run migrate && node apps/api/dist/main.js"]
+    depends_on:
+      booking-db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3110:3100"
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 768m
+    networks: [booking]
+    restart: unless-stopped
+
+  booking-web:
+    build:
+      context: ..
+      dockerfile: infra/docker/web/Dockerfile
+    environment:
+      BOOKING_API_ORIGIN: ${BOOKING_API_ORIGIN:-http://booking-api:3100}
+    ports:
+      - "127.0.0.1:3111:4173"
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    networks: [booking]
+    restart: unless-stopped
+
+volumes:
+  booking-db-data:
+
+networks:
+  booking:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.26.0.0/24

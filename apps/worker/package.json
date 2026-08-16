@@ -1,0 +1,6 @@
+{
+  "name": "@bookingapp/worker",
+  "private": true,
+  "type": "module",
+  "dependencies": { "@bookingapp/domain": "*", "@bookingapp/database": "*" }
+}

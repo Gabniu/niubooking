@@ -1,0 +1,6 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "outDir": "dist", "rootDir": ".", "jsx": "react-jsx", "allowJs": false },
+  "references": [{ "path": "../../packages/contracts" }, { "path": "../../packages/auth" }],
+  "include": ["src/**/*.ts", "app/**/*.ts", "app/**/*.tsx", "next-env.d.ts"]
+}

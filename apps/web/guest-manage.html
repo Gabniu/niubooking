@@ -1,0 +1,11 @@
+<!doctype html>
+<!-- Ownership: public manage-booking capability; booking details come from the API. -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Booking — Manage appointment</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" /><link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body><main class="workspace guest-booking-page" data-manage-booking data-api-base=""><section class="guest-booking-card"><p class="eyebrow">Manage booking</p><h1>Change your appointment</h1><p id="manage-summary" class="intro-copy">Loading your booking...</p><div id="manage-status" class="communication-status" role="status" aria-live="polite"></div><form id="manage-form" class="customer-form" hidden><label class="field-label" for="manage-start">New start</label><input id="manage-start" type="datetime-local" required /><label class="field-label" for="manage-end">New end</label><input id="manage-end" type="datetime-local" required /><button class="primary-button" type="submit">Reschedule appointment</button><button id="manage-cancel" class="account-button" type="button">Cancel appointment</button></form></section></main><script type="module" src="./dist/guest-manage-page.js"></script></body>
+</html>

@@ -1,0 +1,64 @@
+/* Authenticated workspace finish: white canvas, compact rhythm, one blue accent. */
+:root {
+  --booking-blue: #140ba7;
+  --booking-blue-dark: #0d0778;
+  --booking-blue-soft: #e9e8fb;
+  --booking-blue-pale: #f5f4fe;
+  --booking-blue-border: #aaa7dc;
+  --booking-blue-icon: #c2d2ff;
+}
+body.booking-workspace-page { background: #fff; }
+.workspace-shell.app-shell, .workspace-shell > .workspace, .workspace-shell > .workspace > .topbar { background: #fff; }
+.workspace-shell .brand-mark { background: var(--booking-blue-icon); }
+.workspace-shell .topbar-actions { margin-left: auto; }
+.workspace-shell .workspace-content { max-width: 1040px; padding: 12px 22px 16px; }
+.workspace-shell .page-intro { gap: 10px; padding-bottom: 8px; }
+.workspace-shell .page-intro .eyebrow { color: var(--booking-blue); }
+.workspace-shell .page-intro h1 { font-size: 20px; line-height: 1.15; }
+.workspace-shell .page-intro .intro-copy { margin-top: 3px; font-size: 10px; line-height: 1.25; }
+.workspace-shell .empty-state { display: grid; grid-template-columns: minmax(0, 1fr) minmax(150px, 190px); column-gap: 28px; align-items: center; margin-top: 8px; padding: 18px 22px; border-color: #dbe2ef; box-shadow: 0 8px 22px rgb(15 23 42 / 3%); }
+.workspace-shell .empty-icon { background: var(--booking-blue-icon); }
+.workspace-shell .empty-icon svg, .workspace-shell .empty-state .eyebrow { color: var(--booking-blue-dark); stroke: var(--booking-blue-dark); }
+.workspace-shell .empty-icon { width: 34px; height: 34px; margin-bottom: 10px; }
+.workspace-shell .empty-icon svg { width: 16px; height: 16px; }
+.workspace-shell .empty-state .eyebrow { margin-bottom: 12px; }
+.workspace-shell .empty-state h2 { margin: 0; font-size: 16px; line-height: 1.2; }
+.workspace-shell .empty-copy { margin: 12px 0 18px; font-size: 10px; line-height: 1.3; }
+.workspace-shell .empty-actions { gap: 12px; }
+.workspace-shell .empty-actions .primary-button, .workspace-shell .empty-actions .account-button { min-height: 44px; }
+.workspace-shell .brand-copy strong { font-weight: 600; }
+.workspace-shell .shell-nav .nav-item, .workspace-shell .shell-mobile-nav .nav-item { font-weight: 600; }
+.workspace-shell .shell-nav .nav-item.active, .workspace-shell .shell-mobile-nav .nav-item.active { font-weight: 600; }
+.workspace-shell .empty-state-copy { min-width: 0; }
+.workspace-shell .empty-illustration { grid-column: 2; grid-row: auto; display: grid; place-items: center; }
+.workspace-shell .empty-illustration img { width: min(100%, 178px); min-height: 120px; height: auto; object-fit: contain; }
+.booking-illustration { display: block; height: auto; }
+.workspace-shell .state-note { margin-top: 8px; font-size: 9px; line-height: 1.3; }
+.workspace-shell .settings-card { padding: 18px; }
+.workspace-shell .settings-card h2 { font-size: 16px; }
+.workspace-shell .settings-card p, .workspace-shell .settings-help, .workspace-shell .diagnostic-note, .workspace-shell .field-label { font-size: 10px; }
+.workspace-shell .settings-card input, .workspace-shell .settings-card select, .workspace-shell .settings-card textarea { font-size: 10px; }
+.workspace-shell .shell-nav .nav-item.active, .workspace-shell .shell-mobile-nav .nav-item.active { color: var(--booking-blue); background: var(--booking-blue-soft); }
+.workspace-shell .shell-nav .nav-item:hover svg, .workspace-shell .shell-nav .nav-item:focus-visible svg, .workspace-shell .shell-nav .nav-item.active svg, .workspace-shell .shell-mobile-nav .nav-item:hover svg, .workspace-shell .shell-mobile-nav .nav-item:focus-visible svg, .workspace-shell .shell-mobile-nav .nav-item.active svg { color: var(--booking-blue); }
+.workspace-shell .primary-button { color: #fff; border-color: var(--booking-blue); background: var(--booking-blue); }
+.workspace-shell .primary-button:hover, .workspace-shell .primary-button:focus-visible { background: var(--booking-blue-dark); border-color: var(--booking-blue-dark); outline: 3px solid var(--booking-blue-soft); }
+.workspace-shell .account-button { color: var(--booking-blue-dark); border-color: var(--booking-blue-border); }
+.workspace-shell .account-button:hover, .workspace-shell .account-button:focus-visible, .workspace-shell .icon-button:hover, .workspace-shell .icon-button:focus-visible { color: var(--booking-blue-dark); border-color: var(--booking-blue); background: var(--booking-blue-pale); outline: 3px solid var(--booking-blue-soft); }
+.workspace-shell input:focus-visible, .workspace-shell select:focus-visible, .workspace-shell textarea:focus-visible { border-color: var(--booking-blue); outline: 3px solid var(--booking-blue-soft); }
+@media (max-width: 720px) {
+  .workspace-shell .workspace-content { max-width: none; padding: 10px 14px 14px; }
+  .workspace-shell .page-intro { gap: 8px; padding-bottom: 7px; }
+  .workspace-shell .page-intro h1 { font-size: 19px; }
+  .workspace-shell .empty-state { grid-template-columns: 1fr; margin-top: 7px; padding: 12px 14px; }
+  .workspace-shell .empty-state-copy { grid-column: 1; }
+  .workspace-shell .empty-illustration { grid-column: 1; grid-row: auto; order: -1; margin-bottom: 8px; }
+  .workspace-shell .empty-illustration img { width: min(100%, 150px); min-height: 100px; }
+  .workspace-shell .empty-copy { font-size: 10px; }
+}
+
+.auth-page { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #fff; }
+.auth-card { width: min(100%, 480px); padding: 32px; border: 1px solid #dbe2ef; border-radius: 16px; background: #fff; box-shadow: 0 12px 30px rgb(15 23 42 / 5%); }
+.auth-card h1 { margin: 12px 0 8px; color: #0d0778; font-size: 24px; font-weight: 500; }
+.auth-card p:not(.eyebrow) { margin: 0 0 22px; color: #64748b; font-size: 13px; line-height: 1.5; }
+.auth-card .auth-help { margin: 18px 0 12px; color: #94a3b8; font-size: 11px; }
+.auth-card .primary-button, .auth-card .account-button { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; padding: 0 16px; text-decoration: none; }

@@ -1,0 +1,11 @@
+{
+  "name": "@bookingapp/api",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@bookingapp/contracts": "*",
+    "@bookingapp/database": "*",
+    "@bookingapp/domain": "*",
+    "fastify": "^5.11.3"
+  }
+}

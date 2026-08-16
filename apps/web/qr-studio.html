@@ -1,0 +1,28 @@
+<!doctype html>
+<!-- Ownership: authorized QR lifecycle and print-safe Print Studio surface. -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Booking — QR Print Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <main class="workspace studio-page" data-qr-studio data-api-base="" data-tenant-id="" data-booking-base="">
+      <header class="topbar"><div><p class="eyebrow">Acquisition</p><h1>QR Print Studio</h1><p class="empty-copy studio-lede">Create, pause, and print a scan-safe booking card for an authorized destination.</p></div><a class="account-button" href="./index.html">Back to workspace</a></header>
+      <section id="qr-studio-status" class="communication-status" role="status" aria-live="polite"></section>
+      <section class="studio-grid" aria-label="Print Studio workspace">
+        <div class="studio-column">
+          <article class="studio-panel"><p class="eyebrow">Destination</p><label for="qr-destination">Authorized QR link<select id="qr-destination"><option value="">Loading destinations…</option></select></label><label for="qr-lifecycle">Lifecycle<select id="qr-lifecycle" disabled><option value="active">Active</option><option value="paused">Paused</option><option value="revoked">Revoked</option></select></label><form id="qr-create-form" class="qr-create-form"><p class="eyebrow">New destination</p><label for="qr-branch">Branch ID<input id="qr-branch" placeholder="front-desk" /></label><label for="qr-service">Service ID<input id="qr-service" placeholder="consultation" /></label><label for="qr-campaign">Campaign tag<input id="qr-campaign" placeholder="summer" /></label><button class="primary-button" type="submit">Create QR destination</button></form></article>
+          <article class="studio-panel"><p class="eyebrow">Print composition</p><label for="qr-template">Template<select id="qr-template"><option value="table-tent">Table tent</option><option value="sticker">Sticker</option><option value="a5-flyer" selected>A5 flyer</option><option value="a4-poster">A4 poster</option></select></label><label for="qr-variant">Variant<select id="qr-variant"><option value="hero">Hero</option><option value="split">Split</option><option value="classic">Classic</option></select></label><label for="qr-business">Business label<input id="qr-business" value="Your business" /></label><label for="qr-headline">Headline<input id="qr-headline" value="Scan to book" /></label><label for="qr-cta">Call to action<input id="qr-cta" value="Book an appointment" /></label><label for="qr-accent">Accent color<input id="qr-accent" type="color" value="#10B981" /></label></article>
+        </div>
+        <section class="print-preview" aria-labelledby="qr-preview-title"><p class="eyebrow">Live preview</p><h2 id="qr-preview-title">No destination selected</h2><div id="qr-preview" class="qr-render" aria-live="polite">Select an authorized QR destination to preview it.</div><p id="qr-diagnostics" class="diagnostic-note">Print safety checks appear after selection.</p><div class="qr-preview-actions"><button id="qr-print" class="account-button" type="button" disabled>Print</button><button id="qr-download" class="primary-button" type="button" disabled>Download SVG</button></div></section>
+      </section>
+    </main>
+    <script src="./vendor/qrcode.js"></script>
+    <script type="module" src="./dist/qr-studio-page.js"></script>
+  </body>
+</html>

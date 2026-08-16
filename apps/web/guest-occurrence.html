@@ -1,0 +1,38 @@
+<!-- Ownership: public QR occurrence reservation flow; server remains the source of truth. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Booking — Reserve a place</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./src/styles.css" />
+    <script type="importmap">{"imports":{"@bookingapp/contracts":"/_packages/contracts/index.js"}}</script>
+  </head>
+  <body>
+    <main class="public-feedback-page public-occurrence-page" data-guest-occurrence data-api-base="">
+      <section class="feedback-card">
+        <p class="eyebrow">Public booking</p>
+        <h1>Reserve a place</h1>
+        <p class="feedback-copy">A short, secure step to reserve a published service occurrence.</p>
+        <div id="guest-occurrence-status" class="communication-status" role="status" aria-live="polite"></div>
+        <form id="guest-occurrence-form" class="public-occurrence-form" hidden>
+          <label class="field-label" for="guest-occurrence-select">Choose a time</label>
+          <select id="guest-occurrence-select" required><option value="">Choose a published time</option></select>
+          <label class="field-label" for="guest-occurrence-name">Your name</label>
+          <input id="guest-occurrence-name" autocomplete="name" required maxlength="200" />
+          <label class="field-label" for="guest-occurrence-quantity">Places</label>
+          <input id="guest-occurrence-quantity" type="number" min="1" max="100" value="1" required />
+          <label class="field-label" for="guest-occurrence-channel">Reminders (optional)</label>
+          <select id="guest-occurrence-channel"><option value="">No reminders</option><option value="email">Email</option><option value="sms">SMS</option><option value="voice">Voice call</option></select>
+          <input id="guest-occurrence-contact" placeholder="Email or phone" autocomplete="email tel" maxlength="320" />
+          <label class="setting-check"><input id="guest-occurrence-consent" type="checkbox" /> <span>I agree to receive reminders.</span></label>
+          <button class="primary-button" type="submit">Reserve my place</button>
+        </form>
+      </section>
+    </main>
+    <script type="module" src="./dist/guest-occurrence-page.js"></script>
+  </body>
+</html>

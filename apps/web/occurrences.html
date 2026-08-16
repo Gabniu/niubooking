@@ -1,0 +1,27 @@
+<!doctype html>
+<!-- Ownership: universal occurrence workspace; all rows come from the authorized API. -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Booking — Occurrences</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./src/styles.css" />
+    <script type="importmap">{"imports":{"@bookingapp/contracts":"/_packages/contracts/index.js"}}</script>
+  </head>
+  <body>
+    <main class="workspace studio-page" data-occurrences-page data-api-base="" data-tenant-id="">
+      <header class="topbar"><div><p class="eyebrow">Universal scheduling</p><h1>Occurrences</h1><p class="intro-copy">Create dated service deliveries for appointments, classes, trips, or charter journeys.</p></div><a class="account-button" href="./index.html">Back to workspace</a></header>
+      <section class="communications-content occurrence-content">
+        <div id="occurrence-status" class="communication-status" role="status" aria-live="polite"></div>
+        <div class="occurrence-grid">
+          <article class="settings-card"><p class="eyebrow">New occurrence</p><h2>Schedule a service delivery</h2><form id="occurrence-form" class="customer-form"><label class="field-label" for="occurrence-service">Service ID</label><input id="occurrence-service" required placeholder="consultation" /><label class="field-label" for="occurrence-label">Label</label><input id="occurrence-label" required placeholder="Morning consultation" /><label class="field-label" for="occurrence-start">Starts</label><input id="occurrence-start" type="datetime-local" required /><label class="field-label" for="occurrence-end">Ends</label><input id="occurrence-end" type="datetime-local" required /><label class="field-label" for="occurrence-capacity">Capacity <span>(blank = unlimited)</span></label><input id="occurrence-capacity" type="number" min="1" step="1" placeholder="1" /><button class="primary-button" type="submit">Create occurrence</button></form></article>
+          <article class="settings-card"><div class="settings-card-heading"><div><p class="eyebrow">Live inventory</p><h2>Scheduled deliveries</h2></div><button id="refresh-occurrences" class="account-button" type="button">Refresh</button></div><div id="occurrence-list" class="occurrence-list" aria-live="polite"></div></article>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./dist/occurrences-page.js"></script>
+  </body>
+</html>

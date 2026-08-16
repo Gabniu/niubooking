@@ -1,0 +1,29 @@
+<!doctype html>
+<!-- Ownership: tenant resource inventory; all records are loaded from the authorized workspace API. -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Booking — Resources</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <main class="workspace studio-page resources-page" data-resources-page data-api-base="" data-tenant-id="">
+      <header class="topbar"><div><p class="eyebrow">Capacity operations</p><h1>Resources</h1><p class="intro-copy">Manage the rooms, instructors, vehicles, or equipment used by appointments.</p></div><a class="account-button" href="./index.html">Back to workspace</a></header>
+      <section class="communications-content">
+        <div id="resource-status" class="communication-status" role="status" aria-live="polite"></div>
+        <div class="resource-workspace-grid">
+          <article class="settings-card">
+            <p class="eyebrow">New resource</p><h2>Add capacity</h2>
+            <form id="resource-form" class="customer-form"><label class="field-label" for="resource-name">Name</label><input id="resource-name" required placeholder="Room 1" /><label class="field-label" for="resource-type">Type</label><input id="resource-type" required placeholder="Room" /><label class="field-label" for="resource-capabilities">Capabilities <span class="settings-help">Comma-separated, for example licence.manual</span></label><input id="resource-capabilities" placeholder="licence.manual" /><p class="settings-help">Use a clear name your team will recognize when scheduling.</p><button class="primary-button" type="submit">Add resource</button></form>
+          </article>
+          <article class="settings-card"><div class="settings-card-heading"><div><p class="eyebrow">Inventory</p><h2>Available capacity</h2></div><button id="refresh-resources" class="account-button" type="button">Refresh</button></div><div id="resource-list" class="resource-list" aria-live="polite"></div></article>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./dist/resources-page.js"></script>
+  </body>
+</html>

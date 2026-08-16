@@ -1,0 +1,16 @@
+node_modules/
+.next/
+**/.next/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+*.tsbuildinfo
+test-results/
+playwright-report/
+.graphify-semantic/
+graphify-out/
+graphify-booking-corpus/
+.bookingapp-release.tar
+.tmp-*

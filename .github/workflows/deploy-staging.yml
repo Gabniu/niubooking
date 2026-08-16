@@ -1,0 +1,93 @@
+name: Deploy Booking staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to deploy
+        required: false
+        default: main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: booking-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 30
+    env:
+      STAGING_HOST: ${{ secrets.BOOKING_STAGING_HOST }}
+      STAGING_USER: ${{ secrets.BOOKING_STAGING_USER }}
+      STAGING_SSH_KEY: ${{ secrets.BOOKING_STAGING_SSH_KEY }}
+      STAGING_KNOWN_HOSTS: ${{ secrets.BOOKING_STAGING_KNOWN_HOSTS }}
+      STAGING_APP_DIR: ${{ secrets.BOOKING_STAGING_APP_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Validate deployment secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$STAGING_HOST"
+          test -n "$STAGING_USER"
+          test -n "$STAGING_SSH_KEY"
+          test -n "$STAGING_KNOWN_HOSTS"
+          test -n "$STAGING_APP_DIR"
+          case "$STAGING_APP_DIR" in
+            /*) ;;
+            *) echo "BOOKING_STAGING_APP_DIR must be an absolute server path" >&2; exit 1 ;;
+          esac
+
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$STAGING_SSH_KEY" > "$HOME/.ssh/booking-staging"
+          chmod 600 "$HOME/.ssh/booking-staging"
+          printf '%s\n' "$STAGING_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          cat >> "$HOME/.ssh/config" <<EOF
+          Host booking-staging
+            HostName $STAGING_HOST
+            User $STAGING_USER
+            IdentityFile $HOME/.ssh/booking-staging
+            IdentitiesOnly yes
+          EOF
+
+      - name: Transfer exact source revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar --exclude='./.git' --exclude='./node_modules' --exclude='./dist' --exclude='./**/dist' \
+            --exclude='./test-results' --exclude='./playwright-report' \
+            --exclude='./graphify-out' --exclude='./.graphify-semantic' \
+            --exclude='./.env' --exclude='./.env.*' \
+            -czf "/tmp/booking-${GITHUB_SHA}.tgz" .
+          scp "/tmp/booking-${GITHUB_SHA}.tgz" "booking-staging:/tmp/booking-${GITHUB_SHA}.tgz"
+
+      - name: Deploy and smoke test on staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh booking-staging "GITHUB_SHA='$GITHUB_SHA' APP_DIR='$STAGING_APP_DIR' bash -s" <<'REMOTE'
+          set -euo pipefail
+          release="$APP_DIR/releases/$GITHUB_SHA"
+          mkdir -p "$release"
+          tar -xzf "/tmp/booking-$GITHUB_SHA.tgz" -C "$release"
+          rm -f "/tmp/booking-$GITHUB_SHA.tgz"
+          test -f "$APP_DIR/.env"
+          ln -sfn "$release" "$APP_DIR/current"
+          cd "$APP_DIR/current"
+          docker compose --project-name booking-staging --env-file "$APP_DIR/.env" -f infra/compose-booking-staging.yaml config >/dev/null
+          docker compose --project-name booking-staging --env-file "$APP_DIR/.env" -f infra/compose-booking-staging.yaml up -d --build --remove-orphans
+          curl --fail --silent --show-error http://127.0.0.1:3110/health/ready >/dev/null
+          curl --fail --silent --show-error http://127.0.0.1:3111/ >/dev/null
+          REMOTE

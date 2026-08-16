@@ -1,0 +1,4 @@
+interface:
+  display_name: "Booking Design"
+  short_description: "Compact NOVA booking workspace design"
+  default_prompt: "Use $booking-design to refine this Booking page with compact NOVA spacing, real-data states, and responsive accessibility."
