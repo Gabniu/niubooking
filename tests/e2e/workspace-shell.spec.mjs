@@ -255,3 +255,13 @@ test("Next manage booking exposes a safe unavailable state", async ({ page }) =>
   await expect(page.getByText("Booking management is temporarily unavailable.")).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test("Next public booking exposes a safe unavailable state", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/book/example-code");
+  await expect(page).toHaveTitle(/Reserve a time/iu);
+  await expect(page.getByRole("heading", { name: "Reserve a time", exact: true })).toBeVisible();
+  await expect(page.getByText("Booking is temporarily unavailable. Please try again later.")).toBeVisible();
+  expect(errors).toEqual([]);
+});
