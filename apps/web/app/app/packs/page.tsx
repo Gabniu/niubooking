@@ -8,5 +8,5 @@ export const metadata: Metadata = { title: "Industry packs" };
 
 export default function IndustryPacksPage() {
   const packs = defaultIndustryPackRegistry.list();
-  return <WorkspaceShell activeHref="/app/packs"><section className="workspace-content pack-catalog-page"><header className="page-intro"><div><p className="eyebrow">Platform composition</p><h1>Industry packs</h1><p className="intro-copy">One booking kernel, with vocabulary and defaults that fit the work your team actually does.</p></div><a className="account-button" href="/pack-settings.html">Configure a workspace</a></header><PackCatalog packs={packs} /></section></WorkspaceShell>;
+  return <WorkspaceShell activeHref="/app/packs"><section className="workspace-content pack-catalog-page"><header className="page-intro"><div><p className="eyebrow">Platform composition</p><h1>Industry packs</h1><p className="intro-copy">One booking kernel, with vocabulary and defaults that fit the work your team actually does.</p></div><a className="account-button" href="/app/pack-settings">Configure a workspace</a></header><PackCatalog packs={packs} /></section></WorkspaceShell>;
 }

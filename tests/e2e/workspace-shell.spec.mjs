@@ -113,6 +113,17 @@ test("Next communications exposes a safe disconnected state", async ({ page }) =
   expect(errors).toEqual([]);
 });
 
+test("Next pack settings exposes a safe disconnected state", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/app/pack-settings");
+  await expect(page).toHaveTitle(/Pack settings/iu);
+  await expect(page.getByRole("heading", { name: "Pack settings", exact: true })).toBeVisible();
+  await expect(page.getByText("Choose a workspace to configure its industry pack")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Continue to sign in/iu })).toHaveAttribute("href", "/auth/sign-in");
+  expect(errors).toEqual([]);
+});
+
 test("workspace shell remains usable at compact widths", async ({ page }) => {
   await page.goto("/app.html");
   await expect(page.locator(".app-shell")).toBeVisible();
@@ -136,7 +147,7 @@ test("Next staff shell exposes the universal industry-pack catalog", async ({ pa
   await expect(page.getByRole("heading", { name: "Fitness" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Charter" })).toBeVisible();
   await expect(page.getByText("shared scheduling, reservation, resource, reminder, QR, and feedback rules remain consistent.", { exact: false })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Configure a workspace" })).toHaveAttribute("href", "/pack-settings.html");
+  await expect(page.getByRole("link", { name: "Configure a workspace" })).toHaveAttribute("href", "/app/pack-settings");
   expect(errors).toEqual([]);
 });
 

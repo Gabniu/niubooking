@@ -1,0 +1,24 @@
+/* Ownership: compact tenant industry-pack configuration surface. */
+.pack-settings-page { display: grid; gap: 16px; }
+.pack-settings-page .page-intro { align-items: end; }
+.pack-settings-header-actions { display: flex; gap: 8px; }
+.pack-settings-header-actions .account-button { min-height: 36px; }
+.pack-settings-status { margin: 0; padding: 9px 12px; border-radius: 8px; font-size: 12px; }
+.pack-settings-status.ready { color: #3730a3; background: #eef2ff; }
+.pack-settings-status.loading { color: #475569; background: #f8fafc; }
+.pack-settings-status.error { color: #9f1239; background: #fff1f2; }
+.pack-settings-card { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 28px; padding: 22px; border: 1px solid #dfe7e2; border-radius: 14px; background: #fff; box-shadow: 0 8px 24px rgb(15 23 42 / 4%); }
+.pack-settings-form { display: grid; gap: 14px; max-width: 640px; }
+.pack-settings-form label { display: grid; gap: 6px; color: #475569; font-size: 11px; font-weight: 500; }
+.pack-settings-form input, .pack-settings-form select { min-height: 38px; padding: 0 10px; color: #17213a; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; font: inherit; font-size: 12px; }
+.pack-settings-form input:focus-visible, .pack-settings-form select:focus-visible { border-color: #3730a3; outline: 3px solid #e0e7ff; }
+.field-optional { color: #94a3b8; font-weight: 400; }
+.pack-settings-help { margin: 0; color: #64748b; font-size: 12px; line-height: 1.5; }
+.pack-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.pack-settings-actions .primary-button, .pack-settings-actions .account-button { min-height: 38px; }
+.pack-settings-preview { display: grid; align-content: start; gap: 8px; padding: 18px; border: 1px solid color-mix(in srgb, var(--pack-accent) 35%, #dbe4ee); border-radius: 12px; background: linear-gradient(140deg, color-mix(in srgb, var(--pack-accent) 12%, #fff), #fff); }
+.pack-settings-preview .pack-swatch { margin-bottom: 5px; }
+.pack-settings-preview h2 { margin: 0; color: #17213a; font-size: 19px; font-weight: 500; }
+.pack-settings-preview p:last-child { margin: 0; color: #64748b; font-size: 11px; line-height: 1.45; }
+@media (max-width: 760px) { .pack-settings-card { grid-template-columns: 1fr; } .pack-settings-preview { order: -1; } }
+@media (max-width: 520px) { .pack-settings-header-actions, .pack-settings-actions { flex-direction: column; } .pack-settings-header-actions > *, .pack-settings-actions > * { width: 100%; text-align: center; } }

@@ -9,6 +9,7 @@ import "./resources.css";
 import "./occurrences.css";
 import "./feedback.css";
 import "./communications.css";
+import "./pack-settings.css";
 
 export const metadata: Metadata = {
   title: { default: "Niu Booking", template: "%s — Niu Booking" },
