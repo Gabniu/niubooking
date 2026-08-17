@@ -275,3 +275,13 @@ test("Next public feedback exposes a safe unavailable state", async ({ page }) =
   await expect(page.getByText("Feedback is temporarily unavailable. Please try again later.")).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test("Next public occurrence exposes a safe unavailable state", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/reserve/example-code");
+  await expect(page).toHaveTitle(/Reserve a place/iu);
+  await expect(page.getByRole("heading", { name: "Choose a published time", exact: true })).toBeVisible();
+  await expect(page.getByText("Booking is temporarily unavailable. Please try again later.")).toBeVisible();
+  expect(errors).toEqual([]);
+});

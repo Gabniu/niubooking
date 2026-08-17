@@ -15,6 +15,7 @@ import "./composition.css";
 import "./manage-booking.css";
 import "./guest-booking.css";
 import "./public-feedback.css";
+import "./public-occurrence.css";
 
 export const metadata: Metadata = {
   title: { default: "Niu Booking", template: "%s — Niu Booking" },

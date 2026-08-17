@@ -1,6 +1,6 @@
 # Public Surface Strategy
 
-Status: implemented foundation; public booking, manage-booking, and capability-bound feedback Next migrations are complete, while provider delivery and richer discovery remain in progress
+Status: implemented foundation; public booking, manage-booking, capability-bound feedback, and occurrence reservation Next migrations are complete, while provider delivery and richer discovery remain in progress
 
 The public `/` and staff `/app` entries now run through the Next.js App Router.
 Legacy HTML routes are served by a temporary compatibility bridge while each
@@ -24,6 +24,7 @@ They should share the same design language, but they should not share the same n
 | Existing client | `/login` or an app link | Authenticate and enter an organization | NOVA Auth flow |
 | Organization staff | `/app` | Operate the business | Authenticated operations shell |
 | Organization customer | `/book/:destination` or QR code | Discover availability and reserve | Tenant-branded public booking |
+| Class/trip passenger | `/reserve/:destination` or QR code | Choose a published occurrence and reserve capacity | Focused public reservation flow |
 | Booking recipient | `/manage/:capability` | Reschedule, cancel, or view details | Focused manage-booking flow |
 | Feedback recipient | `/feedback/:capability` | Answer a survey conversationally | Focused feedback flow |
 | Transport passenger | `/trip/:destination` | Find a run, reserve capacity, and track it | Transport pack public flow |
@@ -125,7 +126,7 @@ The authenticated operations shell can use the same navy foundation with denser 
 1. Preserve the current authenticated operations shell.
 2. Split the root public homepage from `/app` and `/login`.
 3. Create a reusable public booking header and focused booking layout.
-4. Apply it first to the Next manage-booking, appointment/QR booking, and feedback flows.
+4. Apply it first to the Next manage-booking, appointment/QR booking, feedback, and occurrence reservation flows.
 5. Add pack-driven public vocabulary and modules.
 6. Add transport run selection and live tracking as a separate capability batch.
 7. Verify every surface at desktop, mobile, keyboard, empty, error, and stale-data states.

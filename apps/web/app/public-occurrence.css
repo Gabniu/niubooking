@@ -1,0 +1,33 @@
+/* Ownership: compact public occurrence reservation surface for classes, trips, and capacity services. */
+.public-occurrence-page { min-height: 100vh; color: var(--public-text); background: var(--public-canvas); }
+.public-occurrence-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px clamp(20px, 5vw, 64px); color: #fff; background: var(--public-navy); font-size: 12px; }
+.public-occurrence-brand { display: inline-flex; align-items: center; gap: 9px; color: #fff; font-size: 19px; font-weight: 500; letter-spacing: -.02em; text-decoration: none; }
+.public-occurrence-brand strong { color: #b8b4ff; font-weight: 500; }
+.public-occurrence-mark { display: grid; width: 28px; height: 28px; place-items: center; border: 1px solid rgb(255 255 255 / 45%); border-radius: 8px; background: rgb(255 255 255 / 12%); font-size: 13px; }
+.public-occurrence-card { width: min(100% - 32px, 680px); margin: clamp(32px, 9vh, 80px) auto; padding: clamp(22px, 5vw, 42px); border: 1px solid var(--public-border); border-radius: 16px; background: #fff; box-shadow: 0 16px 44px rgb(15 42 67 / 8%); }
+.public-occurrence-card h1 { margin: 10px 0 0; color: var(--public-text); font-size: clamp(27px, 5vw, 38px); font-weight: 400; letter-spacing: -.04em; line-height: 1.08; }
+.public-occurrence-intro { margin: 10px 0 0; color: var(--public-muted); font-size: 14px; line-height: 1.55; }
+.public-occurrence-status { margin: 20px 0 0; padding: 11px 12px; border-radius: 9px; font-size: 12px; line-height: 1.4; }
+.public-occurrence-status-loading { color: var(--public-navy); background: var(--public-blue-soft); }
+.public-occurrence-status-error, .public-occurrence-status-unavailable { color: #9f1239; background: #fff1f2; }
+.public-occurrence-status-success { color: #166534; background: #ecfdf5; }
+.public-occurrence-form { display: grid; gap: 14px; margin-top: 22px; }
+.public-occurrence-form label { display: grid; gap: 6px; color: var(--public-text); font-size: 12px; font-weight: 500; }
+.public-occurrence-form input, .public-occurrence-form select { width: 100%; min-height: 42px; padding: 0 11px; color: var(--public-text); border: 1px solid #c5d3df; border-radius: 8px; background: #fff; font: inherit; font-size: 13px; }
+.public-occurrence-form input:focus-visible, .public-occurrence-form select:focus-visible { border-color: var(--public-navy); outline: 3px solid var(--public-blue-soft); }
+.public-occurrence-help { margin: -4px 0 0; color: var(--public-muted); font-size: 12px; line-height: 1.45; }
+.public-occurrence-optional { color: var(--public-muted); font-size: 11px; font-weight: 400; }
+.public-occurrence-check { display: flex !important; grid-template-columns: auto 1fr; align-items: center; gap: 8px !important; font-weight: 400 !important; }
+.public-occurrence-check input { width: 16px; min-height: 16px; accent-color: var(--public-navy); }
+.public-occurrence-primary, .public-occurrence-secondary { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 0 16px; border-radius: 8px; font: inherit; font-size: 12px; font-weight: 500; text-decoration: none; cursor: pointer; }
+.public-occurrence-primary { color: #fff; border: 1px solid var(--public-navy); background: var(--public-navy); }
+.public-occurrence-secondary { color: var(--public-navy); border: 1px solid #b8c6d5; background: #fff; }
+.public-occurrence-primary:hover, .public-occurrence-primary:focus-visible { background: var(--public-deep); }
+.public-occurrence-secondary:hover, .public-occurrence-secondary:focus-visible { border-color: var(--public-navy); background: var(--public-blue-soft); }
+.public-occurrence-primary:focus-visible, .public-occurrence-secondary:focus-visible { outline: 3px solid var(--public-blue-soft); outline-offset: 2px; }
+.public-occurrence-primary:disabled { cursor: wait; opacity: .6; }
+.public-occurrence-success { display: grid; justify-items: start; gap: 12px; margin-top: 26px; }
+.public-occurrence-success h2 { margin: 0; font-size: 24px; font-weight: 400; letter-spacing: -.03em; }
+.public-occurrence-success p { margin: 0; color: var(--public-muted); font-size: 14px; }
+@media (max-width: 560px) { .public-occurrence-header { padding: 14px 16px; } .public-occurrence-card { width: min(100% - 24px, 680px); margin: 24px auto; padding: 24px 18px; } }
+@media (prefers-reduced-motion: reduce) { .public-occurrence-primary, .public-occurrence-secondary { transition: none; } }
