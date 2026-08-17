@@ -1,0 +1,42 @@
+/* Ownership: compact service catalog surface for the Next workspace. */
+.services-page .page-intro .primary-button { min-height: 40px; }
+.service-toolbar { display: flex; align-items: end; gap: 12px; margin-top: 18px; }
+.service-search { display: grid; flex: 1; gap: 6px; color: #475569; font-size: 11px; font-weight: 500; }
+.service-search input { width: min(100%, 360px); min-height: 40px; padding: 0 12px; color: #17213a; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; font: inherit; font-size: 12px; }
+.service-search input:focus-visible, .service-dialog input:focus-visible, .service-dialog select:focus-visible { border-color: #10b981; outline: 3px solid #d1fae5; }
+.service-count { padding-bottom: 11px; color: #64748b; font-size: 11px; }
+.service-toolbar .account-button { min-height: 40px; }
+.service-message { margin: 12px 0 0; color: #047857; font-size: 12px; }
+.service-list { display: grid; margin-top: 16px; overflow: hidden; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; box-shadow: 0 8px 24px rgb(15 23 42 / 4%); }
+.service-row { display: grid; grid-template-columns: minmax(220px, 1fr) 150px 70px auto; gap: 16px; align-items: center; padding: 14px 16px; border-bottom: 1px solid #eef2f0; }
+.service-row:last-child { border-bottom: 0; }
+.service-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.service-kind { width: 30px; height: 30px; display: grid; flex: 0 0 30px; place-items: center; color: #047857; border-radius: 9px; background: #d1fae5; font-size: 11px; font-weight: 600; }
+.service-identity div, .service-meta { display: grid; min-width: 0; gap: 3px; }
+.service-identity strong { overflow: hidden; color: #17213a; font-size: 13px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.service-identity small, .service-meta small { overflow: hidden; color: #64748b; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.service-meta span { color: #334155; font-size: 11px; }
+.service-status { justify-self: start; padding: 4px 8px; border-radius: 999px; color: #64748b; background: #f1f5f9; font-size: 10px; text-transform: capitalize; }
+.service-status-active { color: #047857; background: #d1fae5; }
+.service-actions { display: flex; justify-content: end; gap: 6px; }
+.service-actions .account-button { min-height: 32px; padding: 0 9px; font-size: 11px; }
+.service-empty { display: grid; gap: 10px; align-items: start; }
+.service-loading { display: grid; gap: 1px; margin-top: 16px; overflow: hidden; border: 1px solid #e5e7eb; border-radius: 12px; }
+.service-loading span { height: 62px; background: linear-gradient(90deg, #f8fafc 25%, #eef2f0 37%, #f8fafc 63%); background-size: 400% 100%; animation: service-shimmer 1.2s ease-in-out infinite; }
+@keyframes service-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+.service-dialog { width: min(100% - 32px, 500px); padding: 0; color: #17213a; border: 1px solid #dfe7e2; border-radius: 14px; box-shadow: 0 20px 60px rgb(15 23 42 / 20%); }
+.service-dialog::backdrop { background: rgb(15 23 42 / 32%); }
+.service-dialog form { display: grid; gap: 14px; padding: 22px; }
+.dialog-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 4px; }
+.dialog-heading h2 { margin-top: 5px; font-size: 20px; }
+.dialog-close { width: 30px; height: 30px; color: #64748b; border: 0; border-radius: 7px; background: transparent; cursor: pointer; }
+.dialog-close:hover, .dialog-close:focus-visible { color: #047857; background: #d1fae5; outline: none; }
+.service-dialog label { display: grid; gap: 6px; color: #475569; font-size: 11px; font-weight: 500; }
+.service-dialog input, .service-dialog select { min-height: 40px; padding: 0 11px; color: #17213a; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; font: inherit; font-size: 12px; }
+.service-form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.field-optional { color: #94a3b8; font-weight: 400; }
+.service-form-message { margin: 0; color: #9f1239; font-size: 11px; }
+.dialog-actions { display: flex; justify-content: end; gap: 8px; margin-top: 4px; }
+.dialog-actions .account-button, .dialog-actions .primary-button { min-height: 40px; font-size: 12px; }
+@media (max-width: 760px) { .service-toolbar { align-items: stretch; flex-wrap: wrap; } .service-search { flex-basis: 100%; } .service-search input { width: 100%; } .service-row { grid-template-columns: minmax(0, 1fr) auto; gap: 10px 12px; } .service-meta { grid-column: 1; } .service-status { grid-column: 2; grid-row: 1; justify-self: end; } .service-actions { grid-column: 1 / -1; justify-content: stretch; } .service-actions > * { flex: 1; } .service-form-grid { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .service-loading span { animation: none; } }
