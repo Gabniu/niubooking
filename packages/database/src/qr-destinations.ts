@@ -43,6 +43,15 @@ export async function setQrDestinationStatus(executor: SqlExecutor, tenantId: st
   return rows.length > 0;
 }
 
+export async function rotateQrDestination(executor: SqlExecutor, tenantId: string, publicCode: string, replacementCode: string): Promise<QrDestination | null> {
+  const rows = await executor.query<QrRow>(`SELECT ${columns} FROM qr_destinations WHERE tenant_id = $1 AND public_code = $2 FOR UPDATE`, [tenantId, publicCode]);
+  const source = rows[0];
+  if (!source || source.status === "revoked" || source.status === "expired" || (source.expires_at !== null && source.expires_at <= new Date())) return null;
+  const replacement = await createQrDestination(executor, { publicCode: replacementCode, tenantId, branchId: source.branch_id, packId: source.pack_id, serviceId: source.service_id, campaign: source.campaign, expiresAt: source.expires_at });
+  await executor.query("UPDATE qr_destinations SET status = 'revoked', updated_at = now() WHERE tenant_id = $1 AND public_code = $2", [tenantId, publicCode]);
+  return replacement;
+}
+
 export function createQrDestinationReader(pool: Pool) {
   return { findByPublicCode: async (publicCode: string): Promise<QrDestination | null> => { const result = await pool.query<QrRow>(`SELECT ${columns} FROM qr_destinations WHERE public_code = $1 LIMIT 1`, [publicCode]); return result.rows[0] ? map(result.rows[0]) : null; } };
 }
@@ -52,5 +61,6 @@ export function createDatabaseQrAdmin(pool: Pool) {
     list: (tenantId: string) => withTenantTransaction(pool, tenantId, (executor) => listQrDestinations(executor, tenantId)),
     create: (input: Omit<QrDestination, "status">) => withTenantTransaction(pool, input.tenantId, (executor) => createQrDestination(executor, input)),
     setStatus: (tenantId: string, publicCode: string, status: Exclude<QrDestinationStatus, "expired">) => withTenantTransaction(pool, tenantId, (executor) => setQrDestinationStatus(executor, tenantId, publicCode, status)),
+    rotate: (tenantId: string, publicCode: string, replacementCode: string) => withTenantTransaction(pool, tenantId, (executor) => rotateQrDestination(executor, tenantId, publicCode, replacementCode)),
   };
 }

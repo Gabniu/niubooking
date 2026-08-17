@@ -7,7 +7,7 @@ export interface IdentityContextRequest { identity: TenantContextRequest["identi
   qrAdmin?: {
     list(tenantId: string): Promise<readonly unknown[]>;
     create(input: { publicCode: string; tenantId: string; branchId: string | null; packId: string | null; serviceId: string | null; campaign: string | null; expiresAt: Date | null }): Promise<unknown>;
-    setStatus(tenantId: string, publicCode: string, status: "paused" | "revoked" | "active"): Promise<boolean>;
+    setStatus(tenantId: string, publicCode: string, status: "paused" | "revoked" | "active"): Promise<boolean>; rotate?(tenantId: string, publicCode: string, replacementCode: string): Promise<unknown | null>;
   };
   communicationAdmin?: {
     read(tenantId: string): Promise<unknown | null>;
@@ -108,7 +108,7 @@ function responseStatus(code: string | undefined): number { return code === "UNA
       if (!dependencies.qrAdmin) return reply.code(503).send({ data: null, error: { code: "QR_ADMIN_UNAVAILABLE", message: "QR management is temporarily unavailable." } }); if (!["active", "paused", "revoked"].includes(request.body?.status)) return reply.code(400).send({ data: null, error: { code: "QR_INVALID", message: "Choose a valid QR destination status." } });
       const changed = await dependencies.qrAdmin.setStatus(request.params.tenantId, request.params.publicCode, request.body.status);
     return changed ? reply.send({ data: { publicCode: request.params.publicCode, status: request.body.status }, error: null }) : reply.code(404).send({ data: null, error: { code: "QR_NOT_FOUND", message: "This booking link is not available." } });
-  });
+  }); app.post<{ Params: { tenantId: string; publicCode: string } }>("/v1/tenants/:tenantId/qr-destinations/:publicCode/rotate", async (request, reply) => { const context = await dependencies.resolve(request); if (!context.identity || !context.membership || context.membership.tenantId !== request.params.tenantId || !["owner", "admin", "manager"].includes(context.membership.role)) return reply.code(403).send({ data: null, error: { code: "TENANT_ACCESS_DENIED", message: "You do not have access to this workspace." } }); if (!dependencies.qrAdmin?.rotate) return reply.code(503).send({ data: null, error: { code: "QR_ADMIN_UNAVAILABLE", message: "QR management is temporarily unavailable." } }); const destination = await dependencies.qrAdmin.rotate(request.params.tenantId, request.params.publicCode, randomBytes(18).toString("base64url")); return destination ? reply.code(201).send({ data: destination, error: null }) : reply.code(404).send({ data: null, error: { code: "QR_NOT_FOUND", message: "This booking link is not available." } }); });
   app.get<{ Params: { tenantId: string } }>("/v1/tenants/:tenantId/communication-settings", async (request, reply) => {
     const context = await dependencies.resolve(request);
     if (!context.identity || !context.membership || context.membership.tenantId !== request.params.tenantId || !["owner", "admin", "manager"].includes(context.membership.role)) return reply.code(403).send({ data: null, error: { code: "TENANT_ACCESS_DENIED", message: "You do not have access to this workspace." } });

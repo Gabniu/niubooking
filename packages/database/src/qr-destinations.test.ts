@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createQrDestination, listQrDestinations, readQrDestination, setQrDestinationStatus } from "./qr-destinations.js";
+import { createQrDestination, listQrDestinations, readQrDestination, rotateQrDestination, setQrDestinationStatus } from "./qr-destinations.js";
 
 const row = { public_code: "branch-booking-code-01", tenant_id: "tenant-1", branch_id: "branch-1", pack_id: null, service_id: null, campaign: "front-desk", status: "active" as const, expires_at: null };
 
@@ -24,4 +24,13 @@ test("lists destinations with tenant-scoped parameters", async () => {
   const values = await listQrDestinations({ query: async <T>(_sql: string, p: readonly unknown[]) => { params = p; return [row] as T[]; } }, "tenant-1");
   assert.equal(values.length, 1);
   assert.deepEqual(params, ["tenant-1"]);
+});
+
+test("rotates an active destination atomically and carries its public context forward", async () => {
+  const replacement = { ...row, public_code: "replacement-code" };
+  const queries: string[] = [];
+  const value = await rotateQrDestination({ query: async <T>(sql: string) => { queries.push(sql); if (sql.includes("FOR UPDATE")) return [row] as T[]; if (sql.includes("INSERT")) return [replacement] as T[]; return [] as T[]; } }, "tenant-1", row.public_code, replacement.public_code);
+  assert.equal(value?.publicCode, replacement.public_code);
+  assert.equal(queries.length, 3);
+  assert.match(queries[2] ?? "", /status = 'revoked'/);
 });

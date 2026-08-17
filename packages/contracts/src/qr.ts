@@ -38,6 +38,11 @@ export interface QrDestinationStatusResponse {
   error: { code: "QR_NOT_FOUND" | "QR_ADMIN_UNAVAILABLE" | "TENANT_ACCESS_DENIED"; message: string } | null;
 }
 
+export interface QrDestinationRotateResponse {
+  data: QrDestinationSummary | null;
+  error: { code: "QR_NOT_FOUND" | "QR_ADMIN_UNAVAILABLE" | "TENANT_ACCESS_DENIED"; message: string } | null;
+}
+
 export function publicQrPath(publicCode: string): string {
   return `/v1/public/qr/${encodeURIComponent(publicCode)}`;
 }

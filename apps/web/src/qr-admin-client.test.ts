@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createQrDestination, fetchQrDestinations, setQrDestinationStatus } from "./qr-admin-client.js";
+import { createQrDestination, fetchQrDestinations, rotateQrDestination, setQrDestinationStatus } from "./qr-admin-client.js";
 
 test("maps authorized QR destinations into the Print Studio selector state", async () => {
   const state = await fetchQrDestinations(async (url, init) => { assert.match(url, /tenant-1/); assert.equal(init?.credentials, "include"); return { ok: true, status: 200, json: async () => ({ data: [{ publicCode: "branch-booking-code-01", tenantId: "tenant-1", branchId: null, packId: null, serviceId: null, campaign: null, status: "active", expiresAt: null }], error: null }) }; }, "https://booking.example", "tenant-1");
@@ -18,4 +18,10 @@ test("creates and changes a QR destination through typed staff calls", async () 
   assert.equal(created.kind, "ready");
   const changed = await setQrDestinationStatus(fetcher, "", "tenant-1", "code-1", "paused");
   assert.equal(changed.kind, "ready");
+});
+
+test("rotates a QR destination through the typed staff call", async () => {
+  const state = await rotateQrDestination(async (url, init) => { assert.match(url, /rotate$/); assert.equal(init?.method, "POST"); return { ok: true, status: 201, json: async () => ({ data: { publicCode: "replacement-code", tenantId: "tenant-1", branchId: null, packId: null, serviceId: null, campaign: null, status: "active", expiresAt: null }, error: null }) }; }, "", "tenant-1", "old-code");
+  assert.equal(state.kind, "ready");
+  if (state.kind === "ready") assert.equal(state.destination.publicCode, "replacement-code");
 });

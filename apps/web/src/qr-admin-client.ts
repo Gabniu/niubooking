@@ -1,6 +1,6 @@
 // Ownership: authenticated staff QR destination client; UI never invents destination records.
 
-import { type QrDestinationListResponse, type QrDestinationResponse, type QrDestinationStatusResponse } from "@bookingapp/contracts";
+import { type QrDestinationListResponse, type QrDestinationResponse, type QrDestinationRotateResponse, type QrDestinationStatusResponse } from "@bookingapp/contracts";
 import { userFacingMessage } from "./user-messages.js";
 
 export type QrAdminState =
@@ -23,6 +23,12 @@ export async function setQrDestinationStatus(fetcher: AdminFetchLike, baseUrl: s
   const response = await fetcher(`${baseUrl}/v1/tenants/${encodeURIComponent(tenantId)}/qr-destinations/${encodeURIComponent(publicCode)}/status`, { credentials: "include", method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ status }) });
   const body = (await response.json()) as QrDestinationStatusResponse;
   return body.data ? { kind: "ready", status: body.data } : { kind: "error", message: userFacingMessage(response.status, body.error, "We could not update that booking link.") };
+}
+
+export async function rotateQrDestination(fetcher: AdminFetchLike, baseUrl: string, tenantId: string, publicCode: string): Promise<{ kind: "ready"; destination: NonNullable<QrDestinationRotateResponse["data"]> } | { kind: "error"; message: string }> {
+  const response = await fetcher(`${baseUrl}/v1/tenants/${encodeURIComponent(tenantId)}/qr-destinations/${encodeURIComponent(publicCode)}/rotate`, { credentials: "include", method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+  const body = (await response.json()) as QrDestinationRotateResponse;
+  return body.data ? { kind: "ready", destination: body.data } : { kind: "error", message: userFacingMessage(response.status, body.error, "We could not replace that booking link.") };
 }
 
 export async function fetchQrDestinations(fetcher: AdminFetchLike, baseUrl: string, tenantId: string): Promise<QrAdminState> {
