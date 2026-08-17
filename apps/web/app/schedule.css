@@ -1,6 +1,22 @@
 /* Ownership: compact Next schedule surface; uses the shared Booking tokens. */
 .schedule-page .page-intro { align-items: end; }
 .schedule-page .page-intro .account-button { min-height: 40px; }
+.schedule-header-actions { display: flex; align-items: end; gap: 8px; }
+.schedule-header-actions .primary-button, .schedule-header-actions .account-button { min-height: 40px; }
+.booking-dialog { width: min(100% - 32px, 500px); padding: 0; color: #17213a; border: 1px solid #dfe7e2; border-radius: 14px; box-shadow: 0 20px 60px rgb(15 23 42 / 20%); }
+.booking-dialog::backdrop { background: rgb(15 23 42 / 32%); }
+.booking-dialog form { display: grid; gap: 14px; padding: 22px; }
+.booking-dialog-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.booking-dialog-heading h2 { margin-top: 4px; font-size: 20px; font-weight: 500; }
+.dialog-close { width: 30px; height: 30px; color: #64748b; border: 0; border-radius: 7px; background: transparent; cursor: pointer; }
+.dialog-close:hover, .dialog-close:focus-visible { color: #3730a3; background: #eef2ff; outline: none; }
+.booking-dialog label { display: grid; gap: 6px; color: #475569; font-size: 11px; font-weight: 500; }
+.booking-dialog input, .booking-dialog select { min-height: 40px; padding: 0 11px; color: #17213a; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; font: inherit; font-size: 12px; }
+.booking-dialog select[multiple] { min-height: 84px; padding: 6px 8px; }
+.booking-dialog-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.booking-dialog-message { margin: 0; color: #9f1239; font-size: 11px; }
+.booking-dialog-actions { display: flex; justify-content: end; gap: 8px; }
+.booking-dialog-actions .account-button, .booking-dialog-actions .primary-button { min-height: 38px; font-size: 12px; }
 .schedule-context { display: flex; align-items: center; gap: 8px; margin-top: 16px; color: #334155; font-size: 12px; }
 .schedule-context small { color: #64748b; }
 .schedule-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 3px #d1fae5; }
@@ -37,4 +53,5 @@
 .schedule-skeleton { height: 68px; border-bottom: 1px solid #eef2f0; background: linear-gradient(90deg, #f8fafc 25%, #eef2f0 37%, #f8fafc 63%); background-size: 400% 100%; animation: schedule-shimmer 1.2s ease-in-out infinite; }
 @keyframes schedule-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
 @media (max-width: 760px) { .schedule-picker { grid-template-columns: 1fr; gap: 16px; } .schedule-booking-row { grid-template-columns: 1fr auto; gap: 8px 12px; } .schedule-booking-time { grid-column: 1; } .schedule-status { grid-column: 2; grid-row: 1; justify-self: end; } .schedule-booking-detail { grid-column: 1 / -1; } .schedule-booking-actions { grid-column: 1 / -1; } .schedule-booking-actions > * { flex: 1; } }
+@media (max-width: 560px) { .schedule-header-actions { align-items: stretch; flex-direction: column; } .schedule-header-actions > * { width: 100%; text-align: center; } .booking-dialog-grid { grid-template-columns: 1fr; } .booking-dialog-actions { flex-direction: column; } .booking-dialog-actions > * { width: 100%; } }
 @media (prefers-reduced-motion: reduce) { .schedule-workspace-choice, .schedule-skeleton { transition: none; animation: none; } }
