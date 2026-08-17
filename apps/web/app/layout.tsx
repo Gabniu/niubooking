@@ -10,6 +10,7 @@ import "./occurrences.css";
 import "./feedback.css";
 import "./communications.css";
 import "./pack-settings.css";
+import "./qr-studio.css";
 
 export const metadata: Metadata = {
   title: { default: "Niu Booking", template: "%s — Niu Booking" },

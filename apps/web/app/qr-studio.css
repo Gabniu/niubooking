@@ -1,0 +1,32 @@
+/* Ownership: compact tenant QR destination and print studio surface. */
+.qr-studio-page { display: grid; gap: 16px; }
+.qr-studio-page .page-intro { align-items: end; }
+.qr-studio-page .page-intro .account-button { min-height: 36px; }
+.qr-studio-columns { display: grid; grid-template-columns: minmax(260px, 330px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.qr-studio-controls { display: grid; gap: 16px; }
+.qr-studio-card, .qr-preview-card { display: grid; gap: 12px; padding: 18px; border: 1px solid #dfe7e2; border-radius: 14px; background: #fff; box-shadow: 0 8px 24px rgb(15 23 42 / 4%); }
+.qr-studio-card label { display: grid; gap: 5px; color: #475569; font-size: 11px; font-weight: 500; }
+.qr-studio-card input, .qr-studio-card select { min-height: 36px; padding: 0 9px; color: #17213a; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; font: inherit; font-size: 12px; }
+.qr-studio-card input:focus-visible, .qr-studio-card select:focus-visible { border-color: #3730a3; outline: 3px solid #e0e7ff; }
+.qr-create-form { display: grid; gap: 10px; margin-top: 4px; padding-top: 12px; border-top: 1px solid #eef2f0; }
+.qr-create-form .primary-button { min-height: 36px; margin-top: 3px; }
+.qr-preview-card { min-height: 540px; align-content: start; }
+.qr-preview-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.qr-preview-heading h2 { margin-top: 4px; color: #17213a; font-size: 18px; font-weight: 500; }
+.qr-preview-heading .account-button { min-height: 32px; font-size: 11px; }
+.qr-render { display: grid; min-height: 330px; place-items: center; padding: 24px; border: 1px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; }
+.qr-render > div { width: min(100%, 300px); }
+.qr-render svg { display: block; width: 100%; height: auto; }
+.qr-render p { max-width: 360px; margin: 0; color: #64748b; font-size: 12px; text-align: center; }
+.diagnostic-note { margin: 0; color: #64748b; font-size: 11px; line-height: 1.45; }
+.qr-preview-actions { display: flex; justify-content: end; gap: 8px; }
+.qr-preview-actions .account-button, .qr-preview-actions .primary-button { min-height: 38px; }
+.qr-studio-message { margin: 0; padding: 9px 12px; color: #3730a3; border-radius: 8px; background: #eef2ff; font-size: 12px; }
+.qr-studio-note { margin: 0; color: #64748b; font-size: 11px; }
+.qr-studio-loading { display: grid; gap: 2px; overflow: hidden; border: 1px solid #e5e7eb; border-radius: 12px; }
+.qr-studio-loading span { height: 68px; background: linear-gradient(90deg, #f8fafc 25%, #eef2f0 37%, #f8fafc 63%); background-size: 400% 100%; animation: qr-studio-shimmer 1.2s ease-in-out infinite; }
+@keyframes qr-studio-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+@media (max-width: 800px) { .qr-studio-columns { grid-template-columns: 1fr; } .qr-preview-card { min-height: 0; } }
+@media (max-width: 520px) { .qr-preview-actions { flex-direction: column; } .qr-preview-actions > * { width: 100%; } }
+@media (prefers-reduced-motion: reduce) { .qr-studio-loading span { animation: none; } }
+@media print { .workspace-shell .rail, .workspace-shell .topbar, .qr-studio-controls, .qr-preview-heading .account-button, .qr-preview-actions, .qr-studio-note, .eyebrow, .diagnostic-note { display: none !important; } .workspace { margin: 0; } .qr-preview-card { border: 0; box-shadow: none; } .qr-render { min-height: 0; border: 0; background: #fff; } }

@@ -5,7 +5,7 @@ const navItems = [
   ["Overview", "/app"], ["Schedule", "/app/schedule"], ["Customers", "/app/customers"], ["Services", "/app/services"],
   ["Resources", "/app/resources"], ["Occurrences", "/app/occurrences"], ["Feedback", "/app/feedback"],
   ["Communications", "/app/communications"], ["Industry packs", "/app/packs"], ["Pack settings", "/app/pack-settings"],
-  ["QR Print Studio", "/qr-studio.html"],
+  ["QR Print Studio", "/app/qr-studio"],
 ] as const;
 
 function CalendarMark() {
