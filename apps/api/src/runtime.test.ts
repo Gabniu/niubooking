@@ -22,6 +22,13 @@ test("keeps post-confirmation event hooks at the composition boundary", () => {
   assert.equal(typeof dependencies.qrAdmin.list, "function");
   assert.equal(typeof dependencies.qrAdmin.create, "function");
   assert.equal(typeof dependencies.qrAdmin.setStatus, "function");
+  assert.equal(typeof dependencies.customerAdmin.list, "function");
+  assert.equal(typeof dependencies.contactAdmin.upsert, "function");
+  assert.equal(typeof dependencies.bookingAdmin.create, "function");
+  assert.equal(typeof dependencies.feedbackPublic.read, "function");
+  assert.equal(typeof dependencies.feedbackAdmin.createCampaign, "function");
+  assert.equal(typeof dependencies.feedbackReporting.analytics, "function");
+  assert.equal(typeof dependencies.contactVerification.verify, "function");
   void dependencies.pool.end();
 });
 
