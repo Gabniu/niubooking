@@ -1,0 +1,24 @@
+/* Ownership: focused public booking-management surface. */
+.manage-page { min-height: 100vh; color: var(--public-text); background: var(--public-canvas); }
+.manage-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px clamp(20px, 5vw, 64px); color: #fff; background: var(--public-navy); }
+.manage-brand { display: inline-flex; align-items: center; gap: 9px; color: #fff; font-size: 20px; font-weight: 500; letter-spacing: -.02em; text-decoration: none; }
+.manage-brand strong { color: #b8b4ff; font-weight: 500; }
+.manage-brand-mark { display: grid; width: 28px; height: 28px; place-items: center; border: 1px solid rgb(255 255 255 / 45%); border-radius: 8px; background: rgb(255 255 255 / 12%); font-size: 13px; }
+.manage-home { color: rgb(255 255 255 / 78%); font-size: 12px; text-decoration: none; }
+.manage-home:hover, .manage-home:focus-visible { color: #fff; outline: none; }
+.manage-card { width: min(100% - 40px, 620px); margin: clamp(42px, 10vh, 96px) auto; padding: clamp(24px, 5vw, 42px); border: 1px solid var(--public-border); border-radius: 16px; background: #fff; box-shadow: 0 16px 44px rgb(15 42 67 / 8%); }
+.manage-card h1 { margin: 10px 0 0; color: var(--public-text); font-size: clamp(28px, 5vw, 38px); font-weight: 400; letter-spacing: -.04em; line-height: 1.08; }
+.manage-summary { margin: 12px 0 0; color: var(--public-muted); font-size: 14px; line-height: 1.5; }
+.manage-status { margin: 20px 0 0; padding: 11px 12px; border-radius: 9px; font-size: 12px; line-height: 1.4; }
+.manage-status-ready { color: #166534; background: #ecfdf5; }
+.manage-status-loading { color: var(--public-navy); background: var(--public-blue-soft); }
+.manage-status-error, .manage-status-unavailable { color: #9f1239; background: #fff1f2; }
+.manage-form { display: grid; gap: 14px; margin-top: 24px; }
+.manage-form label { display: grid; gap: 6px; color: var(--public-text); font-size: 12px; font-weight: 500; }
+.manage-form input { min-height: 42px; padding: 0 11px; color: var(--public-text); border: 1px solid #c5d3df; border-radius: 8px; background: #fff; font: inherit; font-size: 13px; }
+.manage-form input:focus-visible { border-color: var(--public-navy); outline: 3px solid var(--public-blue-soft); }
+.manage-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 4px; }
+.manage-actions > * { min-height: 42px; font-size: 12px; }
+.manage-closed { margin: 22px 0 0; color: var(--public-muted); font-size: 13px; }
+@media (max-width: 560px) { .manage-header { padding: 14px 16px; } .manage-home { display: none; } .manage-card { width: min(100% - 28px, 620px); margin: 28px auto; padding: 24px 20px; } .manage-actions { flex-direction: column; } .manage-actions > * { width: 100%; } }
+@media (prefers-reduced-motion: reduce) { .manage-home, .manage-actions > * { transition: none; } }

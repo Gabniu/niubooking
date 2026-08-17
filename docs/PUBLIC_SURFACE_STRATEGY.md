@@ -1,6 +1,6 @@
 # Public Surface Strategy
 
-Status: implemented foundation; customer flows and workspace admission remain in progress
+Status: implemented foundation; public manage-booking migration is complete, while guest booking discovery/confirmation remains in progress
 
 The public `/` and staff `/app` entries now run through the Next.js App Router.
 Legacy HTML routes are served by a temporary compatibility bridge while each
@@ -125,7 +125,7 @@ The authenticated operations shell can use the same navy foundation with denser 
 1. Preserve the current authenticated operations shell.
 2. Split the root public homepage from `/app` and `/login`.
 3. Create a reusable public booking header and focused booking layout.
-4. Apply it first to appointment/QR booking and manage-booking flows.
+4. Apply it first to the Next manage-booking flow, then appointment/QR booking.
 5. Add pack-driven public vocabulary and modules.
 6. Add transport run selection and live tracking as a separate capability batch.
 7. Verify every surface at desktop, mobile, keyboard, empty, error, and stale-data states.

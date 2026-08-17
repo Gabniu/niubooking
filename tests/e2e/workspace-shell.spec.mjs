@@ -245,3 +245,13 @@ test("Next service composition exposes a safe service-selection state", async ({
   await expect(page.getByRole("link", { name: /Continue to sign in/iu })).toHaveAttribute("href", "/auth/sign-in");
   expect(errors).toEqual([]);
 });
+
+test("Next manage booking exposes a safe unavailable state", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/manage/example-token");
+  await expect(page).toHaveTitle(/Manage booking/iu);
+  await expect(page.getByRole("heading", { name: "Change your appointment", exact: true })).toBeVisible();
+  await expect(page.getByText("Booking management is temporarily unavailable.")).toBeVisible();
+  expect(errors).toEqual([]);
+});
