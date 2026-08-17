@@ -234,3 +234,14 @@ test("Next QR Print Studio exposes a safe disconnected state", async ({ page }) 
   await expect(page.getByRole("link", { name: /Continue to sign in/iu })).toHaveAttribute("href", "/auth/sign-in");
   expect(errors).toEqual([]);
 });
+
+test("Next service composition exposes a safe service-selection state", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/app/service-composition");
+  await expect(page).toHaveTitle(/Service composition/iu);
+  await expect(page.getByRole("heading", { name: "Variants and requirements", exact: true })).toBeVisible();
+  await expect(page.getByText("Choose a workspace to configure this service")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Continue to sign in/iu })).toHaveAttribute("href", "/auth/sign-in");
+  expect(errors).toEqual([]);
+});

@@ -1,0 +1,31 @@
+/* Ownership: compact service composition and advisory availability surface. */
+.composition-page { display: grid; gap: 16px; }
+.composition-page .page-intro { align-items: end; }
+.composition-header-actions { display: flex; gap: 8px; }
+.composition-header-actions .account-button { min-height: 36px; }
+.composition-message { margin: 0; padding: 9px 12px; color: #3730a3; border-radius: 8px; background: #eef2ff; font-size: 12px; }
+.composition-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.composition-card { display: grid; gap: 12px; padding: 20px; border: 1px solid #dfe7e2; border-radius: 14px; background: #fff; box-shadow: 0 8px 24px rgb(15 23 42 / 4%); }
+.composition-card h2 { margin-top: 4px; color: #17213a; font-size: 18px; font-weight: 500; }
+.composition-card form { display: grid; gap: 10px; }
+.composition-card label { display: grid; gap: 5px; color: #475569; font-size: 11px; font-weight: 500; }
+.composition-card input, .composition-card select { min-height: 36px; padding: 0 9px; color: #17213a; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; font: inherit; font-size: 12px; }
+.composition-card input:focus-visible, .composition-card select:focus-visible { border-color: #3730a3; outline: 3px solid #e0e7ff; }
+.composition-card form .primary-button { justify-self: start; min-height: 36px; }
+.composition-form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.composition-list { display: grid; gap: 8px; }
+.composition-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 8px; align-items: center; padding: 10px; border: 1px solid #e5e7eb; border-radius: 9px; background: #fafafa; }
+.composition-row div { display: grid; gap: 3px; min-width: 0; }
+.composition-row strong { overflow: hidden; color: #334155; font-size: 12px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.composition-row small { color: #64748b; font-size: 10px; }
+.composition-row .account-button { min-height: 30px; padding: 0 8px; font-size: 10px; }
+.availability-card { gap: 12px; }
+.composition-help { margin: 0; color: #64748b; font-size: 11px; line-height: 1.45; }
+.availability-form { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 8px !important; align-items: end; }
+.availability-form .primary-button { white-space: nowrap; }
+.availability-result { display: grid; gap: 6px; }
+.availability-result div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 10px; border: 1px solid #dbe4ee; border-radius: 8px; background: #f8fafc; }
+.availability-result strong { color: #334155; font-size: 11px; font-weight: 500; }
+.availability-result small { color: #64748b; font-size: 10px; }
+@media (max-width: 850px) { .composition-grid { grid-template-columns: 1fr; } .availability-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } .availability-form .primary-button { grid-column: 1 / -1; justify-self: start; } }
+@media (max-width: 620px) { .composition-header-actions { flex-direction: column; } .composition-header-actions > * { width: 100%; text-align: center; } .composition-form-grid, .availability-form { grid-template-columns: 1fr; } .availability-form .primary-button { grid-column: auto; width: 100%; } .composition-row { grid-template-columns: minmax(0, 1fr) auto; } .composition-row .account-button { grid-column: span 1; } }
