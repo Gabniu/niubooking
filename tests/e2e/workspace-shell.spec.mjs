@@ -285,3 +285,13 @@ test("Next public occurrence exposes a safe unavailable state", async ({ page })
   await expect(page.getByText("Booking is temporarily unavailable. Please try again later.")).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test("Next contact verification exposes a safe unavailable state", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/verify-contact/example-challenge");
+  await expect(page).toHaveTitle(/Verify contact/iu);
+  await expect(page.getByRole("heading", { name: "Confirm this contact method", exact: true })).toBeVisible();
+  await expect(page.getByText("Contact verification is temporarily unavailable. Please try again later.")).toBeVisible();
+  expect(errors).toEqual([]);
+});

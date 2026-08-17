@@ -27,6 +27,7 @@ They should share the same design language, but they should not share the same n
 | Class/trip passenger | `/reserve/:destination` or QR code | Choose a published occurrence and reserve capacity | Focused public reservation flow |
 | Booking recipient | `/manage/:capability` | Reschedule, cancel, or view details | Focused manage-booking flow |
 | Feedback recipient | `/feedback/:capability` | Answer a survey conversationally | Focused feedback flow |
+| Contact recipient | `/verify-contact/:challenge` | Confirm a reminder or feedback contact method | Single-purpose security confirmation |
 | Transport passenger | `/trip/:destination` | Find a run, reserve capacity, and track it | Transport pack public flow |
 
 ## 1. Unauthenticated platform homepage
