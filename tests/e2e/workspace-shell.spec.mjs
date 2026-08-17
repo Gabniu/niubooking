@@ -102,6 +102,17 @@ test("Next feedback exposes a safe disconnected state", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test("Next communications exposes a safe disconnected state", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/app/communications");
+  await expect(page).toHaveTitle(/Communications/iu);
+  await expect(page.getByRole("heading", { name: "Communications", exact: true })).toBeVisible();
+  await expect(page.getByText("Choose a workspace to manage communications")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Continue to sign in/iu })).toHaveAttribute("href", "/auth/sign-in");
+  expect(errors).toEqual([]);
+});
+
 test("workspace shell remains usable at compact widths", async ({ page }) => {
   await page.goto("/app.html");
   await expect(page.locator(".app-shell")).toBeVisible();

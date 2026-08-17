@@ -1,0 +1,39 @@
+/* Ownership: compact tenant communication settings surface. */
+.communications-page { display: grid; gap: 16px; }
+.communications-page .page-intro { align-items: end; }
+.communication-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.communication-card { display: grid; gap: 12px; padding: 20px; border: 1px solid #dfe7e2; border-radius: 14px; background: #fff; box-shadow: 0 8px 24px rgb(15 23 42 / 4%); }
+.communication-card h2 { margin-top: 4px; color: #17213a; font-size: 18px; font-weight: 500; }
+.settings-help { margin: 0; color: #64748b; font-size: 12px; line-height: 1.45; }
+.communication-card > label, .communication-contact-form label, .communication-rule-fields label { display: grid; gap: 5px; color: #475569; font-size: 11px; font-weight: 500; }
+.communication-card input, .communication-card select { min-height: 36px; padding: 0 9px; color: #17213a; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; font: inherit; font-size: 12px; }
+.communication-card input:focus-visible, .communication-card select:focus-visible { border-color: #3730a3; outline: 3px solid #e0e7ff; }
+.communication-check { display: flex !important; align-items: start; gap: 8px; }
+.communication-check input { width: auto; min-height: 0; margin-top: 2px; }
+.communication-check span { display: grid; gap: 3px; }
+.communication-check strong { color: #334155; font-size: 12px; font-weight: 500; }
+.communication-check small { color: #64748b; font-size: 10px; font-weight: 400; }
+.communication-card-head, .communication-rule-head { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.communication-card-head h2 { margin-top: 4px; }
+.communication-card-head .account-button { min-height: 32px; font-size: 11px; }
+.communication-rules, .communication-contacts { display: grid; gap: 8px; }
+.communication-rule, .communication-contacts article { display: grid; gap: 10px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fafafa; }
+.communication-rule-fields { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 10px; align-items: end; }
+.communication-rule-fields fieldset { display: flex; flex-wrap: wrap; gap: 8px; min-height: 36px; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 8px; }
+.communication-rule-fields legend { padding: 0 3px; color: #64748b; font-size: 10px; }
+.communication-rule-fields fieldset label { display: flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 400; text-transform: capitalize; }
+.communication-rule-fields fieldset input { min-height: 0; }
+.quiet-danger-button { min-height: 30px; padding: 0 9px; }
+.communication-contact-form { display: grid; grid-template-columns: 1.2fr .7fr 1.2fr .7fr auto; gap: 8px; align-items: end; }
+.communication-contact-form .account-button { min-height: 36px; padding: 0 10px; font-size: 11px; }
+.communication-contacts article { gap: 3px; }
+.communication-contacts strong { color: #334155; font-size: 12px; font-weight: 500; }
+.communication-contacts span, .communication-contacts small { color: #64748b; font-size: 10px; }
+.communication-actions { display: flex; gap: 8px; }
+.communication-actions .primary-button, .communication-actions .account-button { min-height: 38px; }
+.communication-status-message { margin: 0; padding: 9px 12px; border-radius: 8px; font-size: 12px; }
+.communication-status-message.ready { color: #3730a3; background: #eef2ff; }
+.communication-status-message.loading { color: #475569; background: #f8fafc; }
+.communication-status-message.error { color: #9f1239; background: #fff1f2; }
+@media (max-width: 900px) { .communication-grid { grid-template-columns: 1fr; } .communication-contact-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } .communication-contact-form .account-button { width: 100%; } }
+@media (max-width: 620px) { .communication-rule-fields, .communication-contact-form { grid-template-columns: 1fr; } .communication-actions { flex-direction: column; } .communication-actions > * { width: 100%; text-align: center; } }
