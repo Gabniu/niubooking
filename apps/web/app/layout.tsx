@@ -5,6 +5,7 @@ import "./pack-catalog.css";
 import "./schedule.css";
 import "./customers.css";
 import "./services.css";
+import "./resources.css";
 
 export const metadata: Metadata = {
   title: { default: "Niu Booking", template: "%s — Niu Booking" },

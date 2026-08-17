@@ -1,0 +1,35 @@
+/* Ownership: compact resource inventory surface for the Next workspace. */
+.resources-page .page-intro .primary-button { min-height: 40px; }
+.resource-toolbar { display: flex; align-items: end; gap: 12px; margin-top: 18px; }
+.resource-search { display: grid; flex: 1; gap: 6px; color: #475569; font-size: 11px; font-weight: 500; }
+.resource-search input { width: min(100%, 360px); min-height: 40px; padding: 0 12px; color: #17213a; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; font: inherit; font-size: 12px; }
+.resource-search input:focus-visible, .resource-dialog input:focus-visible { border-color: #10b981; outline: 3px solid #d1fae5; }
+.resource-count { padding-bottom: 11px; color: #64748b; font-size: 11px; }
+.resource-toolbar .account-button { min-height: 40px; }
+.resource-message { margin: 12px 0 0; color: #047857; font-size: 12px; }
+.resource-list { display: grid; margin-top: 16px; overflow: hidden; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; box-shadow: 0 8px 24px rgb(15 23 42 / 4%); }
+.resource-row { display: grid; grid-template-columns: minmax(200px, 1fr) minmax(160px, 1fr) 70px auto; gap: 16px; align-items: center; padding: 14px 16px; border-bottom: 1px solid #eef2f0; }
+.resource-row:last-child { border-bottom: 0; }
+.resource-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.resource-kind { width: 30px; height: 30px; display: grid; flex: 0 0 30px; place-items: center; color: #047857; border-radius: 9px; background: #d1fae5; font-size: 11px; font-weight: 600; }
+.resource-identity div { display: grid; min-width: 0; gap: 3px; }
+.resource-identity strong { overflow: hidden; color: #17213a; font-size: 13px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.resource-identity small { color: #64748b; font-size: 11px; text-transform: capitalize; }
+.resource-capabilities { display: flex; flex-wrap: wrap; gap: 4px; }
+.resource-capabilities span { padding: 3px 6px; color: #475569; border-radius: 6px; background: #f1f5f9; font-size: 10px; }
+.resource-capabilities small { color: #94a3b8; font-size: 10px; }
+.resource-status { justify-self: start; padding: 4px 8px; border-radius: 999px; color: #64748b; background: #f1f5f9; font-size: 10px; text-transform: capitalize; }
+.resource-status-active { color: #047857; background: #d1fae5; }
+.resource-row > .account-button { min-height: 32px; padding: 0 9px; font-size: 11px; }
+.resource-empty { display: grid; gap: 10px; align-items: start; }
+.resource-loading { display: grid; gap: 1px; margin-top: 16px; overflow: hidden; border: 1px solid #e5e7eb; border-radius: 12px; }
+.resource-loading span { height: 62px; background: linear-gradient(90deg, #f8fafc 25%, #eef2f0 37%, #f8fafc 63%); background-size: 400% 100%; animation: resource-shimmer 1.2s ease-in-out infinite; }
+@keyframes resource-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+.resource-dialog { width: min(100% - 32px, 440px); padding: 0; color: #17213a; border: 1px solid #dfe7e2; border-radius: 14px; box-shadow: 0 20px 60px rgb(15 23 42 / 20%); }
+.resource-dialog::backdrop { background: rgb(15 23 42 / 32%); }
+.resource-dialog form { display: grid; gap: 14px; padding: 22px; }
+.resource-dialog label { display: grid; gap: 6px; color: #475569; font-size: 11px; font-weight: 500; }
+.resource-dialog input { min-height: 40px; padding: 0 11px; color: #17213a; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; font: inherit; font-size: 12px; }
+.resource-form-message { margin: 0; color: #9f1239; font-size: 11px; }
+@media (max-width: 760px) { .resource-toolbar { align-items: stretch; flex-wrap: wrap; } .resource-search { flex-basis: 100%; } .resource-search input { width: 100%; } .resource-row { grid-template-columns: minmax(0, 1fr) auto; gap: 10px 12px; } .resource-capabilities { grid-column: 1; } .resource-status { grid-column: 2; grid-row: 1; justify-self: end; } .resource-row > .account-button { grid-column: 1 / -1; width: 100%; } }
+@media (prefers-reduced-motion: reduce) { .resource-loading span { animation: none; } }
