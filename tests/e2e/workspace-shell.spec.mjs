@@ -29,7 +29,7 @@ test("staff entry exposes real navigation and an honest disconnected state", asy
     await expect(page.getByRole("link", { name: "Schedule", exact: true })).toHaveAttribute("href", "/app/schedule");
     await expect(page.getByRole("link", { name: "Customers", exact: true })).toHaveAttribute("href", "/app/customers");
     await expect(page.getByRole("link", { name: "Services", exact: true })).toHaveAttribute("href", "/app/services");
-    await expect(page.getByRole("link", { name: "Occurrences" })).toHaveAttribute("href", "/occurrences.html");
+    await expect(page.getByRole("link", { name: "Occurrences" })).toHaveAttribute("href", "/app/occurrences");
     await expect(page.getByRole("link", { name: "Resources" })).toHaveAttribute("href", "/app/resources");
   }
   await expect(page.getByText("No customers, metrics, or appointments are shown until a workspace is authorized.")).toBeVisible();
@@ -76,6 +76,17 @@ test("Next resources exposes a safe disconnected state", async ({ page }) => {
   await expect(page).toHaveTitle(/Resources/iu);
   await expect(page.getByRole("heading", { name: "Resources", exact: true })).toBeVisible();
   await expect(page.getByText("Choose a workspace to manage resources")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Continue to sign in/iu })).toHaveAttribute("href", "/auth/sign-in");
+  expect(errors).toEqual([]);
+});
+
+test("Next occurrences exposes a safe disconnected state", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/app/occurrences");
+  await expect(page).toHaveTitle(/Occurrences/iu);
+  await expect(page.getByRole("heading", { name: "Occurrences", exact: true })).toBeVisible();
+  await expect(page.getByText("Choose a workspace to manage occurrences")).toBeVisible();
   await expect(page.getByRole("link", { name: /Continue to sign in/iu })).toHaveAttribute("href", "/auth/sign-in");
   expect(errors).toEqual([]);
 });

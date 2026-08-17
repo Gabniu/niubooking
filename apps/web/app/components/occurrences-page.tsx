@@ -1,0 +1,69 @@
+// Ownership: tenant-aware Next occurrence and reservation operations backed by typed contracts.
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import type { OccurrenceSummary, ReservationSummary } from "@bookingapp/contracts";
+import { createOccurrence, fetchOccurrences, fetchReservations, updateReservationStatus, type OccurrencesState } from "../../src/occurrences-client.js";
+import { AdmissionNotice, apiBase, useWorkspaceAdmission, WorkspacePicker } from "./workspace-admission.js";
+import { WorkspaceShell } from "./workspace-shell.js";
+
+type PageState = { kind: "idle" | "loading" } | OccurrencesState;
+type FormValues = { serviceId: string; label: string; startsAt: string; endsAt: string; capacity: string };
+type RequestInitLike = { credentials: "include"; method?: "POST"; headers?: Record<string, string>; body?: string };
+function request(input: string, init: RequestInitLike): Promise<Response> { return window.fetch(input, init); }
+const blankForm: FormValues = { serviceId: "", label: "", startsAt: "", endsAt: "", capacity: "" };
+const reservationStatuses: readonly ReservationSummary["status"][] = ["held", "confirmed", "checked_in", "completed", "cancelled", "no_show"];
+function dateLabel(value: string): string { const date = new Date(value); return Number.isNaN(date.getTime()) ? "Time unavailable" : date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }); }
+
+function ReservationList({ tenantId, occurrenceId }: { tenantId: string; occurrenceId: string }) {
+  const [state, setState] = useState<{ kind: "idle" | "loading" } | { kind: "ready"; reservations: readonly ReservationSummary[] } | { kind: "error"; message: string }>({ kind: "idle" });
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  useEffect(() => { setState({ kind: "loading" }); void fetchReservations(request, apiBase, tenantId, occurrenceId).then(setState).catch(() => setState({ kind: "error", message: "We could not load reservations. Please try again." })); }, [occurrenceId, tenantId]);
+  async function change(reservation: ReservationSummary, status: ReservationSummary["status"]) {
+    setPendingId(reservation.id);
+    const result = await updateReservationStatus(request, apiBase, tenantId, occurrenceId, reservation.id, status);
+    if (result.kind === "ready" && "reservations" in state) setState({ kind: "ready", reservations: state.reservations.map((item) => item.id === reservation.id ? result.reservation : item) });
+    if (result.kind === "error") setState({ kind: "error", message: result.message });
+    setPendingId(null);
+  }
+  if (state.kind === "loading" || state.kind === "idle") return <p className="reservation-note" aria-busy="true">Loading reservations...</p>;
+  if (state.kind === "error") return <p className="reservation-note reservation-note-error">{state.message}</p>;
+  if (!("reservations" in state)) return <p className="reservation-note">Reservations are not ready yet.</p>;
+  if (!state.reservations.length) return <p className="reservation-note">No reservations yet.</p>;
+  return <div className="reservation-list">{state.reservations.map((reservation) => <div className="reservation-row" key={reservation.id}><span className="reservation-customer">{reservation.customerId}</span><span className="reservation-quantity">x{reservation.quantity}</span><select className="reservation-status" aria-label={`Status for ${reservation.customerId}`} disabled={pendingId === reservation.id} value={reservation.status} onChange={(event) => void change(reservation, event.target.value as ReservationSummary["status"])}>{reservationStatuses.map((status) => <option value={status} key={status}>{status.replace("_", " ")}</option>)}</select></div>)}</div>;
+}
+
+function OccurrenceCard({ occurrence, tenantId }: { occurrence: OccurrenceSummary; tenantId: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const capacity = occurrence.capacity === null ? "Unlimited" : `${occurrence.reservedQuantity}/${occurrence.capacity} reserved`;
+  return <article className="occurrence-card"><div className="occurrence-card-main"><div><strong>{occurrence.label}</strong><span>{dateLabel(occurrence.startsAt)} - {dateLabel(occurrence.endsAt)}</span><small>{occurrence.serviceId} / {capacity} / {occurrence.status}</small></div><button className="account-button" type="button" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>{expanded ? "Hide reservations" : "Show reservations"}</button></div>{expanded && <div className="occurrence-reservations"><ReservationList tenantId={tenantId} occurrenceId={occurrence.id} /></div>}</article>;
+}
+
+function OccurrenceDialog({ dialogRef, values, pending, message, onChange, onSubmit, onClose }: { dialogRef: React.RefObject<HTMLDialogElement | null>; values: FormValues; pending: boolean; message: string | null; onChange: (values: FormValues) => void; onSubmit: () => void; onClose: () => void }) {
+  return <dialog className="occurrence-dialog" ref={dialogRef} aria-labelledby="occurrence-dialog-title"><form method="dialog" onSubmit={(event) => { event.preventDefault(); onSubmit(); }}><div className="dialog-heading"><div><p className="eyebrow">Universal scheduling</p><h2 id="occurrence-dialog-title">Schedule an occurrence</h2></div><button className="dialog-close" type="button" aria-label="Close occurrence dialog" onClick={onClose}>x</button></div><label>Service ID<input required placeholder="service-id" value={values.serviceId} onChange={(event) => onChange({ ...values, serviceId: event.target.value })} /></label><label>Label<input required placeholder="Morning consultation" value={values.label} onChange={(event) => onChange({ ...values, label: event.target.value })} /></label><div className="occurrence-form-grid"><label>Starts<input required type="datetime-local" value={values.startsAt} onChange={(event) => onChange({ ...values, startsAt: event.target.value })} /></label><label>Ends<input required type="datetime-local" value={values.endsAt} onChange={(event) => onChange({ ...values, endsAt: event.target.value })} /></label></div><label>Capacity <span className="field-optional">blank means unlimited</span><input type="number" min="1" step="1" value={values.capacity} onChange={(event) => onChange({ ...values, capacity: event.target.value })} /></label>{message && <p className="occurrence-form-message" role="status">{message}</p>}<div className="dialog-actions"><button className="account-button" type="button" onClick={onClose}>Cancel</button><button className="primary-button" type="submit" disabled={pending || !values.serviceId.trim() || !values.label.trim()}>{pending ? "Saving..." : "Create occurrence"}</button></div></form></dialog>;
+}
+
+export function OccurrencesPage() {
+  const { admission, retry } = useWorkspaceAdmission();
+  const [state, setState] = useState<PageState>({ kind: "idle" });
+  const [values, setValues] = useState<FormValues>(blankForm);
+  const [pending, setPending] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const load = () => { if (admission.kind !== "ready") return; setState({ kind: "loading" }); void fetchOccurrences(request, apiBase, admission.tenantId).then(setState).catch(() => setState({ kind: "error", message: "Occurrences could not be loaded. Check your connection and try again." })); };
+  useEffect(load, [admission]);
+  function openCreate() { setValues(blankForm); setMessage(null); dialogRef.current?.showModal(); }
+  async function save() {
+    if (admission.kind !== "ready" || !values.serviceId.trim() || !values.label.trim()) return;
+    const startsAt = new Date(values.startsAt); const endsAt = new Date(values.endsAt); const capacity = values.capacity ? Number(values.capacity) : null;
+    if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime()) || endsAt <= startsAt) return setMessage("Choose valid times, with the end after the start.");
+    if (capacity !== null && (!Number.isInteger(capacity) || capacity < 1)) return setMessage("Capacity must be a positive whole number or blank.");
+    setPending(true); setMessage(null);
+    const result = await createOccurrence(request, apiBase, admission.tenantId, { serviceId: values.serviceId.trim(), label: values.label.trim(), startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString(), capacity });
+    if (result.kind === "ready") { dialogRef.current?.close(); setMessage(`${result.occurrence.label} was added.`); load(); } else setMessage(result.message);
+    setPending(false);
+  }
+  const stateMessage = "message" in state ? state.message : "Occurrences are not ready yet.";
+  const resultState = state.kind === "loading" || state.kind === "idle" ? <div className="occurrence-loading" aria-busy="true"><span /><span /><span /></div> : !("occurrences" in state) ? <section className="schedule-empty schedule-empty-inline"><p className="eyebrow">Occurrences unavailable</p><h2>{stateMessage}</h2><button className="account-button" type="button" onClick={load}>Try again</button></section> : state.occurrences.length ? <div className="occurrence-list">{state.occurrences.map((occurrence) => <OccurrenceCard key={occurrence.id} occurrence={occurrence} tenantId={admission.kind === "ready" ? admission.tenantId : ""} />)}</div> : <section className="schedule-empty occurrence-empty"><p className="eyebrow">No scheduled deliveries</p><h2>Create a dated appointment, class, trip, or charter journey.</h2><button className="primary-button" type="button" onClick={openCreate}>+ Create occurrence</button></section>;
+  return <WorkspaceShell activeHref="/app/occurrences"><section className="workspace-content occurrences-page"><header className="page-intro"><div><p className="eyebrow">Universal scheduling</p><h1>Occurrences</h1><p className="intro-copy">Create dated service deliveries for appointments, classes, trips, or charter journeys.</p></div>{admission.kind === "ready" && <button className="primary-button" type="button" onClick={openCreate}>+ Create occurrence</button>}</header>{admission.kind === "selecting" ? <WorkspacePicker workspaces={admission.workspaces} title="Choose a workspace for occurrences" /> : admission.kind !== "ready" ? <AdmissionNotice state={admission} title="Choose a workspace to manage occurrences" /> : <><div className="occurrence-toolbar"><span>{state.kind === "ready" ? `${state.occurrences.length} occurrence${state.occurrences.length === 1 ? "" : "s"}` : "Loading occurrences"}</span><button className="account-button" type="button" onClick={retry}>Refresh</button></div>{message && <p className="occurrence-message" role="status">{message}</p>}{resultState}<OccurrenceDialog dialogRef={dialogRef} values={values} pending={pending} message={message} onChange={setValues} onSubmit={() => void save()} onClose={() => dialogRef.current?.close()} /></>}</section></WorkspaceShell>;
+}

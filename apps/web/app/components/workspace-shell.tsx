@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 const navItems = [
   ["Overview", "/app"], ["Schedule", "/app/schedule"], ["Customers", "/app/customers"], ["Services", "/app/services"],
-  ["Resources", "/app/resources"], ["Occurrences", "/occurrences.html"], ["Feedback", "/feedback-admin.html"],
+  ["Resources", "/app/resources"], ["Occurrences", "/app/occurrences"], ["Feedback", "/feedback-admin.html"],
   ["Communications", "/communications.html"], ["Industry packs", "/app/packs"], ["Pack settings", "/pack-settings.html"],
   ["QR Print Studio", "/qr-studio.html"],
 ] as const;

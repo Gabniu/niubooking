@@ -1,0 +1,37 @@
+/* Ownership: compact occurrence and reservation operations surface for the Next workspace. */
+.occurrences-page .page-intro .primary-button { min-height: 40px; }
+.occurrence-toolbar { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; color: #64748b; font-size: 11px; }
+.occurrence-toolbar .account-button { min-height: 40px; }
+.occurrence-message { margin: 12px 0 0; color: #047857; font-size: 12px; }
+.occurrence-list { display: grid; gap: 8px; margin-top: 16px; }
+.occurrence-card { overflow: hidden; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; box-shadow: 0 8px 24px rgb(15 23 42 / 4%); }
+.occurrence-card-main { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; }
+.occurrence-card-main > div { display: grid; min-width: 0; gap: 4px; }
+.occurrence-card-main strong { overflow: hidden; color: #17213a; font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.occurrence-card-main span, .occurrence-card-main small { color: #64748b; font-size: 11px; }
+.occurrence-card-main small { text-transform: capitalize; }
+.occurrence-card-main .account-button { min-height: 32px; padding: 0 10px; font-size: 11px; white-space: nowrap; }
+.occurrence-reservations { padding: 12px 16px 14px; border-top: 1px solid #eef2f0; background: #f8fbf9; }
+.reservation-list { display: grid; gap: 1px; overflow: hidden; border: 1px solid #e5ece8; border-radius: 8px; background: #fff; }
+.reservation-row { display: grid; grid-template-columns: minmax(0, 1fr) 50px 130px; gap: 10px; align-items: center; padding: 9px 10px; border-bottom: 1px solid #eef2f0; }
+.reservation-row:last-child { border-bottom: 0; }
+.reservation-customer { overflow: hidden; color: #334155; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.reservation-quantity { color: #64748b; font-size: 11px; }
+.reservation-status { min-height: 30px; padding: 0 6px; color: #047857; border: 1px solid #bbf7d0; border-radius: 7px; background: #ecfdf5; font: inherit; font-size: 10px; text-transform: capitalize; }
+.reservation-status:focus-visible { border-color: #10b981; outline: 3px solid #d1fae5; }
+.reservation-note { margin: 0; color: #64748b; font-size: 11px; }
+.reservation-note-error { color: #9f1239; }
+.occurrence-empty { display: grid; gap: 10px; align-items: start; margin-top: 16px; }
+.occurrence-loading { display: grid; gap: 1px; margin-top: 16px; overflow: hidden; border: 1px solid #e5e7eb; border-radius: 12px; }
+.occurrence-loading span { height: 74px; background: linear-gradient(90deg, #f8fafc 25%, #eef2f0 37%, #f8fafc 63%); background-size: 400% 100%; animation: occurrence-shimmer 1.2s ease-in-out infinite; }
+@keyframes occurrence-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+.occurrence-dialog { width: min(100% - 32px, 520px); padding: 0; color: #17213a; border: 1px solid #dfe7e2; border-radius: 14px; box-shadow: 0 20px 60px rgb(15 23 42 / 20%); }
+.occurrence-dialog::backdrop { background: rgb(15 23 42 / 32%); }
+.occurrence-dialog form { display: grid; gap: 14px; padding: 22px; }
+.occurrence-dialog label { display: grid; gap: 6px; color: #475569; font-size: 11px; font-weight: 500; }
+.occurrence-dialog input { min-height: 40px; padding: 0 11px; color: #17213a; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; font: inherit; font-size: 12px; }
+.occurrence-dialog input:focus-visible { border-color: #10b981; outline: 3px solid #d1fae5; }
+.occurrence-form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.occurrence-form-message { margin: 0; color: #9f1239; font-size: 11px; }
+@media (max-width: 620px) { .occurrence-card-main { align-items: stretch; flex-direction: column; gap: 12px; } .occurrence-card-main .account-button { width: 100%; } .reservation-row { grid-template-columns: minmax(0, 1fr) 40px; } .reservation-status { grid-column: 1 / -1; width: 100%; } .occurrence-form-grid { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .occurrence-loading span { animation: none; } }
