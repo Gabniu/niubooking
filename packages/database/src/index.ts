@@ -24,3 +24,4 @@ export * from "./migrations.js";
 export * from "./sessions.js";
 export * from "./local-users.js";
 export * from "./runtime-adapters.js";
+export * from "./public-communication-hooks.js";

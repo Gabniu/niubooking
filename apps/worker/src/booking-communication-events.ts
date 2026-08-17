@@ -45,8 +45,8 @@ export async function handleBookingCommunicationEvent(event: BookingCommunicatio
   }
   if (!("booking" in event)) return 0;
   const settings = await dependencies.settings(event.booking.tenantId);
+  if (event.type === "booking.rescheduled") await dependencies.cancel(event.booking.tenantId, event.booking.bookingId);
   const jobs = planReminderJobs(settings, event.booking);
   for (const job of jobs) await dependencies.enqueue(job);
-  if (event.type === "booking.rescheduled") await dependencies.cancel(event.booking.tenantId, event.booking.bookingId);
   return jobs.length;
 }

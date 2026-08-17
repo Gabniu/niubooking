@@ -24,8 +24,8 @@ What is missing, checked rather than assumed:
 |---|---|
 | Dockerfiles | `infra/docker/api/Dockerfile`, `infra/docker/web/Dockerfile` |
 | staging compose file | `infra/compose-booking-staging.yaml` |
-| git repository | **not initialised** — no `.git` at all |
-| Size | 240 TypeScript source files, ~6,800 lines; 29 ordered migrations |
+| git repository | initialised; `main` is pushed to `https://github.com/Gabniu/niubooking` |
+| Size | 350 source files pass the 300-line gate; 29 ordered migrations |
 | Migration runner | `scripts/run-migrations.mjs` with checksum-protected `npm run migrate` |
 | API probes | `/health/live` and database-backed `/health/ready` |
 | Server-side entry point | `apps/api/src/server.ts` (Fastify), port from `PORT` |

@@ -35,7 +35,7 @@ test("replans reminders and cancels stale work for public manage actions", async
   const booking = { id: "booking-1", tenantId: "tenant-1", customerId: "customer-1", serviceName: "Consultation", startsAt: new Date(Date.now() + 3_600_000), endsAt: new Date(Date.now() + 5_400_000), status: "scheduled" as const };
   await hooks.onRescheduled({ booking });
   await hooks.onCancelled({ booking: { ...booking, status: "cancelled" } });
-  assert.deepEqual(events, ["enqueue", "cancel", "cancel"]);
+  assert.deepEqual(events, ["cancel", "enqueue", "cancel"]);
 });
 
 test("composes contact capture with the existing verification issuer", async () => {
