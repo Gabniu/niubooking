@@ -265,3 +265,13 @@ test("Next public booking exposes a safe unavailable state", async ({ page }) =>
   await expect(page.getByText("Booking is temporarily unavailable. Please try again later.")).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test("Next public feedback exposes a safe unavailable state", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/feedback/example-capability");
+  await expect(page).toHaveTitle(/Share your feedback/iu);
+  await expect(page.getByRole("heading", { name: "Tell us how we can improve", exact: true })).toBeVisible();
+  await expect(page.getByText("Feedback is temporarily unavailable. Please try again later.")).toBeVisible();
+  expect(errors).toEqual([]);
+});
