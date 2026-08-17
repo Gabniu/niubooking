@@ -2,6 +2,7 @@
 
 import type { QrDestination, QrDestinationStatus } from "@bookingapp/domain";
 import type { Pool } from "pg";
+import { withTenantTransaction } from "./pg-executor.js";
 import type { SqlExecutor } from "./tenant-membership.js";
 
 interface QrRow {
@@ -44,4 +45,12 @@ export async function setQrDestinationStatus(executor: SqlExecutor, tenantId: st
 
 export function createQrDestinationReader(pool: Pool) {
   return { findByPublicCode: async (publicCode: string): Promise<QrDestination | null> => { const result = await pool.query<QrRow>(`SELECT ${columns} FROM qr_destinations WHERE public_code = $1 LIMIT 1`, [publicCode]); return result.rows[0] ? map(result.rows[0]) : null; } };
+}
+
+export function createDatabaseQrAdmin(pool: Pool) {
+  return {
+    list: (tenantId: string) => withTenantTransaction(pool, tenantId, (executor) => listQrDestinations(executor, tenantId)),
+    create: (input: Omit<QrDestination, "status">) => withTenantTransaction(pool, input.tenantId, (executor) => createQrDestination(executor, input)),
+    setStatus: (tenantId: string, publicCode: string, status: Exclude<QrDestinationStatus, "expired">) => withTenantTransaction(pool, tenantId, (executor) => setQrDestinationStatus(executor, tenantId, publicCode, status)),
+  };
 }
