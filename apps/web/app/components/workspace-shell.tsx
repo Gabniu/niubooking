@@ -1,5 +1,9 @@
 // Ownership: shared Next staff shell; tenant data is supplied by admitted pages only.
-import type { ReactNode } from "react";
+"use client";
+
+import { useEffect, useState, type ReactNode } from "react";
+import { authUrl, sessionUrl } from "../../src/auth-client.js";
+import { readSessionProbe, type SessionProbeState } from "../../src/auth-session.js";
 
 const navItems = [
   ["Overview", "/app"], ["Schedule", "/app/schedule"], ["Customers", "/app/customers"], ["Services", "/app/services"],
@@ -12,6 +16,41 @@ function CalendarMark() {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v4m10-4v4M4 9h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" /></svg>;
 }
 
+function AccountAction() {
+  const [state, setState] = useState<SessionProbeState | "loading">("loading");
+  const [pending, setPending] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const apiBase = (process.env.NEXT_PUBLIC_API_BASE ?? "").replace(/\/$/u, "");
+
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 3_000);
+    void fetch(sessionUrl(apiBase), { credentials: "include", signal: controller.signal }).then(async (response) => {
+      const body = await response.json().catch(() => null);
+      if (active) setState(readSessionProbe(response.status, body));
+    }).catch(() => { if (active) setState("unauthenticated"); }).finally(() => window.clearTimeout(timeout));
+    return () => { active = false; window.clearTimeout(timeout); controller.abort(); };
+  }, [apiBase]);
+
+  async function signOut() {
+    setPending(true);
+    setMessage(null);
+    try {
+      const response = await fetch(authUrl(apiBase, "logout"), { method: "POST", credentials: "include" });
+      if (!response.ok) throw new Error("logout failed");
+      window.location.reload();
+    } catch {
+      setPending(false);
+      setMessage("Sign out failed. Try again.");
+    }
+  }
+
+  if (state === "loading") return <span className="account-status" aria-live="polite">Checking session…</span>;
+  if (state === "authenticated") return <span className="account-action"><button className="account-button" type="button" onClick={() => void signOut()} disabled={pending}>{pending ? "Signing out…" : "Sign out"}</button>{message && <span className="account-error" role="status">{message}</span>}</span>;
+  return <a className="account-button" href="/auth/sign-in">Sign in</a>;
+}
+
 export function WorkspaceShell({ children, activeHref = "/app" }: { children: ReactNode; activeHref?: string }) {
   return <div className="app-shell workspace-shell">
     <aside className="rail workspace-rail" aria-label="Primary navigation">
@@ -19,6 +58,6 @@ export function WorkspaceShell({ children, activeHref = "/app" }: { children: Re
       <p className="eyebrow rail-label">Workspace</p>
       <nav className="shell-nav" aria-label="Primary navigation">{navItems.map(([label, href]) => <a className={`nav-item${href === activeHref ? " active" : ""}`} aria-current={href === activeHref ? "page" : undefined} href={href} key={href}>{label}</a>)}</nav>
     </aside>
-    <main className="workspace"><header className="topbar"><div className="topbar-actions"><button className="icon-button" type="button" aria-label="Search workspace">⌕</button><button className="icon-button" type="button" aria-label="Notifications">♧</button><a className="account-button" href="/auth/sign-in">Sign in</a></div></header>{children}</main>
+    <main className="workspace"><header className="topbar"><div className="topbar-actions"><button className="icon-button" type="button" aria-label="Search workspace">⌕</button><button className="icon-button" type="button" aria-label="Notifications">♧</button><AccountAction /></div></header>{children}</main>
   </div>;
 }

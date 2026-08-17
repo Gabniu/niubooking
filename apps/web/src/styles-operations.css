@@ -185,7 +185,7 @@ body { background: #f7f9fd; }
   .workspace-shell .rail-label, .workspace-shell .shell-nav, .workspace-shell .rail-footer { display: none; }
   .workspace-shell .shell-mobile-nav { display: flex; gap: 4px; overflow-x: auto; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; background: #fff; }
   .workspace-shell .shell-mobile-nav .nav-item { flex: 0 0 auto; min-height: 36px; padding: 0 12px; color: #64748b; }
-  .workspace-shell .shell-mobile-nav .nav-item.active { color: #047857; background: #ecfdf5; }
+  .workspace-shell .shell-mobile-nav .nav-item.active { color: var(--booking-blue); background: var(--booking-blue-soft); }
   .workspace-shell > .workspace > .topbar { min-height: 64px; }
   .workspace-shell .communications-content { padding: 0 16px 32px; }
 }
@@ -228,6 +228,7 @@ body { background: #f7f9fd; }
 .workspace-shell .primary-button:hover, .workspace-shell .primary-button:focus-visible { background: var(--booking-blue-dark); border-color: var(--booking-blue-dark); outline: 3px solid var(--booking-blue-soft); }
 .workspace-shell .account-button { color: var(--booking-blue-dark); border-color: var(--booking-blue-border); }
 .workspace-shell .account-button:hover, .workspace-shell .account-button:focus-visible { color: var(--booking-blue-dark); border-color: var(--booking-blue); background: var(--booking-blue-pale); outline: 3px solid var(--booking-blue-soft); }
+.workspace-shell .account-status { min-width: 76px; color: #64748b; font-size: 11px; text-align: center; }.workspace-shell .account-action { display: inline-flex; align-items: center; gap: 8px; }.workspace-shell .account-error { color: #b91c1c; font-size: 10px; white-space: nowrap; }.workspace-shell .account-button:disabled { cursor: wait; opacity: .7; }
 .workspace-shell .icon-button:hover, .workspace-shell .icon-button:focus-visible { color: var(--booking-blue-dark); background: var(--booking-blue-soft); }
 .workspace-shell .empty-icon { background: var(--booking-blue-soft); }
 .workspace-shell .empty-icon svg, .workspace-shell .empty-state .eyebrow { color: var(--booking-blue-dark); stroke: var(--booking-blue-dark); }
