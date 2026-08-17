@@ -25,9 +25,10 @@ What is missing, checked rather than assumed:
 | Dockerfiles | `infra/docker/api/Dockerfile`, `infra/docker/web/Dockerfile` |
 | staging compose file | `infra/compose-booking-staging.yaml` |
 | git repository | initialised; `main` is pushed to `https://github.com/Gabniu/niubooking` |
-| Size | 350 source files pass the 300-line gate; 29 ordered migrations |
+| Size | 353 source files pass the 300-line gate; 29 ordered migrations |
 | Migration runner | `scripts/run-migrations.mjs` with checksum-protected `npm run migrate` |
 | API probes | `/health/live` and database-backed `/health/ready` |
+| Communication worker | `apps/worker/src/main.ts`, internal `/health/live` and `/health/ready`, bounded outbox cadence, provider adapters, and a non-root image |
 | Server-side entry point | `apps/api/src/server.ts` (Fastify), port from `PORT` |
 
 The web target is Next.js App Router + React + TypeScript (`apps/web/app`) with
@@ -46,6 +47,13 @@ private `172.26.0.0/24` network, and runs migrations before the API starts.
 The compose environment expects `BOOKING_DATABASE_URL` with URL-encoded
 credentials and a separate `BOOKING_HOLD_SECRET`; credentials are not stored
 in the repository.
+The compose file also runs `booking-worker` on the private network with no
+published port. It owns the outbox delivery loop, exposes port `3200` only to
+the compose network, and uses a 256 MB memory limit. Set
+`BOOKING_PUBLIC_BASE_URL` and the channel provider endpoint/API-key pairs on
+the server when real email, SMS, or voice delivery is enabled. With no
+provider configured it remains liveness-healthy but readiness reports that
+delivery is not ready; this avoids pretending that messages were delivered.
 The API starts in a fail-closed staging mode: public routes and health probes
 can be exercised, while staff routes now resolve an opaque HttpOnly session
 through `booking_sessions` and a transaction-local active tenant membership.

@@ -90,4 +90,5 @@ jobs:
           docker compose --project-name booking-staging --env-file "$APP_DIR/.env" -f infra/compose-booking-staging.yaml up -d --build --remove-orphans
           curl --fail --silent --show-error http://127.0.0.1:3110/health/ready >/dev/null
           curl --fail --silent --show-error http://127.0.0.1:3111/ >/dev/null
+          docker compose --project-name booking-staging --env-file "$APP_DIR/.env" -f infra/compose-booking-staging.yaml exec -T booking-worker node -e "fetch('http://127.0.0.1:3200/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
           REMOTE
