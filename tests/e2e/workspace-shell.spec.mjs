@@ -26,11 +26,22 @@ test("staff entry exposes real navigation and an honest disconnected state", asy
   await expect(page.getByRole("heading", { name: "Sign in to load your bookings" })).toBeVisible();
   await expect(page.locator('img[src="/illustrations/login.svg"]')).toBeVisible();
   if ((page.viewportSize()?.width ?? 0) > 700) {
-    await expect(page.getByRole("link", { name: "Schedule", exact: true })).toHaveAttribute("href", "/bookings.html");
+    await expect(page.getByRole("link", { name: "Schedule", exact: true })).toHaveAttribute("href", "/app/schedule");
     await expect(page.getByRole("link", { name: "Occurrences" })).toHaveAttribute("href", "/occurrences.html");
     await expect(page.getByRole("link", { name: "Resources" })).toHaveAttribute("href", "/resources.html");
   }
   await expect(page.getByText("No customers, metrics, or appointments are shown until a workspace is authorized.")).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("Next schedule exposes a safe disconnected state", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/app/schedule");
+  await expect(page).toHaveTitle(/Schedule/iu);
+  await expect(page.getByRole("heading", { name: "Schedule", exact: true })).toBeVisible();
+  await expect(page.getByText("Choose a workspace to see the schedule")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Continue to sign in/iu })).toHaveAttribute("href", "/auth/sign-in");
   expect(errors).toEqual([]);
 });
 
