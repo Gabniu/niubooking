@@ -8,9 +8,11 @@ const destination = { publicCode: "branch-booking-code-01", tenantId: "tenant-1"
 
 test("lists, creates, and status-mutates tenant bookings", async () => {
   const booking = { id: "booking-1", tenantId: "tenant-1", customerId: "customer-1", serviceName: "Consultation", startsAt: new Date("2026-08-14T09:00:00Z"), endsAt: new Date("2026-08-14T09:30:00Z"), status: "scheduled" as const };
-  const app = createApiServer({ resolve: () => ({ identity, mappedUserId: "user-1", membership, requestedTenantId: "tenant-1" }), bookingAdmin: { list: async () => [booking], create: async (input) => ({ ...booking, ...input }), setStatus: async (_tenantId, _bookingId, status) => ({ ...booking, status }) } });
+  let receivedResources: readonly string[] = [];
+  const app = createApiServer({ resolve: () => ({ identity, mappedUserId: "user-1", membership, requestedTenantId: "tenant-1" }), bookingAdmin: { list: async () => [booking], create: async (input) => { receivedResources = input.resourceIds ?? []; return { ...booking, ...input }; }, setStatus: async (_tenantId, _bookingId, status) => ({ ...booking, status }) } });
   assert.equal((await app.inject({ method: "GET", url: "/v1/tenants/tenant-1/bookings" })).statusCode, 200);
-  assert.equal((await app.inject({ method: "POST", url: "/v1/tenants/tenant-1/bookings", payload: { customerId: "customer-1", serviceName: "Consultation", startsAt: "2026-08-14T09:00:00Z", endsAt: "2026-08-14T09:30:00Z" } })).statusCode, 201);
+  assert.equal((await app.inject({ method: "POST", url: "/v1/tenants/tenant-1/bookings", payload: { customerId: "customer-1", serviceName: "Consultation", startsAt: "2026-08-14T09:00:00Z", endsAt: "2026-08-14T09:30:00Z", resourceIds: ["room-1"] } })).statusCode, 201);
+  assert.deepEqual(receivedResources, ["room-1"]);
   assert.equal((await app.inject({ method: "POST", url: "/v1/tenants/tenant-1/bookings/booking-1/status", payload: { status: "completed" } })).statusCode, 200);
   await app.close();
 });

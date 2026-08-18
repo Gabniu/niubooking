@@ -28,7 +28,7 @@ export interface IdentityContextRequest { identity: TenantContextRequest["identi
   };
   bookingAdmin?: {
     list(tenantId: string, from?: Date, to?: Date): Promise<readonly unknown[]>;
-    create(input: { id: string; tenantId: string; customerId: string; serviceName: string; startsAt: Date; endsAt: Date }): Promise<unknown>;
+    create(input: { id: string; tenantId: string; customerId: string; serviceName: string; startsAt: Date; endsAt: Date; resourceIds?: readonly string[] }): Promise<unknown>;
     setStatus(tenantId: string, bookingId: string, status: BookingStatus): Promise<unknown | null>;
   };
   bookingPublic?: {
@@ -187,16 +187,16 @@ function responseStatus(code: string | undefined): number { return code === "UNA
     if ((from && Number.isNaN(from.getTime())) || (to && Number.isNaN(to.getTime()))) return reply.code(400).send({ data: null, error: { code: "BOOKING_INVALID", message: "Booking window dates are invalid." } });
     return reply.send({ data: await dependencies.bookingAdmin.list(request.params.tenantId, from, to), error: null });
   });
-  app.post<{ Params: { tenantId: string }; Body: { customerId: string; serviceName: string; startsAt: string; endsAt: string } }>("/v1/tenants/:tenantId/bookings", async (request, reply) => {
+  app.post<{ Params: { tenantId: string }; Body: { customerId: string; serviceName: string; startsAt: string; endsAt: string; resourceIds?: readonly string[] } }>("/v1/tenants/:tenantId/bookings", async (request, reply) => {
     const context = await dependencies.resolve(request);
     if (!context.identity || !context.membership || context.membership.tenantId !== request.params.tenantId || !["owner", "admin", "manager"].includes(context.membership.role)) return reply.code(403).send({ data: null, error: { code: "TENANT_ACCESS_DENIED", message: "You do not have access to this workspace." } });
     if (!dependencies.bookingAdmin) return reply.code(503).send({ data: null, error: { code: "BOOKINGS_UNAVAILABLE", message: "Bookings are temporarily unavailable." } });
     const body = request.body;
     const startsAt = new Date(body?.startsAt ?? "");
     const endsAt = new Date(body?.endsAt ?? "");
-    if (!body?.customerId?.trim() || !body.serviceName?.trim() || Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime()) || endsAt <= startsAt) return reply.code(400).send({ data: null, error: { code: "BOOKING_INVALID", message: "Customer, service, and ordered booking times are required." } });
+    if (!body?.customerId?.trim() || !body.serviceName?.trim() || (body.resourceIds !== undefined && (!Array.isArray(body.resourceIds) || body.resourceIds.length > 16 || body.resourceIds.some((id) => typeof id !== "string"))) || Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime()) || endsAt <= startsAt) return reply.code(400).send({ data: null, error: { code: "BOOKING_INVALID", message: "Customer, service, resources, and ordered booking times are required." } });
     try {
-      const booking = await dependencies.bookingAdmin.create({ id: randomBytes(18).toString("base64url"), tenantId: request.params.tenantId, customerId: body.customerId.trim(), serviceName: body.serviceName.trim(), startsAt, endsAt });
+      const booking = await dependencies.bookingAdmin.create({ id: randomBytes(18).toString("base64url"), tenantId: request.params.tenantId, customerId: body.customerId.trim(), serviceName: body.serviceName.trim(), startsAt, endsAt, ...(body.resourceIds ? { resourceIds: body.resourceIds.map((id) => id.trim()) } : {}) });
       return reply.code(201).send({ data: booking, error: null });
     } catch (error) { return reply.code(400).send({ data: null, error: { code: "BOOKING_INVALID", message: error instanceof Error ? error.message : "Booking could not be created." } }); }
   });
