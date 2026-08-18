@@ -34,21 +34,23 @@ export function ServicesPage() {
   useEffect(load, [admission]);
   function openCreate() { setValues(blankForm); setMessage(null); dialogRef.current?.showModal(); }
   async function save() {
-    if (admission.kind !== "ready" || !values.name.trim()) return;
+    if (admission.kind !== "ready" || pending || !values.name.trim()) return;
     const duration = Number(values.durationMinutes); const before = Number(values.bufferBeforeMinutes || 0); const after = Number(values.bufferAfterMinutes || 0);
     if (![duration, before, after].every((value) => Number.isInteger(value) && value >= 0) || duration < 5) return setMessage("Enter a whole-minute duration of at least 5 minutes.");
     setPending(true); setMessage(null);
-    const result = await createService(request, apiBase, admission.tenantId, { name: values.name.trim(), description: values.description.trim() || null, bookingMode: values.bookingMode, durationMinutes: duration, bufferBeforeMinutes: before, bufferAfterMinutes: after });
-    if (result.kind === "ready") { dialogRef.current?.close(); setMessage(`${result.service.name} was added.`); load(); } else setMessage(result.message);
-    setPending(false);
+    try {
+      const result = await createService(request, apiBase, admission.tenantId, { name: values.name.trim(), description: values.description.trim() || null, bookingMode: values.bookingMode, durationMinutes: duration, bufferBeforeMinutes: before, bufferAfterMinutes: after });
+      if (result.kind === "ready") { dialogRef.current?.close(); setMessage(`${result.service.name} was added.`); load(); } else setMessage(result.message);
+    } catch { setMessage("Service could not be added. Please try again."); } finally { setPending(false); }
   }
   async function changeStatus(service: ServiceSummary) {
-    if (admission.kind !== "ready") return;
+    if (admission.kind !== "ready" || pendingId) return;
     setPendingId(service.id);
     const next = service.status === "active" ? "inactive" : "active";
-    const result = await setServiceStatus(request, apiBase, admission.tenantId, service.id, next);
-    if (result.kind === "ready") { setMessage(`${service.name} is now ${next}.`); load(); } else setMessage(result.message);
-    setPendingId(null);
+    try {
+      const result = await setServiceStatus(request, apiBase, admission.tenantId, service.id, next);
+      if (result.kind === "ready") { setMessage(`${service.name} is now ${next}.`); load(); } else setMessage(result.message);
+    } catch { setMessage("Service status could not be changed. Please try again."); } finally { setPendingId(null); }
   }
   const services = state.kind === "ready" ? state.services.filter((service) => service.name.toLowerCase().includes(query.trim().toLowerCase())) : [];
   const stateMessage = "message" in state ? state.message : "Service catalog is not ready yet.";
