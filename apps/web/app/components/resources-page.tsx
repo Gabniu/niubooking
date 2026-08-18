@@ -34,20 +34,22 @@ export function ResourcesPage() {
   useEffect(load, [admission]);
   function openCreate() { setValues(blankForm); setMessage(null); dialogRef.current?.showModal(); }
   async function save() {
-    if (admission.kind !== "ready" || !values.name.trim() || !values.resourceType.trim()) return;
+    if (admission.kind !== "ready" || pending || !values.name.trim() || !values.resourceType.trim()) return;
     setPending(true); setMessage(null);
     const capabilities = values.capabilities.split(",").map((value) => value.trim()).filter(Boolean);
-    const result = await createResource(request, apiBase, admission.tenantId, { name: values.name.trim(), resourceType: values.resourceType.trim(), capabilities });
-    if (result.kind === "ready") { dialogRef.current?.close(); setMessage(`${result.resource.name} was added.`); load(); } else setMessage(result.message);
-    setPending(false);
+    try {
+      const result = await createResource(request, apiBase, admission.tenantId, { name: values.name.trim(), resourceType: values.resourceType.trim(), capabilities });
+      if (result.kind === "ready") { dialogRef.current?.close(); setMessage(`${result.resource.name} was added.`); load(); } else setMessage(result.message);
+    } catch { setMessage("Resource could not be added. Please try again."); } finally { setPending(false); }
   }
   async function changeStatus(resource: ResourceSummary) {
-    if (admission.kind !== "ready") return;
+    if (admission.kind !== "ready" || pendingId) return;
     setPendingId(resource.id);
     const next = resource.status === "active" ? "inactive" : "active";
-    const result = await setResourceStatus(request, apiBase, admission.tenantId, resource.id, next);
-    if (result.kind === "ready") { setMessage(`${resource.name} is now ${next}.`); load(); } else setMessage(result.message);
-    setPendingId(null);
+    try {
+      const result = await setResourceStatus(request, apiBase, admission.tenantId, resource.id, next);
+      if (result.kind === "ready") { setMessage(`${resource.name} is now ${next}.`); load(); } else setMessage(result.message);
+    } catch { setMessage("Resource status could not be changed. Please try again."); } finally { setPendingId(null); }
   }
   const resources = state.kind === "ready" ? state.resources.filter((resource) => `${resource.name} ${resource.resourceType}`.toLowerCase().includes(query.trim().toLowerCase())) : [];
   const stateMessage = "message" in state ? state.message : "Resource inventory is not ready yet.";
