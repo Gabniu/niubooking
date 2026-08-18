@@ -16,10 +16,12 @@ function dateLabel(value: string): string { const date = new Date(value); return
 function BookingRow({ booking, tenantId, onChange }: { booking: BookingSummary; tenantId: string; onChange: (state: BookingsState) => void }) {
   const [pending, setPending] = useState<"completed" | "cancelled" | null>(null);
   async function change(status: "completed" | "cancelled") {
+    if (pending) return;
     setPending(status);
-    const result = await setBookingStatus(request, apiBase, tenantId, booking.id, status);
-    onChange(result.kind === "ready" ? { kind: "ready", bookings: [] } : result);
-    setPending(null);
+    try {
+      const result = await setBookingStatus(request, apiBase, tenantId, booking.id, status);
+      onChange(result.kind === "ready" ? { kind: "ready", bookings: [] } : result);
+    } catch { onChange({ kind: "error", message: "Appointment could not be updated. Please try again." }); } finally { setPending(null); }
   }
   return <article className="schedule-booking-row"><div className="schedule-booking-time"><time dateTime={booking.startsAt}>{dateLabel(booking.startsAt)}</time><span>{dateLabel(booking.endsAt)}</span></div><div className="schedule-booking-detail"><strong>{booking.serviceName}</strong><span>Customer {booking.customerId}</span><small>{booking.resourceIds?.length ? `${booking.resourceIds.length} resource${booking.resourceIds.length === 1 ? "" : "s"} assigned` : "No resource assigned"}</small></div><div className={`schedule-status schedule-status-${booking.status}`}>{booking.status.replace("_", " ")}</div>{booking.status === "scheduled" && <div className="schedule-booking-actions"><button className="account-button" type="button" disabled={pending !== null} onClick={() => void change("completed")}>{pending === "completed" ? "Completing..." : "Complete"}</button><button className="quiet-danger-button" type="button" disabled={pending !== null} onClick={() => void change("cancelled")}>{pending === "cancelled" ? "Cancelling..." : "Cancel"}</button></div>}</article>;
 }
