@@ -36,6 +36,8 @@ Exit: the shared kernel suite passes for every pack; selecting a pack changes in
 
 ## BATCH-004 — Transport reservation foundation
 
+Charter: `docs/batches/BATCH-004-transport-reservation-foundation.md`.
+
 Add stops, routes, dated trips/runs, boarding windows, manifests, seat or open-capacity inventory, fares, tickets, conductor actions, and charter whole-vehicle reservations. Keep dispatch and telemetry separate from reservation truth.
 
 Exit: concurrent sale cannot oversell; boarding is auditable; route search and charter workflows pass mobile and offline/degraded journeys.
