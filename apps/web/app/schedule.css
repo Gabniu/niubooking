@@ -14,7 +14,9 @@
 .booking-dialog input, .booking-dialog select { min-height: 40px; padding: 0 11px; color: #17213a; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; font: inherit; font-size: 12px; }
 .booking-dialog select[multiple] { min-height: 84px; padding: 6px 8px; }
 .booking-dialog-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.booking-dialog-message { margin: 0; color: #9f1239; font-size: 11px; }
+.booking-dialog-message { margin: 0; color: #475569; font-size: 11px; line-height: 1.45; }
+.booking-dialog-error { color: #9f1239; }
+.booking-dialog-help { margin: -4px 0 0; color: #64748b; font-size: 11px; line-height: 1.4; }
 .booking-dialog-actions { display: flex; justify-content: end; gap: 8px; }
 .booking-dialog-actions .account-button, .booking-dialog-actions .primary-button { min-height: 38px; font-size: 12px; }
 .schedule-context { display: flex; align-items: center; gap: 8px; margin-top: 16px; color: #334155; font-size: 12px; }
