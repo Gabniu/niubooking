@@ -17,7 +17,7 @@ export default defineConfig({
     command: "node scripts/serve-web-next.mjs",
     url: `http://127.0.0.1:${process.env.BOOKING_WEB_PORT ?? "4183"}`,
     env: { BOOKING_WEB_PORT: process.env.BOOKING_WEB_PORT ?? "4183" },
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 60_000,
   },
 });
