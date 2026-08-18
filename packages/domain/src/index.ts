@@ -4,6 +4,7 @@ export * from "./tenant.js";
 export * from "./customer.js";
 export * from "./booking.js";
 export * from "./occurrence.js";
+export * from "./transport.js";
 export * from "./resources.js";
 export * from "./services.js";
 export * from "./service-variants.js";

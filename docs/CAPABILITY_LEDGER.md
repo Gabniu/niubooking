@@ -34,7 +34,7 @@ An **industry pack** is a versioned set of vocabulary, defaults, fields, policie
 | CAP-PACK-003 | Driving school operations | Industry pack | Driving school | in progress | Validated lesson manifest and schedulable requirements; student progress workflows remain | TEST-PACK-003 | BATCH-003 |
 | CAP-PACK-004 | Fitness and class capacity | Industry pack | Fitness | in progress | Validated class manifest and capacity requirements; memberships and attendance remain | TEST-PACK-004 | BATCH-003 |
 | CAP-PACK-005 | General service-business operations | Industry pack | Salon; Professional; Automotive | planned | Configured operations workspace | TEST-PACK-005 | BATCH-003 |
-| CAP-TRN-001 | Route, stop, trip, and passenger journey | Transport | Transport | planned | Search, trip inventory, manifest | TEST-TRN-001 | BATCH-004 |
+| CAP-TRN-001 | Route, stop, trip, and passenger journey | Transport | Transport | in progress | Domain route/trip contracts; search, trip inventory, manifest next | TEST-TRN-001 | BATCH-004 |
 | CAP-TRN-002 | Seat/capacity reservation and boarding | Transport | Transport | planned | Booking, ticket, conductor tools | TEST-TRN-002 | BATCH-004 |
 | CAP-TRN-003 | Charter whole-vehicle journey | Transport | Charter | planned | Quote, reservation, dispatch | TEST-TRN-003 | BATCH-004 |
 | CAP-LIVE-001 | Driver location ingestion and trip matching | Live operations | Transport; Charter | planned | Driver app, telemetry gateway | TEST-LIVE-001 | BATCH-005 |
