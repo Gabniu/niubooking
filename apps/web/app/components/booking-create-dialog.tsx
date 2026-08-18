@@ -64,6 +64,7 @@ export function BookingCreateDialog({ tenantId, onCreated }: { tenantId: string;
   }
 
   async function save() {
+    if (pending) return;
     const starts = new Date(values.startsAt);
     const ends = new Date(values.endsAt);
     if (
@@ -78,20 +79,21 @@ export function BookingCreateDialog({ tenantId, onCreated }: { tenantId: string;
     }
     setPending(true);
     setMessage(null);
-    const result = await createBooking(request, apiBase, tenantId, {
-      customerId: values.customerId,
-      serviceName: values.serviceName.trim(),
-      startsAt: starts.toISOString(),
-      endsAt: ends.toISOString(),
-      resourceIds: values.resourceIds,
-    });
-    if (result.kind === "ready") {
-      dialogRef.current?.close();
-      onCreated();
-    } else {
-      setMessage(result.message);
-    }
-    setPending(false);
+    try {
+      const result = await createBooking(request, apiBase, tenantId, {
+        customerId: values.customerId,
+        serviceName: values.serviceName.trim(),
+        startsAt: starts.toISOString(),
+        endsAt: ends.toISOString(),
+        resourceIds: values.resourceIds,
+      });
+      if (result.kind === "ready") {
+        dialogRef.current?.close();
+        onCreated();
+      } else {
+        setMessage(result.message);
+      }
+    } catch { setMessage("Appointment could not be created. Please try again."); } finally { setPending(false); }
   }
 
   const customerSelectDisabled = pending || optionState !== "ready";
@@ -124,11 +126,11 @@ export function BookingCreateDialog({ tenantId, onCreated }: { tenantId: string;
           </label>
           {optionState === "ready" && customers.length === 0 && <p className="booking-dialog-help">Create an active customer profile before adding an appointment.</p>}
           <label>Service
-            <input required placeholder="Consultation" value={values.serviceName} onChange={(event) => setValues({ ...values, serviceName: event.target.value })} />
+            <input required placeholder="Consultation" value={values.serviceName} disabled={pending} onChange={(event) => setValues({ ...values, serviceName: event.target.value })} />
           </label>
           <div className="booking-dialog-grid">
-            <label>Starts<input required type="datetime-local" value={values.startsAt} onChange={(event) => setValues({ ...values, startsAt: event.target.value })} /></label>
-            <label>Ends<input required type="datetime-local" value={values.endsAt} onChange={(event) => setValues({ ...values, endsAt: event.target.value })} /></label>
+            <label>Starts<input required type="datetime-local" value={values.startsAt} disabled={pending} onChange={(event) => setValues({ ...values, startsAt: event.target.value })} /></label>
+            <label>Ends<input required type="datetime-local" value={values.endsAt} disabled={pending} onChange={(event) => setValues({ ...values, endsAt: event.target.value })} /></label>
           </div>
           <label>Resources <span className="field-optional">optional</span>
             <select multiple disabled={pending || optionState === "loading"} value={values.resourceIds} onChange={(event) => setValues({ ...values, resourceIds: [...event.target.selectedOptions].map((option) => option.value) })}>
