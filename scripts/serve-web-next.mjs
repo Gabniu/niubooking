@@ -1,11 +1,12 @@
 // Ownership: local browser-test bridge; Next owns migrated routes and the static server owns legacy fixtures.
+// Booking uses dedicated ports so browser verification never reuses or stops another project's server.
 import { spawn } from "node:child_process";
 import { createServer, request as httpRequest } from "node:http";
 
 const root = process.cwd();
-const nextPort = 4174;
-const legacyPort = 4175;
-const proxyPort = Number(process.env.PORT ?? 4173);
+const proxyPort = Number(process.env.BOOKING_WEB_PORT ?? "4183");
+const nextPort = Number(process.env.BOOKING_NEXT_PORT ?? String(proxyPort + 1));
+const legacyPort = Number(process.env.BOOKING_LEGACY_PORT ?? String(proxyPort + 2));
 const children = [];
 
 function start(command, args, env = {}) {
@@ -42,7 +43,7 @@ function ready(port) {
 }
 
 const npmCommand = process.platform === "win32" ? "cmd.exe" : "npm";
-const npmArgs = process.platform === "win32" ? ["/d", "/s", "/c", "npm run dev --workspace @bookingapp/web -- -p 4174"] : ["run", "dev", "--workspace", "@bookingapp/web", "--", "-p", String(nextPort)];
+const npmArgs = process.platform === "win32" ? ["/d", "/s", "/c", `npm run dev --workspace @bookingapp/web -- -p ${nextPort}`] : ["run", "dev", "--workspace", "@bookingapp/web", "--", "-p", String(nextPort)];
 start(npmCommand, npmArgs);
 start(process.execPath, ["scripts/serve-web.mjs"], { PORT: String(legacyPort) });
 await ready(nextPort);
