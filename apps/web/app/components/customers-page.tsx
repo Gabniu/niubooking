@@ -40,18 +40,20 @@ export function CustomersPage() {
   function openCreate() { setEditing(null); setValues(blankForm); setMessage(null); dialogRef.current?.showModal(); }
   function openEdit(customer: CustomerProfileSummary) { setEditing(customer); setValues({ displayName: customer.displayName, preferredLocale: customer.preferredLocale ?? "", timezone: customer.timezone ?? "" }); setMessage(null); dialogRef.current?.showModal(); }
   async function save() {
-    if (admission.kind !== "ready" || !values.displayName.trim()) return;
+    if (admission.kind !== "ready" || pending || !values.displayName.trim()) return;
     setPending(true); setMessage(null);
-    const result = editing ? await updateCustomer(request, apiBase, admission.tenantId, editing.id, values.displayName.trim(), values.preferredLocale.trim() || null, values.timezone.trim() || null) : await createCustomer(request, apiBase, admission.tenantId, values.displayName.trim(), values.preferredLocale.trim() || null, values.timezone.trim() || null);
-    if (result.kind === "ready") { dialogRef.current?.close(); setMessage(editing ? "Customer profile updated." : "Customer profile created."); load(); } else setMessage(result.message);
-    setPending(false);
+    try {
+      const result = editing ? await updateCustomer(request, apiBase, admission.tenantId, editing.id, values.displayName.trim(), values.preferredLocale.trim() || null, values.timezone.trim() || null) : await createCustomer(request, apiBase, admission.tenantId, values.displayName.trim(), values.preferredLocale.trim() || null, values.timezone.trim() || null);
+      if (result.kind === "ready") { dialogRef.current?.close(); setMessage(editing ? "Customer profile updated." : "Customer profile created."); load(); } else setMessage(result.message);
+    } catch { setMessage("Customer profile could not be saved. Please try again."); } finally { setPending(false); }
   }
   async function changeStatus(customer: CustomerProfileSummary) {
-    if (admission.kind !== "ready") return;
+    if (admission.kind !== "ready" || pendingId) return;
     setPendingId(customer.id);
-    const result = await setCustomerStatus(request, apiBase, admission.tenantId, customer.id, customer.status === "active" ? "archived" : "active");
-    if (result.kind === "ready") { setMessage(customer.status === "active" ? "Customer archived." : "Customer restored."); load(); } else setMessage(result.message);
-    setPendingId(null);
+    try {
+      const result = await setCustomerStatus(request, apiBase, admission.tenantId, customer.id, customer.status === "active" ? "archived" : "active");
+      if (result.kind === "ready") { setMessage(customer.status === "active" ? "Customer archived." : "Customer restored."); load(); } else setMessage(result.message);
+    } catch { setMessage("Customer status could not be changed. Please try again."); } finally { setPendingId(null); }
   }
   const customers = state.kind === "ready" ? state.customers.filter((customer) => customer.displayName.toLowerCase().includes(query.trim().toLowerCase())) : [];
   const stateMessage = "message" in state ? state.message : "Customer records are not ready yet.";
