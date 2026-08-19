@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { Pool } from "pg";
-import { runMigrations } from "./migrations.js";
+import { listMigrationNames, runMigrations } from "./migrations.js";
 
 const connectionString = process.env.TEST_DATABASE_URL;
 const migrationsDirectory = fileURLToPath(new URL("../migrations", import.meta.url));
@@ -14,12 +14,13 @@ test("all migrations apply to PostgreSQL and rerun idempotently", { skip: !conne
   const schema = `booking_test_${process.pid}_${Date.now()}`;
   assert.match(schema, /^[a-z][a-z0-9_]{0,62}$/u);
   try {
+    const migrationCount = (await listMigrationNames(migrationsDirectory)).length;
     await pool.query(`CREATE SCHEMA "${schema}"`);
     const first = await runMigrations(pool, { directory: migrationsDirectory, schema });
     const second = await runMigrations(pool, { directory: migrationsDirectory, schema });
-    assert.equal(first.applied.length, 29);
+    assert.equal(first.applied.length, migrationCount);
     assert.equal(second.applied.length, 0);
-    assert.equal(second.alreadyApplied, 29);
+    assert.equal(second.alreadyApplied, migrationCount);
 
     const tables = await pool.query<{ table_name: string }>(
       "SELECT table_name FROM information_schema.tables WHERE table_schema = $1",

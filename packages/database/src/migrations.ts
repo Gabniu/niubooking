@@ -32,8 +32,12 @@ function quotedSchema(schema: string): string {
   return `"${schema}"`;
 }
 
+export async function listMigrationNames(directory: string): Promise<readonly string[]> {
+  return (await readdir(directory)).filter((name) => migrationPattern.test(name)).sort();
+}
+
 async function loadMigrations(directory: string) {
-  const names = (await readdir(directory)).filter((name) => migrationPattern.test(name)).sort();
+  const names = await listMigrationNames(directory);
   return Promise.all(
     names.map(async (name) => {
       const sql = await readFile(path.join(directory, name), "utf8");
