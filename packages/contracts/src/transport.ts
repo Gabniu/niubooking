@@ -35,3 +35,85 @@ export interface PublicTransportCancellationResponse {
   data: { reservationId: string; tripId: string; status: ReservationStatus } | null;
   error: { code: "TRANSPORT_UNAVAILABLE" | "TRANSPORT_CANCELLATION_INVALID" | "TRANSPORT_RESERVATION_NOT_FOUND" | "TRANSPORT_CANCELLATION_CONFLICT"; message: string } | null;
 }
+
+export interface TransportRouteSummary {
+  id: string;
+  tenantId: string;
+  version: number;
+  name: string;
+  mode: TransportMode;
+  status: "draft" | "published" | "archived";
+  stops: readonly PublicTransportStopSummary[];
+}
+
+export interface TransportTripSummary {
+  id: string;
+  tenantId: string;
+  routeId: string;
+  routeVersion: number;
+  occurrenceId: string;
+  capacityMode: CapacityMode;
+  capacity: number;
+  reservedQuantity?: number;
+  boardingStartsAt: string;
+  boardingEndsAt: string;
+  vehicleResourceId?: string | null;
+}
+
+export interface TransportReservationSummary {
+  id: string;
+  tenantId: string;
+  tripId: string;
+  occurrenceId: string;
+  customerId: string;
+  originStopId: string;
+  destinationStopId: string;
+  quantity: number;
+  status: ReservationStatus;
+}
+
+export interface TransportTicketSummary {
+  id: string;
+  tenantId: string;
+  tripId: string;
+  reservationId: string;
+  fareAmountMinor: number;
+  fareCurrency: string;
+  status: "issued" | "cancelled";
+  issuedAt: string;
+}
+
+export interface TransportManifestSummary {
+  reservation: TransportReservationSummary;
+  ticket: TransportTicketSummary | null;
+}
+
+export interface TransportRoutesResponse {
+  data: readonly TransportRouteSummary[] | null;
+  error: { code: "TENANT_ACCESS_DENIED" | "TRANSPORT_UNAVAILABLE"; message: string } | null;
+}
+
+export interface TransportRouteResponse {
+  data: TransportRouteSummary | null;
+  error: { code: "TENANT_ACCESS_DENIED" | "TRANSPORT_UNAVAILABLE" | "TRANSPORT_ROUTE_INVALID"; message: string } | null;
+}
+
+export interface TransportTripsResponse {
+  data: readonly TransportTripSummary[] | null;
+  error: { code: "TENANT_ACCESS_DENIED" | "TRANSPORT_UNAVAILABLE" | "TRANSPORT_TRIP_INVALID"; message: string } | null;
+}
+
+export interface TransportTripResponse {
+  data: TransportTripSummary | null;
+  error: { code: "TENANT_ACCESS_DENIED" | "TRANSPORT_UNAVAILABLE" | "TRANSPORT_TRIP_INVALID"; message: string } | null;
+}
+
+export interface TransportManifestResponse {
+  data: readonly TransportManifestSummary[] | null;
+  error: { code: "TENANT_ACCESS_DENIED" | "TRANSPORT_UNAVAILABLE"; message: string } | null;
+}
+
+export interface TransportBoardingResponse {
+  data: { id: string; tenantId: string; tripId: string; reservationId: string; ticketId: string; action: "boarded"; idempotencyKey: string; boardedAt: string } | null;
+  error: { code: "TENANT_ACCESS_DENIED" | "TRANSPORT_UNAVAILABLE" | "TRANSPORT_BOARDING_INVALID" | "TRANSPORT_BOARDING_CONFLICT"; message: string } | null;
+}

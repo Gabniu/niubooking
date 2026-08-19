@@ -1,0 +1,45 @@
+/* Ownership: compact, live-data transport operations surface for admitted staff. */
+.transport-staff-page .page-intro { align-items: end; }
+.transport-staff-page .page-intro .account-button { min-height: 36px; }
+.transport-staff-message { margin: 12px 0 0; padding: 9px 11px; border: 1px solid #dbe4ff; border-radius: 9px; color: #140ba7; background: #f3f5ff; font-size: 12px; }
+.transport-staff-message.error { border-color: #fecaca; color: #991b1b; background: #fff7f7; }
+.transport-staff-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+.transport-staff-metrics article { display: grid; gap: 6px; padding: 13px 15px; border: 1px solid #e3e7f1; border-radius: 11px; background: #fff; }
+.transport-staff-metrics span { color: #64748b; font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.transport-staff-metrics strong { color: #140ba7; font-size: 22px; font-weight: 600; }
+.transport-date-toolbar { display: flex; align-items: end; gap: 9px; margin-top: 14px; padding: 11px 13px; border: 1px solid #e3e7f1; border-radius: 11px; background: #fff; }
+.transport-date-toolbar label, .transport-staff-form label { display: grid; gap: 5px; color: #475569; font-size: 11px; font-weight: 600; }
+.transport-date-toolbar input, .transport-staff-form input, .transport-staff-form select, .transport-staff-form textarea { min-height: 36px; padding: 7px 9px; border: 1px solid #d8deea; border-radius: 8px; color: #17213a; background: #fff; font: inherit; font-size: 12px; }
+.transport-staff-form textarea { min-height: 68px; resize: vertical; }
+.transport-date-toolbar .account-button { min-height: 36px; white-space: nowrap; }
+.transport-staff-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.transport-staff-grid-bottom { align-items: start; }
+.transport-staff-card, .transport-staff-form { min-width: 0; padding: 16px; border: 1px solid #e3e7f1; border-radius: 12px; background: #fff; box-shadow: 0 8px 24px rgb(15 23 42 / 4%); }
+.transport-staff-card-heading, .transport-form-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.transport-staff-card h2, .transport-staff-form h2 { margin: 2px 0 0; color: #17213a; font-size: 18px; font-weight: 500; }
+.transport-form-heading p:last-child { margin: 5px 0 0; color: #64748b; font-size: 11px; }
+.transport-route-list, .transport-trip-staff-list, .transport-manifest { display: grid; gap: 7px; }
+.transport-route-row, .transport-trip-staff-row, .transport-manifest-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; padding: 10px; border: 1px solid #e8ebf2; border-radius: 9px; background: #fbfcff; }
+.transport-route-row > div, .transport-trip-staff-row > span, .transport-manifest-person { display: grid; min-width: 0; gap: 3px; }
+.transport-route-row strong, .transport-trip-staff-row strong, .transport-manifest-person strong { overflow: hidden; color: #17213a; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.transport-route-row small, .transport-trip-staff-row small, .transport-manifest-person small { overflow: hidden; color: #64748b; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.transport-route-row > span { overflow: hidden; color: #64748b; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.transport-trip-staff-row { width: 100%; text-align: left; cursor: pointer; font: inherit; }
+.transport-trip-staff-row:hover, .transport-trip-staff-row.is-selected { border-color: #b9b6ff; background: #f3f2ff; }
+.transport-row-arrow { color: #140ba7; font-size: 16px; }
+.transport-staff-form { display: grid; gap: 11px; }
+.transport-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.transport-staff-form .primary-button { min-height: 36px; }
+.field-optional { color: #94a3b8; font-size: 10px; font-weight: 400; }
+.transport-manifest-card { margin-top: 14px; }
+.transport-manifest-row { flex-wrap: wrap; }
+.transport-manifest-person { flex: 1 1 210px; }
+.transport-status-pill, .transport-ticket-state { padding: 4px 7px; border-radius: 999px; color: #475569; background: #eef2f7; font-size: 10px; text-transform: capitalize; }
+.transport-status-confirmed, .transport-status-held { color: #0f766e; background: #dcfce7; }
+.transport-status-boarded, .transport-status-completed { color: #140ba7; background: #e7e5ff; }
+.transport-status-cancelled { color: #991b1b; background: #fee2e2; }
+.transport-manifest-row .account-button { min-height: 32px; padding-inline: 11px; font-size: 11px; }
+.transport-boarded-mark { color: #140ba7; font-size: 11px; font-weight: 600; }
+@media (max-width: 760px) { .transport-staff-metrics, .transport-staff-grid { grid-template-columns: 1fr; } .transport-date-toolbar { align-items: stretch; flex-direction: column; } .transport-date-toolbar .account-button { width: 100%; } }
+@media (max-width: 480px) { .transport-form-grid { grid-template-columns: 1fr; } .transport-route-row, .transport-trip-staff-row { align-items: start; flex-direction: column; } .transport-row-arrow { display: none; } }
+@media (prefers-reduced-motion: reduce) { .transport-trip-staff-row { transition: none; } }

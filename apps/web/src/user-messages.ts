@@ -52,6 +52,10 @@ const known: Record<string, string> = {
   TRANSPORT_CANCELLATION_INVALID: "This cancellation link is not valid.",
   TRANSPORT_RESERVATION_NOT_FOUND: "This reservation link is no longer available.",
   TRANSPORT_CANCELLATION_CONFLICT: "This reservation cannot be cancelled now.",
+  TRANSPORT_ROUTE_INVALID: "Please check the route details and ordered stops.",
+  TRANSPORT_CAPACITY_CONFLICT: "That passenger change is not available.",
+  TRANSPORT_BOARDING_INVALID: "Please check the boarding action and try again.",
+  TRANSPORT_BOARDING_CONFLICT: "This ticket cannot be boarded now.",
   MANAGE_NOT_FOUND: "This appointment link could not be found.",
   MANAGE_INVALID: "This appointment link is no longer valid.",
 };

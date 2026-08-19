@@ -7,7 +7,7 @@ import { readSessionProbe, type SessionProbeState } from "../../src/auth-session
 
 const navItems = [
   ["Overview", "/app"], ["Schedule", "/app/schedule"], ["Customers", "/app/customers"], ["Services", "/app/services"],
-  ["Resources", "/app/resources"], ["Occurrences", "/app/occurrences"], ["Feedback", "/app/feedback"],
+  ["Resources", "/app/resources"], ["Occurrences", "/app/occurrences"], ["Transport", "/app/transport"], ["Feedback", "/app/feedback"],
   ["Communications", "/app/communications"], ["Industry packs", "/app/packs"], ["Pack settings", "/app/pack-settings"],
   ["QR Print Studio", "/app/qr-studio"],
 ] as const;

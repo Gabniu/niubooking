@@ -16,6 +16,7 @@ const routes = [
   ["/app/service-composition", "apps/web/app/app/service-composition/page.tsx", "staff", "service Configure action"],
   ["/app/resources", "apps/web/app/app/resources/page.tsx", "staff", "workspace navigation"],
   ["/app/occurrences", "apps/web/app/app/occurrences/page.tsx", "staff", "workspace navigation"],
+  ["/app/transport", "apps/web/app/app/transport/page.tsx", "staff", "workspace navigation"],
   ["/app/feedback", "apps/web/app/app/feedback/page.tsx", "staff", "workspace navigation"],
   ["/app/communications", "apps/web/app/app/communications/page.tsx", "staff", "workspace navigation"],
   ["/app/packs", "apps/web/app/app/packs/page.tsx", "staff", "workspace navigation"],
@@ -31,7 +32,7 @@ const routes = [
 
 const staffNavigation = [
   "/app", "/app/schedule", "/app/customers", "/app/services", "/app/resources",
-  "/app/occurrences", "/app/feedback", "/app/communications", "/app/packs",
+  "/app/occurrences", "/app/transport", "/app/feedback", "/app/communications", "/app/packs",
   "/app/pack-settings", "/app/qr-studio",
 ];
 
