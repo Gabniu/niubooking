@@ -23,6 +23,7 @@ const routes = [
   ["/app/qr-studio", "apps/web/app/app/qr-studio/page.tsx", "staff", "workspace navigation"],
   ["/book/[code]", "apps/web/app/book/[code]/page.tsx", "public", "QR or booking link"],
   ["/reserve/[code]", "apps/web/app/reserve/[code]/page.tsx", "public", "QR or occurrence link"],
+  ["/trip/[code]", "apps/web/app/trip/[code]/page.tsx", "public", "QR or transport trip link"],
   ["/manage/[token]", "apps/web/app/manage/[token]/page.tsx", "public", "confirmation/reminder link"],
   ["/feedback/[capability]", "apps/web/app/feedback/[capability]/page.tsx", "public", "feedback message/link"],
   ["/verify-contact/[challenge]", "apps/web/app/verify-contact/[challenge]/page.tsx", "public", "verification message"],

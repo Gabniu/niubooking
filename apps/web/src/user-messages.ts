@@ -45,6 +45,13 @@ const known: Record<string, string> = {
   CONTACT_VERIFICATION_LOCKED: "Too many attempts. Request a new code later.",
   OCCURRENCE_FULL: "That session is full. Please choose another one.",
   RESERVATION_CONFLICT: "That place was just taken. Please choose another one.",
+  TRANSPORT_UNAVAILABLE: "Transport booking is temporarily unavailable. Please try again.",
+  TRANSPORT_TRIP_INVALID: "Please choose a valid travel date.",
+  TRANSPORT_RESERVATION_INVALID: "Please check your passenger and stop details and try again.",
+  TRANSPORT_CAPACITY_FULL: "That trip is full. Please choose another trip.",
+  TRANSPORT_CANCELLATION_INVALID: "This cancellation link is not valid.",
+  TRANSPORT_RESERVATION_NOT_FOUND: "This reservation link is no longer available.",
+  TRANSPORT_CANCELLATION_CONFLICT: "This reservation cannot be cancelled now.",
   MANAGE_NOT_FOUND: "This appointment link could not be found.",
   MANAGE_INVALID: "This appointment link is no longer valid.",
 };
