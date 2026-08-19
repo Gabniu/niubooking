@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import test from "node:test";
-import { createPublicTransportPassengerReservation, createTransportPassengerReservation, createTransportRoute, createTransportTicket, createTransportTrip, listPublicTransportTrips, listTransportManifest, listTransportPassengerReservations, listTransportRoutes, listTransportTrips, setTransportPassengerReservationStatus } from "./transport.js";
+import { boardTransportTicket, createPublicTransportPassengerReservation, createTransportPassengerReservation, createTransportRoute, createTransportTicket, createTransportTrip, listPublicTransportTrips, listTransportManifest, listTransportPassengerReservations, listTransportRoutes, listTransportTrips, setTransportPassengerReservationStatus } from "./transport.js";
 
 const routeRow = { id: "route-1", tenant_id: "tenant-1", version: 1, name: "CBD — Westlands", mode: "matatu" as const, status: "draft" as const };
 const stops = [{ stop_id: "cbd", sequence: 1, boarding_minutes: 10, alighting_minutes: 0 }, { stop_id: "westlands", sequence: 2, boarding_minutes: 10, alighting_minutes: 10 }];
@@ -146,4 +146,20 @@ test("creates a public transport reservation with a canonical customer profile",
   const reservation = await createPublicTransportPassengerReservation(executor, { tenantId: "tenant-1", publicCode: "transport-public-code-1", tripId: "trip-1", customerName: "Alex", originStopId: "cbd", destinationStopId: "westlands", quantity: 2, idempotencyKey: "public-transport-1" });
   assert.equal(reservation.customerId, "customer-1");
   assert.equal(reservation.status, "confirmed");
+});
+
+test("boards an issued ticket once and records audit evidence", async () => {
+  const statements: string[] = [];
+  const executor = { query: async <T>(sql: string) => {
+    statements.push(sql);
+    if (sql.startsWith("SELECT id, tenant_id, trip_id, reservation_id, ticket_id")) return [] as T[];
+    if (sql.startsWith("SELECT ticket.reservation_id")) return [{ reservation_id: "reservation-1", status: "issued", reservation_status: "confirmed" }] as T[];
+    if (sql.startsWith("INSERT INTO transport_boardings")) return [{ id: "boarding-1", tenant_id: "tenant-1", trip_id: "trip-1", reservation_id: "reservation-1", ticket_id: "ticket-1", actor_id: "staff-1", action: "boarded", idempotency_key: "board-retry-1", boarded_at: new Date("2026-09-01T07:05:00Z") }] as T[];
+    if (sql.startsWith("UPDATE service_reservations")) return [{ id: "reservation-1" }] as T[];
+    if (sql.startsWith("INSERT INTO audit_events")) return [{ id: "audit-1" }] as T[];
+    return [] as T[];
+  } };
+  const result = await boardTransportTicket(executor, { id: "boarding-1", tenantId: "tenant-1", tripId: "trip-1", ticketId: "ticket-1", idempotencyKey: "board-retry-1", actorId: "staff-1" });
+  assert.equal(result.action, "boarded");
+  assert.ok(statements.some((statement) => statement.startsWith("INSERT INTO audit_events")));
 });

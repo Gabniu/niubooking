@@ -27,9 +27,12 @@ charter operators without creating a second booking engine.
   tenant, vehicle, and customer identity stay server-side.
 - [x] Public QR trip discovery and passenger reservation creation with
   consent-aware contact capture, idempotent admission, and tenant rechecks.
+- [x] Migration `033_transport_boardings.sql` and an idempotent, append-only
+  staff boarding action that checks in the reservation and records audit data.
 - [ ] Public passenger reservation journey, boarding, and typed
   staff/public pages.
-- [ ] Seat/open-capacity allocation, tickets, manifests, and boarding audit.
+- [ ] Seat assignment/open-capacity refinement, cancellation policy, and
+  real PostgreSQL/browser journey proof.
 
 ## Capability IDs and proof
 
@@ -97,7 +100,7 @@ expose tenant IDs, internal vehicle IDs, or customer identity.
    fare snapshots, tickets, seat/open-capacity allocations, and boarding audit.
 3. Tenant-authorized API routes for route search, trip publishing, reservation,
    ticket issuance and manifest, plus QR-scoped public trip discovery,
-   passenger reservation, and opaque ticket retrieval; boarding, cancellation,
+   passenger reservation, opaque ticket retrieval, and boarding; cancellation,
    and charter quote/
    reservation.
 4. Typed staff pages for routes/trips, manifest, conductor boarding, and

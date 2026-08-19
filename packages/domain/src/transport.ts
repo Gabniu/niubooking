@@ -101,6 +101,18 @@ export interface PublicTransportTrip {
   boardingEndsAt: Date;
 }
 
+export interface TransportBoarding {
+  id: string;
+  tenantId: string;
+  tripId: string;
+  reservationId: string;
+  ticketId: string;
+  actorId: string | null;
+  action: "boarded";
+  idempotencyKey: string;
+  boardedAt: Date;
+}
+
 function validDate(value: Date): boolean { return Number.isFinite(value.getTime()); }
 
 export function validateTransportRouteDraft(draft: TransportRouteDraft): string[] {

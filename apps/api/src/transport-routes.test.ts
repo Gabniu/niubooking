@@ -112,3 +112,12 @@ test("creates a public transport reservation without returning customer identity
   assert.equal("customerId" in response.json().data, false);
   assert.equal((seen.input as { tenantId: string }).tenantId, "tenant-transport");
 });
+
+test("boards a ticket through an idempotent staff action", async () => {
+  const boarding = { id: "boarding-1", tenantId: "tenant-transport", tripId: "trip-1", reservationId: "reservation-1", ticketId: "ticket-1", actorId: "transport-user", action: "boarded" as const, idempotencyKey: "board-retry-1", boardedAt: new Date("2026-08-20T06:05:00Z") };
+  const app = createApiServer({ resolve, transportAdmin: { listRoutes: async () => [], createRoute: async (input) => input as typeof route, listTrips: async () => [], createTrip: async (input) => input as typeof trip, boardTicket: async () => boarding } });
+  const response = await app.inject({ method: "POST", url: "/v1/tenants/tenant-transport/transport/trips/trip-1/tickets/ticket-1/board", payload: { idempotencyKey: "board-retry-1" } });
+  assert.equal(response.statusCode, 201);
+  assert.equal(response.json().data.action, "boarded");
+  assert.equal(response.json().data.boardedAt, "2026-08-20T06:05:00.000Z");
+});

@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { resolveQrDestination, type CapacityMode, type CommunicationChannel, type PublicTransportTicket, type PublicTransportTrip, type QrDestinationReader, type ReservationStatus, type TransportManifestEntry, type TransportMode, type TransportPassengerReservation, type TransportPassengerReservationDraft, type TransportRoute, type TransportRouteDraft, type TransportRouteStatus, type TransportStopRef, type TransportTicket, type TransportTrip, type TransportTripDraft } from "@bookingapp/domain";
+import { resolveQrDestination, type CapacityMode, type CommunicationChannel, type PublicTransportTicket, type PublicTransportTrip, type QrDestinationReader, type ReservationStatus, type TransportBoarding, type TransportManifestEntry, type TransportMode, type TransportPassengerReservation, type TransportPassengerReservationDraft, type TransportRoute, type TransportRouteDraft, type TransportRouteStatus, type TransportStopRef, type TransportTicket, type TransportTrip, type TransportTripDraft } from "@bookingapp/domain";
 import type { TenantContextRequest } from "./tenant-context-handler.js";
 
 export interface TransportAdmin {
@@ -13,6 +13,7 @@ export interface TransportAdmin {
   listReservations?(tenantId: string, tripId: string): Promise<readonly TransportPassengerReservation[]>;
   createReservation?(draft: TransportPassengerReservationDraft): Promise<TransportPassengerReservation>;
   setReservationStatus?(input: { tenantId: string; tripId: string; reservationId: string; status: ReservationStatus; actorId?: string }): Promise<TransportPassengerReservation>;
+  boardTicket?(input: { id: string; tenantId: string; tripId: string; ticketId: string; idempotencyKey: string; actorId?: string }): Promise<TransportBoarding>;
   listManifest?(tenantId: string, tripId: string): Promise<readonly TransportManifestEntry[]>;
   createTicket?(draft: Pick<TransportTicket, "id" | "tenantId" | "tripId" | "reservationId" | "fareAmountMinor" | "fareCurrency">): Promise<TransportTicket>;
   readPublicTicket?(token: string): Promise<PublicTransportTicket | null>;
@@ -55,6 +56,7 @@ function serializeTicket(ticket: TransportTicket): Record<string, unknown> { ret
 function serializeManifest(entry: TransportManifestEntry): Record<string, unknown> { return { reservation: serializeReservation(entry.reservation), ticket: entry.ticket ? serializeTicket(entry.ticket) : null }; }
 function serializePublicTicket(ticket: PublicTransportTicket): Record<string, unknown> { return { ...ticket, issuedAt: ticket.issuedAt.toISOString(), boardingStartsAt: ticket.boardingStartsAt.toISOString(), boardingEndsAt: ticket.boardingEndsAt.toISOString() }; }
 function serializePublicTrip(trip: PublicTransportTrip): Record<string, unknown> { return { ...trip, boardingStartsAt: trip.boardingStartsAt.toISOString(), boardingEndsAt: trip.boardingEndsAt.toISOString(), stops: trip.stops.map((stop) => ({ ...stop })) }; }
+function serializeBoarding(boarding: TransportBoarding): Record<string, unknown> { return { ...boarding, boardedAt: boarding.boardedAt.toISOString() }; }
 
 function publicQrError(reason: "not_found" | "inactive" | "expired"): { status: number; body: { data: null; error: { code: string; message: string } } } {
   const code = reason === "expired" ? "QR_EXPIRED" : reason === "inactive" ? "QR_INACTIVE" : "QR_NOT_FOUND";
@@ -167,6 +169,16 @@ export function registerTransportRoutes(app: FastifyInstance, dependencies: Tran
     if (!["held", "confirmed", "checked_in", "completed", "cancelled", "no_show"].includes(status)) return reply.code(400).send({ data: null, error: { code: "TRANSPORT_RESERVATION_INVALID", message: "Choose a valid passenger reservation status." } });
     try { return reply.send({ data: serializeReservation(await dependencies.transportAdmin.setReservationStatus({ tenantId: request.params.tenantId, tripId: request.params.tripId, reservationId: request.params.reservationId, status, ...(context.mappedUserId ? { actorId: context.mappedUserId } : {}) })), error: null }); }
     catch (error) { const message = error instanceof Error ? error.message : "Passenger reservation status could not be updated."; const conflict = /capacity|inventory/iu.test(message); return reply.code(conflict ? 409 : 400).send({ data: null, error: { code: conflict ? "TRANSPORT_CAPACITY_CONFLICT" : "TRANSPORT_RESERVATION_INVALID", message: conflict ? "That passenger change is not available." : message } }); }
+  });
+
+  app.post<{ Params: { tenantId: string; tripId: string; ticketId: string }; Body: { idempotencyKey: string } }>("/v1/tenants/:tenantId/transport/trips/:tripId/tickets/:ticketId/board", async (request, reply) => {
+    const context = await dependencies.resolve(request);
+    if (!allowed(context, request.params.tenantId)) return reply.code(403).send({ data: null, error: { code: "TENANT_ACCESS_DENIED", message: "You do not have access to this workspace." } });
+    if (!dependencies.transportAdmin?.boardTicket) return reply.code(503).send({ data: null, error: { code: "TRANSPORT_UNAVAILABLE", message: "Boarding is temporarily unavailable." } });
+    const key = request.body?.idempotencyKey?.trim() ?? "";
+    if (key.length < 8 || key.length > 200) return reply.code(400).send({ data: null, error: { code: "TRANSPORT_BOARDING_INVALID", message: "A valid boarding retry key is required." } });
+    try { const boarding = await dependencies.transportAdmin.boardTicket({ id: randomUUID(), tenantId: request.params.tenantId, tripId: request.params.tripId, ticketId: request.params.ticketId, idempotencyKey: key, ...(context.mappedUserId ? { actorId: context.mappedUserId } : {}) }); return reply.code(201).send({ data: serializeBoarding(boarding), error: null }); }
+    catch (error) { const message = error instanceof Error ? error.message : "This ticket cannot be boarded."; return reply.code(409).send({ data: null, error: { code: "TRANSPORT_BOARDING_CONFLICT", message: /not found/iu.test(message) ? "This ticket is not part of the selected trip." : /issued|reservation/iu.test(message) ? "This ticket is not ready for boarding." : "This ticket has already been boarded." } }); }
   });
 
   app.get<{ Params: { tenantId: string; tripId: string } }>("/v1/tenants/:tenantId/transport/trips/:tripId/manifest", async (request, reply) => {
