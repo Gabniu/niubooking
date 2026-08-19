@@ -31,6 +31,9 @@ TypeScript; legacy HTML remains only as a time-boxed migration bridge.
 - AI may interpret intent and rank valid choices. Deterministic services decide feasibility and enforce invariants.
 - Every mutation is tenant-safe, authorized, idempotent where externally retried, and auditable.
 - Every feature is built to verify across its real lifecycle.
+- Realtime location is trip-scoped operational data: owners may see the
+  organization, while admins, managers, dispatchers, drivers, conductors, and
+  riders see only capability- and assignment-bounded projections.
 - Source files should remain at approximately 300 lines or fewer by splitting responsibilities early.
 - Accepted scope is recorded in `docs/CAPABILITY_LEDGER.md`; batch membership may change, but capability IDs and test obligations do not disappear.
 - A batch closes only when `npm run verify:batch` passes and Graphify plus Obsidian evidence are refreshed.
@@ -366,5 +369,7 @@ The recommended defaults are recorded in `docs/DECISION_BRIEF_001_FOUNDATION.md`
 | Pack customization | Versioned reviewed packs with schema-bounded tenant overrides | ADR-0010 |
 | Commercial model | Capability entitlements behind Booking Essentials, Operations, Voice, and Premium | ADR-0011 |
 | Deployment | Portable containers; production provider/region gated by launch review | ADR-0012 |
+| Realtime fleet tracking | NIU telemetry authority, Traccar mobile SDK, optional private hardware forwarder, scoped staff/rider projections | ADR-0018 |
+| Transit interoperability | Versioned validated GTFS Schedule before GTFS-Realtime; stable public IDs; fixed, headway, flexible, fare, accessibility, and extension seams | ADR-0019 |
 
 The launch country, production provider/region, recovery targets, payment providers, exact pricing, quotas, taxes, and communication providers remain explicit business decisions. They do not block a local walking skeleton because their adapters and policy seams are defined, but they block real production data and payment traffic.

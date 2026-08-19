@@ -44,9 +44,26 @@ Exit: concurrent sale cannot oversell; boarding is auditable; route search and c
 
 ## BATCH-005 — Realtime fleet experience
 
-Build authenticated driver telemetry ingestion, trip matching, freshness/order rules, current-position storage, fan-out, map matching, ETA uncertainty, customer authorization, stale-state disclosure, and replay/load simulation. Prefer a dedicated realtime path while keeping durable trip events in the platform event model.
+Charter: `docs/batches/BATCH-005-realtime-fleet-experience.md`.
 
-Exit: a simulator proves smooth customer-visible movement at target fleet/concurrency, reconnect correctness, bounded cost, privacy retention, and safe degradation when GPS or connectivity fails.
+Build authenticated driver telemetry ingestion, trip matching, freshness/order
+rules, current-position storage, fan-out, map matching, ETA uncertainty,
+customer authorization, owner/admin/manager/dispatcher operational views,
+stale-state disclosure, and replay/load simulation. Use the Traccar Client SDK
+inside NIU Driver, keep NIU as the source of truth, and reserve a private Traccar
+forwarder for fleets that need dedicated GPS hardware. Prefer a dedicated
+realtime path while keeping only durable trip milestones in the platform event
+model. Build GTFS Schedule as a versioned, independently validated public
+projection with stable IDs before publishing GTFS-Realtime. Plan core feeds,
+fixed/headway/flexible services, accessibility, transfers, translations, Fares
+v2, occupancy, and isolated experimental extensions now; activate each only
+when trustworthy source data and its validator suite are complete.
+
+Exit: real phones plus a simulator prove smooth staff/customer-visible movement,
+role and branch isolation, reconnect correctness, bounded cost, privacy
+retention, and safe degradation when GPS or connectivity fails. A fixed and
+headway transport fixture also proves immutable Schedule promotion, stable IDs,
+valid Realtime references, staleness limits, and zero PII leakage.
 
 ## BATCH-006 — Voice premium suite
 

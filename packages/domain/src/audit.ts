@@ -1,7 +1,8 @@
 // Ownership: durable, tenant-scoped audit vocabulary shared by mutation adapters.
 
 export type AuditActorType = "user" | "system" | "integration";
-export type AuditAction = "reservation.status_changed" | "transport.boarded" | "transport.seats_assigned";
+export type AuditAction = "reservation.status_changed" | "transport.boarded" | "transport.seats_assigned" | "gtfs.feed_published";
+export type AuditEntityType = "reservation" | "gtfs_feed_version";
 
 export interface AuditEvent {
   id: string;
@@ -9,7 +10,7 @@ export interface AuditEvent {
   actorType: AuditActorType;
   actorId: string | null;
   action: AuditAction;
-  entityType: "reservation";
+  entityType: AuditEntityType;
   entityId: string;
   metadata: Readonly<Record<string, string | number | boolean | null>>;
   occurredAt: Date;
