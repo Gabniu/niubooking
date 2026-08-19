@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import test from "node:test";
-import { createTransportPassengerReservation, createTransportRoute, createTransportTicket, createTransportTrip, listTransportManifest, listTransportPassengerReservations, listTransportRoutes, listTransportTrips, setTransportPassengerReservationStatus } from "./transport.js";
+import { createPublicTransportPassengerReservation, createTransportPassengerReservation, createTransportRoute, createTransportTicket, createTransportTrip, listPublicTransportTrips, listTransportManifest, listTransportPassengerReservations, listTransportRoutes, listTransportTrips, setTransportPassengerReservationStatus } from "./transport.js";
 
 const routeRow = { id: "route-1", tenant_id: "tenant-1", version: 1, name: "CBD — Westlands", mode: "matatu" as const, status: "draft" as const };
 const stops = [{ stop_id: "cbd", sequence: 1, boarding_minutes: 10, alighting_minutes: 0 }, { stop_id: "westlands", sequence: 2, boarding_minutes: 10, alighting_minutes: 10 }];
@@ -117,4 +117,33 @@ test("reads a public ticket view without internal identities", async () => {
   const ticket = await readPublicTransportTicket(executor, token, "booking-secret");
   assert.equal(ticket?.routeName, "CBD — Westlands");
   assert.equal(ticket?.reservationStatus, "confirmed");
+});
+
+test("discovers only published public transport trips through an active QR destination", async () => {
+  const destination = { public_code: "transport-public-code-1", tenant_id: "tenant-1", branch_id: null, pack_id: null, service_id: null, campaign: null, status: "active" as const, expires_at: null };
+  const publicTrip = { id: "trip-1", route_name: "CBD — Westlands", mode: "matatu" as const, capacity_mode: "open" as const, capacity: 33, reserved_quantity: 4, boarding_starts_at: tripRow.boarding_starts_at, boarding_ends_at: tripRow.boarding_ends_at, stops };
+  const executor = { query: async <T>(sql: string) => sql.startsWith("SELECT public_code") ? [destination] as T[] : sql.startsWith("SELECT trip.id") ? [publicTrip] as T[] : [] as T[] };
+  const trips = await listPublicTransportTrips(executor, "tenant-1", "transport-public-code-1");
+  assert.equal(trips[0]?.remainingCapacity, 29);
+  assert.equal(trips[0]?.stops[1]?.stopId, "westlands");
+});
+
+test("creates a public transport reservation with a canonical customer profile", async () => {
+  const destination = { public_code: "transport-public-code-1", tenant_id: "tenant-1", branch_id: null, pack_id: null, service_id: null, campaign: null, status: "active" as const, expires_at: null };
+  const reservationRow = { id: "reservation-1", tenant_id: "tenant-1", occurrence_id: "occurrence-1", customer_id: "customer-1", quantity: 2, status: "confirmed" as const, create_idempotency_key: "public-transport-1" };
+  const executor = { query: async <T>(sql: string) => {
+    if (sql.startsWith("SELECT public_code")) return [destination] as T[];
+    if (sql.includes("FROM transport_trip_reservations")) return [] as T[];
+    if (sql.startsWith("SELECT trip.id")) return [{ ...tripRow, reserved_quantity: 2 }] as T[];
+    if (sql.startsWith("INSERT INTO customers")) return [{ id: "customer-1", tenant_id: "tenant-1", display_name: "Alex", preferred_locale: null, timezone: null, status: "active" }] as T[];
+    if (sql.includes("FROM transport_trips")) return [{ ...tripRow, reserved_quantity: 2 }] as T[];
+    if (sql.includes("FROM transport_route_stops")) return stops as T[];
+    if (sql.startsWith("UPDATE transport_trips")) return [{ ...tripRow, reserved_quantity: 4 }] as T[];
+    if (sql.startsWith("UPDATE service_occurrences")) return [{ id: "occurrence-1" }] as T[];
+    if (sql.startsWith("INSERT INTO service_reservations")) return [reservationRow] as T[];
+    return [] as T[];
+  } };
+  const reservation = await createPublicTransportPassengerReservation(executor, { tenantId: "tenant-1", publicCode: "transport-public-code-1", tripId: "trip-1", customerName: "Alex", originStopId: "cbd", destinationStopId: "westlands", quantity: 2, idempotencyKey: "public-transport-1" });
+  assert.equal(reservation.customerId, "customer-1");
+  assert.equal(reservation.status, "confirmed");
 });

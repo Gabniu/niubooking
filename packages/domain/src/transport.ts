@@ -89,6 +89,18 @@ export interface PublicTransportTicket {
   boardingEndsAt: Date;
 }
 
+export interface PublicTransportTrip {
+  id: string;
+  routeName: string;
+  mode: TransportMode;
+  stops: readonly TransportStopRef[];
+  capacityMode: CapacityMode;
+  capacity: number;
+  remainingCapacity: number;
+  boardingStartsAt: Date;
+  boardingEndsAt: Date;
+}
+
 function validDate(value: Date): boolean { return Number.isFinite(value.getTime()); }
 
 export function validateTransportRouteDraft(draft: TransportRouteDraft): string[] {

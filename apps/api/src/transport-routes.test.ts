@@ -9,6 +9,8 @@ const route = { id: "route-1", tenantId: "tenant-transport", version: 1, name: "
 const trip = { id: "trip-1", tenantId: "tenant-transport", routeId: "route-1", routeVersion: 1, occurrenceId: "occ-1", capacityMode: "open" as const, capacity: 14, boardingStartsAt: new Date("2026-08-20T06:00:00Z"), boardingEndsAt: new Date("2026-08-20T06:30:00Z"), vehicleResourceId: "vehicle-1" };
 const passengerReservation = { id: "reservation-1", tenantId: "tenant-transport", tripId: "trip-1", occurrenceId: "occ-1", customerId: "customer-1", originStopId: "cbd", destinationStopId: "westlands", quantity: 2, status: "confirmed" as const, createIdempotencyKey: "retry-123" };
 const ticket = { id: "ticket-1", tenantId: "tenant-transport", tripId: "trip-1", reservationId: "reservation-1", fareAmountMinor: 2500, fareCurrency: "KES", status: "issued" as const, issuedAt: new Date("2026-08-19T10:00:00Z"), ticketToken: "opaque-ticket-token" };
+const publicCode = "transport-public-code-1";
+const publicDestination = { publicCode, tenantId: "tenant-transport", branchId: null, packId: "transport", serviceId: null, campaign: null, status: "active" as const, expiresAt: null };
 
 test("lists transport routes and trips with tenant authorization and date serialization", async () => {
   const app = createApiServer({ resolve, transportAdmin: { listRoutes: async () => [route], createRoute: async (input) => input as typeof route, listTrips: async () => [trip], createTrip: async (input) => input as typeof trip } });
@@ -90,4 +92,23 @@ test("retrieves a public ticket without exposing tenant or customer identity", a
   assert.equal(response.json().data.issuedAt, "2026-08-19T10:00:00.000Z");
   assert.equal("tenantId" in response.json().data, false);
   assert.equal("customerId" in response.json().data, false);
+});
+
+test("discovers public transport trips through an active QR destination", async () => {
+  const publicTrip = { id: "trip-1", routeName: "CBD — Westlands", mode: "matatu" as const, stops: route.stops, capacityMode: "open" as const, capacity: 14, remainingCapacity: 12, boardingStartsAt: trip.boardingStartsAt, boardingEndsAt: trip.boardingEndsAt };
+  const app = createApiServer({ resolve, qrReader: { findByPublicCode: async () => publicDestination }, transportAdmin: { listRoutes: async () => [], createRoute: async (input) => input as typeof route, listTrips: async () => [], createTrip: async (input) => input as typeof trip, discoverPublicTrips: async () => [publicTrip] } });
+  const response = await app.inject({ method: "GET", url: `/v1/public/qr/${publicCode}/transport/trips` });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().data[0].routeName, "CBD — Westlands");
+  assert.equal(response.json().data[0].boardingStartsAt, "2026-08-20T06:00:00.000Z");
+});
+
+test("creates a public transport reservation without returning customer identity", async () => {
+  const seen: { input?: unknown } = {};
+  const app = createApiServer({ resolve, qrReader: { findByPublicCode: async () => publicDestination }, transportAdmin: { listRoutes: async () => [], createRoute: async (input) => input as typeof route, listTrips: async () => [], createTrip: async (input) => input as typeof trip, reservePublic: async (input) => { seen.input = input; return passengerReservation; } } });
+  const response = await app.inject({ method: "POST", url: `/v1/public/qr/${publicCode}/transport/trips/trip-1/reservations`, payload: { customerName: "Alex", originStopId: "cbd", destinationStopId: "westlands", quantity: 2, idempotencyKey: "public-transport-1", contact: { channel: "sms", destination: "+254700000000", consentGranted: true } } });
+  assert.equal(response.statusCode, 201);
+  assert.equal(response.json().data.tripId, "trip-1");
+  assert.equal("customerId" in response.json().data, false);
+  assert.equal((seen.input as { tenantId: string }).tenantId, "tenant-transport");
 });

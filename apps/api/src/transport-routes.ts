@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { type CapacityMode, type PublicTransportTicket, type ReservationStatus, type TransportManifestEntry, type TransportMode, type TransportPassengerReservation, type TransportPassengerReservationDraft, type TransportRoute, type TransportRouteDraft, type TransportRouteStatus, type TransportStopRef, type TransportTicket, type TransportTrip, type TransportTripDraft } from "@bookingapp/domain";
+import { resolveQrDestination, type CapacityMode, type CommunicationChannel, type PublicTransportTicket, type PublicTransportTrip, type QrDestinationReader, type ReservationStatus, type TransportManifestEntry, type TransportMode, type TransportPassengerReservation, type TransportPassengerReservationDraft, type TransportRoute, type TransportRouteDraft, type TransportRouteStatus, type TransportStopRef, type TransportTicket, type TransportTrip, type TransportTripDraft } from "@bookingapp/domain";
 import type { TenantContextRequest } from "./tenant-context-handler.js";
 
 export interface TransportAdmin {
@@ -16,11 +16,14 @@ export interface TransportAdmin {
   listManifest?(tenantId: string, tripId: string): Promise<readonly TransportManifestEntry[]>;
   createTicket?(draft: Pick<TransportTicket, "id" | "tenantId" | "tripId" | "reservationId" | "fareAmountMinor" | "fareCurrency">): Promise<TransportTicket>;
   readPublicTicket?(token: string): Promise<PublicTransportTicket | null>;
+  discoverPublicTrips?(input: { tenantId: string; publicCode: string; from?: Date; to?: Date }): Promise<readonly PublicTransportTrip[]>;
+  reservePublic?(input: { tenantId: string; publicCode: string; tripId: string; customerName: string; originStopId: string; destinationStopId: string; quantity: number; idempotencyKey: string; contact?: { channel: CommunicationChannel; destination: string; consentGranted: boolean } }): Promise<TransportPassengerReservation>;
 }
 
 export interface TransportRouteDependencies {
   resolve(request: FastifyRequest<{ Params: { tenantId: string } }>): TenantContextRequest | Promise<TenantContextRequest>;
   transportAdmin?: TransportAdmin;
+  qrReader?: QrDestinationReader | undefined;
 }
 
 const modes = new Set<TransportMode>(["bus", "matatu", "shuttle", "charter"]);
@@ -51,6 +54,12 @@ function serializeReservation(reservation: TransportPassengerReservation): Recor
 function serializeTicket(ticket: TransportTicket): Record<string, unknown> { return { ...ticket, issuedAt: ticket.issuedAt.toISOString() }; }
 function serializeManifest(entry: TransportManifestEntry): Record<string, unknown> { return { reservation: serializeReservation(entry.reservation), ticket: entry.ticket ? serializeTicket(entry.ticket) : null }; }
 function serializePublicTicket(ticket: PublicTransportTicket): Record<string, unknown> { return { ...ticket, issuedAt: ticket.issuedAt.toISOString(), boardingStartsAt: ticket.boardingStartsAt.toISOString(), boardingEndsAt: ticket.boardingEndsAt.toISOString() }; }
+function serializePublicTrip(trip: PublicTransportTrip): Record<string, unknown> { return { ...trip, boardingStartsAt: trip.boardingStartsAt.toISOString(), boardingEndsAt: trip.boardingEndsAt.toISOString(), stops: trip.stops.map((stop) => ({ ...stop })) }; }
+
+function publicQrError(reason: "not_found" | "inactive" | "expired"): { status: number; body: { data: null; error: { code: string; message: string } } } {
+  const code = reason === "expired" ? "QR_EXPIRED" : reason === "inactive" ? "QR_INACTIVE" : "QR_NOT_FOUND";
+  return { status: code === "QR_NOT_FOUND" ? 404 : 410, body: { data: null, error: { code, message: "This booking link is not available." } } };
+}
 
 export function registerTransportRoutes(app: FastifyInstance, dependencies: TransportRouteDependencies): void {
   app.get<{ Params: { token: string } }>("/v1/public/transport/tickets/:token", async (request, reply) => {
@@ -58,6 +67,36 @@ export function registerTransportRoutes(app: FastifyInstance, dependencies: Tran
     if (!/^[A-Za-z0-9_-]{32,256}$/u.test(request.params.token)) return reply.code(404).send({ data: null, error: { code: "TRANSPORT_TICKET_NOT_FOUND", message: "This ticket link is not available." } });
     const ticket = await dependencies.transportAdmin.readPublicTicket(request.params.token);
     return ticket ? reply.send({ data: serializePublicTicket(ticket), error: null }) : reply.code(404).send({ data: null, error: { code: "TRANSPORT_TICKET_NOT_FOUND", message: "This ticket link is not available." } });
+  });
+
+  app.get<{ Params: { publicCode: string }; Querystring: { from?: string; to?: string } }>("/v1/public/qr/:publicCode/transport/trips", async (request, reply) => {
+    if (!dependencies.qrReader || !dependencies.transportAdmin?.discoverPublicTrips) return reply.code(503).send({ data: null, error: { code: "TRANSPORT_UNAVAILABLE", message: "Public transport trips are temporarily unavailable." } });
+    const resolution = await resolveQrDestination(dependencies.qrReader, request.params.publicCode);
+    if (!resolution.ok) { const error = publicQrError(resolution.reason); return reply.code(error.status).send(error.body); }
+    const from = request.query.from ? new Date(request.query.from) : undefined;
+    const to = request.query.to ? new Date(request.query.to) : undefined;
+    if ((from && Number.isNaN(from.getTime())) || (to && Number.isNaN(to.getTime())) || (from && to && to <= from)) return reply.code(400).send({ data: null, error: { code: "TRANSPORT_TRIP_INVALID", message: "Trip date filters are invalid." } });
+    try { const trips = await dependencies.transportAdmin.discoverPublicTrips({ tenantId: resolution.destination.tenantId, publicCode: resolution.destination.publicCode, ...(from ? { from } : {}), ...(to ? { to } : {}) }); return reply.send({ data: trips.map(serializePublicTrip), error: null }); }
+    catch { return reply.code(410).send({ data: null, error: { code: "TRANSPORT_UNAVAILABLE", message: "This transport booking link is no longer available." } }); }
+  });
+
+  app.post<{ Params: { publicCode: string; tripId: string }; Body: { customerName: string; originStopId: string; destinationStopId: string; quantity: number; idempotencyKey: string; contact?: { channel: CommunicationChannel; destination: string; consentGranted: boolean } } }>("/v1/public/qr/:publicCode/transport/trips/:tripId/reservations", async (request, reply) => {
+    if (!dependencies.qrReader || !dependencies.transportAdmin?.reservePublic) return reply.code(503).send({ data: null, error: { code: "TRANSPORT_UNAVAILABLE", message: "Public transport reservations are temporarily unavailable." } });
+    const resolution = await resolveQrDestination(dependencies.qrReader, request.params.publicCode);
+    if (!resolution.ok) { const error = publicQrError(resolution.reason); return reply.code(error.status).send(error.body); }
+    const body = request.body;
+    const name = body?.customerName?.trim() ?? "";
+    const origin = body?.originStopId?.trim() ?? "";
+    const destination = body?.destinationStopId?.trim() ?? "";
+    const key = body?.idempotencyKey?.trim() ?? "";
+    const contact = body?.contact;
+    const validChannel = contact?.channel === "email" || contact?.channel === "sms" || contact?.channel === "voice";
+    const validContact = !contact || (validChannel && typeof contact.destination === "string" && contact.destination.trim().length > 0 && contact.destination.trim().length <= 320 && contact.consentGranted === true);
+    if (name.length < 1 || name.length > 200 || !origin || origin.length > 120 || !destination || destination.length > 120 || !Number.isInteger(body?.quantity) || (body?.quantity ?? 0) <= 0 || key.length < 8 || key.length > 200 || !validContact) return reply.code(400).send({ data: null, error: { code: "TRANSPORT_RESERVATION_INVALID", message: "Name, stops, quantity, retry key, and consented contact details are required." } });
+    try {
+      const reservation = await dependencies.transportAdmin.reservePublic({ tenantId: resolution.destination.tenantId, publicCode: resolution.destination.publicCode, tripId: request.params.tripId, customerName: name, originStopId: origin, destinationStopId: destination, quantity: body.quantity, idempotencyKey: key, ...(contact ? { contact: { channel: contact.channel, destination: contact.destination.trim(), consentGranted: true } } : {}) });
+      return reply.code(201).send({ data: { reservationId: reservation.id, tripId: reservation.tripId, originStopId: reservation.originStopId, destinationStopId: reservation.destinationStopId, quantity: reservation.quantity, status: reservation.status }, error: null });
+    } catch (error) { const message = error instanceof Error ? error.message : "This trip is no longer available."; const conflict = /capacity|unavailable/iu.test(message); return reply.code(conflict ? 409 : 400).send({ data: null, error: { code: conflict ? "TRANSPORT_CAPACITY_FULL" : "TRANSPORT_RESERVATION_INVALID", message: conflict ? "That trip is full. Please choose another trip." : "This trip cannot be booked from this link." } }); }
   });
 
   app.get<{ Params: { tenantId: string } }>("/v1/tenants/:tenantId/transport/routes", async (request, reply) => {
