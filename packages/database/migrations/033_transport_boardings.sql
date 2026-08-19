@@ -1,4 +1,8 @@
 -- Append-only boarding evidence for conductor actions.
+-- Ticket identity is tenant-paired in all transport foreign keys.
+ALTER TABLE transport_tickets
+  ADD CONSTRAINT transport_tickets_tenant_id_unique UNIQUE (tenant_id, id);
+
 CREATE TABLE transport_boardings (
   id text PRIMARY KEY,
   tenant_id text NOT NULL,
