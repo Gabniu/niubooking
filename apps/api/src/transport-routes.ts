@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { type CapacityMode, type ReservationStatus, type TransportMode, type TransportPassengerReservation, type TransportPassengerReservationDraft, type TransportRoute, type TransportRouteDraft, type TransportRouteStatus, type TransportStopRef, type TransportTrip, type TransportTripDraft } from "@bookingapp/domain";
+import { type CapacityMode, type ReservationStatus, type TransportManifestEntry, type TransportMode, type TransportPassengerReservation, type TransportPassengerReservationDraft, type TransportRoute, type TransportRouteDraft, type TransportRouteStatus, type TransportStopRef, type TransportTicket, type TransportTrip, type TransportTripDraft } from "@bookingapp/domain";
 import type { TenantContextRequest } from "./tenant-context-handler.js";
 
 export interface TransportAdmin {
@@ -13,6 +13,8 @@ export interface TransportAdmin {
   listReservations?(tenantId: string, tripId: string): Promise<readonly TransportPassengerReservation[]>;
   createReservation?(draft: TransportPassengerReservationDraft): Promise<TransportPassengerReservation>;
   setReservationStatus?(input: { tenantId: string; tripId: string; reservationId: string; status: ReservationStatus; actorId?: string }): Promise<TransportPassengerReservation>;
+  listManifest?(tenantId: string, tripId: string): Promise<readonly TransportManifestEntry[]>;
+  createTicket?(draft: Pick<TransportTicket, "id" | "tenantId" | "tripId" | "reservationId" | "fareAmountMinor" | "fareCurrency">): Promise<TransportTicket>;
 }
 
 export interface TransportRouteDependencies {
@@ -45,6 +47,8 @@ function routeStops(value: unknown): TransportStopRef[] | null {
 function serializeRoute(route: TransportRoute): Record<string, unknown> { return { ...route, stops: route.stops.map((stop) => ({ ...stop })) }; }
 function serializeTrip(trip: TransportTrip): Record<string, unknown> { return { ...trip, boardingStartsAt: trip.boardingStartsAt.toISOString(), boardingEndsAt: trip.boardingEndsAt.toISOString() }; }
 function serializeReservation(reservation: TransportPassengerReservation): Record<string, unknown> { return { ...reservation }; }
+function serializeTicket(ticket: TransportTicket): Record<string, unknown> { return { ...ticket, issuedAt: ticket.issuedAt.toISOString() }; }
+function serializeManifest(entry: TransportManifestEntry): Record<string, unknown> { return { reservation: serializeReservation(entry.reservation), ticket: entry.ticket ? serializeTicket(entry.ticket) : null }; }
 
 export function registerTransportRoutes(app: FastifyInstance, dependencies: TransportRouteDependencies): void {
   app.get<{ Params: { tenantId: string } }>("/v1/tenants/:tenantId/transport/routes", async (request, reply) => {
@@ -115,5 +119,22 @@ export function registerTransportRoutes(app: FastifyInstance, dependencies: Tran
     if (!["held", "confirmed", "checked_in", "completed", "cancelled", "no_show"].includes(status)) return reply.code(400).send({ data: null, error: { code: "TRANSPORT_RESERVATION_INVALID", message: "Choose a valid passenger reservation status." } });
     try { return reply.send({ data: serializeReservation(await dependencies.transportAdmin.setReservationStatus({ tenantId: request.params.tenantId, tripId: request.params.tripId, reservationId: request.params.reservationId, status, ...(context.mappedUserId ? { actorId: context.mappedUserId } : {}) })), error: null }); }
     catch (error) { const message = error instanceof Error ? error.message : "Passenger reservation status could not be updated."; const conflict = /capacity|inventory/iu.test(message); return reply.code(conflict ? 409 : 400).send({ data: null, error: { code: conflict ? "TRANSPORT_CAPACITY_CONFLICT" : "TRANSPORT_RESERVATION_INVALID", message: conflict ? "That passenger change is not available." : message } }); }
+  });
+
+  app.get<{ Params: { tenantId: string; tripId: string } }>("/v1/tenants/:tenantId/transport/trips/:tripId/manifest", async (request, reply) => {
+    const context = await dependencies.resolve(request);
+    if (!allowed(context, request.params.tenantId)) return reply.code(403).send({ data: null, error: { code: "TENANT_ACCESS_DENIED", message: "You do not have access to this workspace." } });
+    if (!dependencies.transportAdmin?.listManifest) return reply.code(503).send({ data: null, error: { code: "TRANSPORT_UNAVAILABLE", message: "The trip manifest is temporarily unavailable." } });
+    return reply.send({ data: (await dependencies.transportAdmin.listManifest(request.params.tenantId, request.params.tripId)).map(serializeManifest), error: null });
+  });
+
+  app.post<{ Params: { tenantId: string; tripId: string; reservationId: string }; Body: { fareAmountMinor: number; fareCurrency: string } }>("/v1/tenants/:tenantId/transport/trips/:tripId/reservations/:reservationId/ticket", async (request, reply) => {
+    const context = await dependencies.resolve(request);
+    if (!allowed(context, request.params.tenantId, ["owner", "admin", "manager"])) return reply.code(403).send({ data: null, error: { code: "TENANT_ACCESS_DENIED", message: "You do not have access to this workspace." } });
+    if (!dependencies.transportAdmin?.createTicket) return reply.code(503).send({ data: null, error: { code: "TRANSPORT_UNAVAILABLE", message: "Ticket issuing is temporarily unavailable." } });
+    const body = request.body;
+    if (!Number.isInteger(body?.fareAmountMinor) || (body?.fareAmountMinor ?? -1) < 0 || typeof body.fareCurrency !== "string" || !/^[A-Za-z]{3}$/.test(body.fareCurrency)) return reply.code(400).send({ data: null, error: { code: "TRANSPORT_TICKET_INVALID", message: "Enter a valid fare and three-letter currency." } });
+    try { const ticket = await dependencies.transportAdmin.createTicket({ id: randomUUID(), tenantId: request.params.tenantId, tripId: request.params.tripId, reservationId: request.params.reservationId, fareAmountMinor: body.fareAmountMinor, fareCurrency: body.fareCurrency.toUpperCase() }); return reply.code(201).send({ data: serializeTicket(ticket), error: null }); }
+    catch (error) { return reply.code(400).send({ data: null, error: { code: "TRANSPORT_TICKET_INVALID", message: error instanceof Error ? error.message : "Ticket could not be issued." } }); }
   });
 }

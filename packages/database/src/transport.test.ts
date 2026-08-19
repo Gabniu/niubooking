@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createTransportPassengerReservation, createTransportRoute, createTransportTrip, listTransportPassengerReservations, listTransportRoutes, listTransportTrips, setTransportPassengerReservationStatus } from "./transport.js";
+import { createTransportPassengerReservation, createTransportRoute, createTransportTicket, createTransportTrip, listTransportManifest, listTransportPassengerReservations, listTransportRoutes, listTransportTrips, setTransportPassengerReservationStatus } from "./transport.js";
 
 const routeRow = { id: "route-1", tenant_id: "tenant-1", version: 1, name: "CBD — Westlands", mode: "matatu" as const, status: "draft" as const };
 const stops = [{ stop_id: "cbd", sequence: 1, boarding_minutes: 10, alighting_minutes: 0 }, { stop_id: "westlands", sequence: 2, boarding_minutes: 10, alighting_minutes: 10 }];
@@ -89,4 +89,22 @@ test("releases trip and occurrence capacity when a passenger cancels", async () 
   assert.equal(result.status, "cancelled");
   assert.ok(statements.some((statement) => statement.startsWith("UPDATE transport_trips SET reserved_quantity = reserved_quantity -")));
   assert.ok(statements.some((statement) => statement.startsWith("UPDATE service_occurrences SET reserved_quantity = reserved_quantity -")));
+});
+
+test("issues a deterministic opaque ticket and builds a manifest", async () => {
+  const current = { id: "reservation-1", tenant_id: "tenant-1", trip_id: "trip-1", occurrence_id: "occurrence-1", customer_id: "customer-1", origin_stop_id: "cbd", destination_stop_id: "westlands", quantity: 2, status: "confirmed" as const, create_idempotency_key: "retry-123" };
+  const ticketRow = { id: "ticket-1", tenant_id: "tenant-1", trip_id: "trip-1", reservation_id: "reservation-1", ticket_token_hash: "hash", fare_amount_minor: 2500, fare_currency: "KES", status: "issued" as const, issued_at: new Date("2026-09-01T06:00:00Z"), cancelled_at: null };
+  const executor = { query: async <T>(sql: string) => {
+    if (sql.includes("FROM transport_trip_reservations") && sql.includes("FOR UPDATE")) return [current] as T[];
+    if (sql.startsWith("SELECT id, tenant_id, trip_id, reservation_id, ticket_token_hash") && sql.includes("reservation_id =")) return [] as T[];
+    if (sql.startsWith("INSERT INTO transport_tickets")) return [ticketRow] as T[];
+    if (sql.includes("FROM transport_trip_reservations") && !sql.includes("FOR UPDATE")) return [current] as T[];
+    if (sql.startsWith("SELECT id, tenant_id, trip_id, reservation_id, ticket_token_hash")) return [ticketRow] as T[];
+    return [] as T[];
+  } };
+  const ticket = await createTransportTicket(executor, { id: "ticket-1", tenantId: "tenant-1", tripId: "trip-1", reservationId: "reservation-1", fareAmountMinor: 2500, fareCurrency: "KES" }, "booking-secret");
+  assert.ok(ticket.ticketToken);
+  const manifest = await listTransportManifest(executor, "tenant-1", "trip-1", "booking-secret");
+  assert.equal(manifest[0]?.ticket?.fareCurrency, "KES");
+  assert.equal(manifest[0]?.ticket?.ticketToken, undefined);
 });

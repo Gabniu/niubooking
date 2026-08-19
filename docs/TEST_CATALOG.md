@@ -48,8 +48,8 @@ Approved-server staging evidence (2026-08-15): current-source temporary API and 
 | TEST-PACK-003 | Driving lessons allocate instructor and vehicle without conflict | Pack acceptance | Golden-fixture suite | planned |
 | TEST-PACK-004 | Fitness classes enforce occurrence capacity rather than resource exclusivity alone | Pack acceptance | Golden-fixture suite | planned |
 | TEST-PACK-005 | General-service fixtures prove configurable vocabulary and workflows | Pack acceptance | Golden-fixture suite | planned |
-| TEST-TRN-001 | Route search produces dated trips with ordered stops and valid boarding windows | Transport acceptance | Golden-fixture suite | planned |
-| TEST-TRN-002 | Concurrent seat/capacity sales never oversell and boarding is auditable | Database concurrency and journey | Reserved transport suite | planned |
+| TEST-TRN-001 | Route search produces dated trips with ordered stops, passenger reservations, immutable fare snapshots, and valid boarding windows | Transport acceptance | `packages/domain/src/transport.test.ts`, `packages/database/src/transport.test.ts`, `apps/api/src/transport-routes.test.ts`; PostgreSQL concurrency and public journey pending | partial |
+| TEST-TRN-002 | Concurrent seat/capacity sales never oversell and boarding is auditable | Database concurrency and journey | Reserved transport suite; trip and occurrence atomic admission/release unit proof now present, real PostgreSQL concurrency and boarding pending | partial |
 | TEST-TRN-003 | Charter reserves the whole vehicle and crew for the journey interval | Transport acceptance | Golden-fixture suite | planned |
 | TEST-LIVE-001 | Authenticated telemetry is fresh, ordered, rate-bounded, and attached to the correct active trip | Realtime integration | Simulator and load suite | planned |
 | TEST-LIVE-002 | Authorized customers see smooth movement, stale-state disclosure, and ETA uncertainty | Realtime browser journey | Simulator and browser suite | planned |

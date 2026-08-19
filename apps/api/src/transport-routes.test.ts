@@ -8,6 +8,7 @@ const resolve = (request: { params: { tenantId: string } }) => ({ identity, mapp
 const route = { id: "route-1", tenantId: "tenant-transport", version: 1, name: "CBD to Westlands", mode: "matatu" as const, status: "published" as const, stops: [{ stopId: "cbd", sequence: 1, boardingMinutes: 5, alightingMinutes: 0 }, { stopId: "westlands", sequence: 2, boardingMinutes: 0, alightingMinutes: 5 }] };
 const trip = { id: "trip-1", tenantId: "tenant-transport", routeId: "route-1", routeVersion: 1, occurrenceId: "occ-1", capacityMode: "open" as const, capacity: 14, boardingStartsAt: new Date("2026-08-20T06:00:00Z"), boardingEndsAt: new Date("2026-08-20T06:30:00Z"), vehicleResourceId: "vehicle-1" };
 const passengerReservation = { id: "reservation-1", tenantId: "tenant-transport", tripId: "trip-1", occurrenceId: "occ-1", customerId: "customer-1", originStopId: "cbd", destinationStopId: "westlands", quantity: 2, status: "confirmed" as const, createIdempotencyKey: "retry-123" };
+const ticket = { id: "ticket-1", tenantId: "tenant-transport", tripId: "trip-1", reservationId: "reservation-1", fareAmountMinor: 2500, fareCurrency: "KES", status: "issued" as const, issuedAt: new Date("2026-08-19T10:00:00Z"), ticketToken: "opaque-ticket-token" };
 
 test("lists transport routes and trips with tenant authorization and date serialization", async () => {
   const app = createApiServer({ resolve, transportAdmin: { listRoutes: async () => [route], createRoute: async (input) => input as typeof route, listTrips: async () => [trip], createTrip: async (input) => input as typeof trip } });
@@ -67,4 +68,14 @@ test("updates passenger status through the tenant contract", async () => {
   const response = await app.inject({ method: "POST", url: "/v1/tenants/tenant-transport/transport/trips/trip-1/reservations/reservation-1/status", payload: { status: "cancelled" } });
   assert.equal(response.statusCode, 200);
   assert.equal(response.json().data.status, "cancelled");
+});
+
+test("issues tickets and exposes a staff manifest without leaking token dates", async () => {
+  const app = createApiServer({ resolve, transportAdmin: { listRoutes: async () => [], createRoute: async (input) => input as typeof route, listTrips: async () => [], createTrip: async (input) => input as typeof trip, listReservations: async () => [], createReservation: async (input) => ({ ...passengerReservation, ...input }), setReservationStatus: async (input) => ({ ...passengerReservation, ...input }), listManifest: async () => [{ reservation: passengerReservation, ticket }], createTicket: async (input) => ({ ...ticket, ...input }) } });
+  const manifest = await app.inject({ method: "GET", url: "/v1/tenants/tenant-transport/transport/trips/trip-1/manifest" });
+  assert.equal(manifest.statusCode, 200);
+  assert.equal(manifest.json().data[0].ticket.issuedAt, "2026-08-19T10:00:00.000Z");
+  const issued = await app.inject({ method: "POST", url: "/v1/tenants/tenant-transport/transport/trips/trip-1/reservations/reservation-1/ticket", payload: { fareAmountMinor: 2500, fareCurrency: "kes" } });
+  assert.equal(issued.statusCode, 201);
+  assert.equal(issued.json().data.fareCurrency, "KES");
 });

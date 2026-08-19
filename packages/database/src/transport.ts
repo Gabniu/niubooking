@@ -1,6 +1,7 @@
 // Ownership: tenant-scoped transport route/trip persistence layered on occurrences.
 
-import { isCapacityReserving, validateReservationStatusChange, validateTransportPassengerReservationDraft, validateTransportRouteDraft, validateTransportTripDraft, type ReservationStatus, type TransportPassengerReservation, type TransportPassengerReservationDraft, type TransportRoute, type TransportRouteDraft, type TransportTrip, type TransportTripDraft } from "@bookingapp/domain";
+import { isCapacityReserving, validateReservationStatusChange, validateTransportPassengerReservationDraft, validateTransportRouteDraft, validateTransportTicketDraft, validateTransportTripDraft, type ReservationStatus, type TransportManifestEntry, type TransportPassengerReservation, type TransportPassengerReservationDraft, type TransportRoute, type TransportRouteDraft, type TransportTicket, type TransportTrip, type TransportTripDraft } from "@bookingapp/domain";
+import { createHash, createHmac } from "node:crypto";
 import type { SqlExecutor } from "./tenant-membership.js";
 import { withTenantTransaction } from "./pg-executor.js";
 import type { Pool } from "pg";
@@ -10,6 +11,7 @@ interface RouteRow { id: string; tenant_id: string; version: number; name: strin
 interface StopRow { stop_id: string; sequence: number; boarding_minutes: number; alighting_minutes: number; }
 interface TripRow { id: string; tenant_id: string; route_id: string; route_version: number; occurrence_id: string; capacity_mode: TransportTrip["capacityMode"]; capacity: number; reserved_quantity?: number; boarding_starts_at: Date; boarding_ends_at: Date; vehicle_resource_id: string | null; }
 interface PassengerReservationRow { id: string; tenant_id: string; trip_id: string; occurrence_id: string; customer_id: string; origin_stop_id: string; destination_stop_id: string; quantity: number; status: TransportPassengerReservation["status"]; create_idempotency_key: string | null; }
+interface TicketRow { id: string; tenant_id: string; trip_id: string; reservation_id: string; ticket_token_hash: string; fare_amount_minor: number; fare_currency: string; status: TransportTicket["status"]; issued_at: Date; cancelled_at: Date | null; }
 interface OccurrenceWindow { id: string; tenant_id: string; starts_at: Date; ends_at: Date; }
 
 function mapRoute(row: RouteRow): TransportRoute {
@@ -20,6 +22,9 @@ function mapTrip(row: TripRow): TransportTrip {
   return { id: row.id, tenantId: row.tenant_id, routeId: row.route_id, routeVersion: row.route_version, occurrenceId: row.occurrence_id, capacityMode: row.capacity_mode, capacity: row.capacity, boardingStartsAt: new Date(row.boarding_starts_at), boardingEndsAt: new Date(row.boarding_ends_at), vehicleResourceId: row.vehicle_resource_id, ...(row.reserved_quantity !== undefined ? { reservedQuantity: row.reserved_quantity } : {}) };
 }
 function mapPassengerReservation(row: PassengerReservationRow): TransportPassengerReservation { return { id: row.id, tenantId: row.tenant_id, tripId: row.trip_id, occurrenceId: row.occurrence_id, customerId: row.customer_id, originStopId: row.origin_stop_id, destinationStopId: row.destination_stop_id, quantity: row.quantity, status: row.status, ...(row.create_idempotency_key ? { createIdempotencyKey: row.create_idempotency_key } : {}) }; }
+function tokenFor(secret: string, tenantId: string, ticketId: string): string { return createHmac("sha256", secret).update(`${tenantId}:${ticketId}`).digest("base64url"); }
+function tokenHash(token: string): string { return createHash("sha256").update(token).digest("hex"); }
+function mapTicket(row: TicketRow, secret: string, includeToken = false): TransportTicket { const ticketToken = tokenFor(secret, row.tenant_id, row.id); return { id: row.id, tenantId: row.tenant_id, tripId: row.trip_id, reservationId: row.reservation_id, fareAmountMinor: row.fare_amount_minor, fareCurrency: row.fare_currency, status: row.status, issuedAt: new Date(row.issued_at), ...(includeToken ? { ticketToken } : {}) }; }
 
 const routeColumns = "id, tenant_id, version, name, mode, status";
 const tripColumns = "id, tenant_id, route_id, route_version, occurrence_id, capacity_mode, capacity, reserved_quantity, boarding_starts_at, boarding_ends_at, vehicle_resource_id";
@@ -107,6 +112,29 @@ export async function setTransportPassengerReservationStatus(executor: SqlExecut
   return mapPassengerReservation({ ...updated[0], trip_id: input.tripId, origin_stop_id: current.origin_stop_id, destination_stop_id: current.destination_stop_id, quantity: current.quantity, create_idempotency_key: current.create_idempotency_key });
 }
 
-export function createDatabaseTransportAdmin(pool: Pool) {
-  return { listRoutes: (tenantId: string) => withTenantTransaction(pool, tenantId, (executor) => listTransportRoutes(executor, tenantId)), createRoute: (draft: TransportRouteDraft) => withTenantTransaction(pool, draft.tenantId, (executor) => createTransportRoute(executor, draft)), listTrips: (tenantId: string, from?: Date, to?: Date) => withTenantTransaction(pool, tenantId, (executor) => listTransportTrips(executor, tenantId, from, to)), createTrip: (draft: TransportTripDraft) => withTenantTransaction(pool, draft.tenantId, (executor) => createTransportTrip(executor, draft)), listReservations: (tenantId: string, tripId: string) => withTenantTransaction(pool, tenantId, (executor) => listTransportPassengerReservations(executor, tenantId, tripId)), createReservation: (draft: TransportPassengerReservationDraft) => withTenantTransaction(pool, draft.tenantId, (executor) => createTransportPassengerReservation(executor, draft)), setReservationStatus: (input: { tenantId: string; tripId: string; reservationId: string; status: ReservationStatus; actorId?: string }) => withTenantTransaction(pool, input.tenantId, (executor) => setTransportPassengerReservationStatus(executor, input)) };
+export async function createTransportTicket(executor: SqlExecutor, draft: Pick<TransportTicket, "id" | "tenantId" | "tripId" | "reservationId" | "fareAmountMinor" | "fareCurrency">, secret: string): Promise<TransportTicket> {
+  const errors = validateTransportTicketDraft(draft);
+  if (errors.length) throw new Error(errors.join("; "));
+  if (!secret) throw new Error("Ticket signing is not configured");
+  const reservationRows = await executor.query<PassengerReservationRow>(`SELECT ${passengerReservationColumns} FROM transport_trip_reservations tr JOIN service_reservations sr ON sr.tenant_id = tr.tenant_id AND sr.id = tr.reservation_id WHERE tr.tenant_id = $1 AND tr.trip_id = $2 AND tr.reservation_id = $3 FOR UPDATE`, [draft.tenantId, draft.tripId, draft.reservationId]);
+  const reservation = reservationRows[0];
+  if (!reservation) throw new Error("Passenger reservation was not found");
+  if (!["held", "confirmed"].includes(reservation.status)) throw new Error("Only an active passenger reservation can receive a ticket");
+  const existing = await executor.query<TicketRow>("SELECT id, tenant_id, trip_id, reservation_id, ticket_token_hash, fare_amount_minor, fare_currency, status, issued_at, cancelled_at FROM transport_tickets WHERE tenant_id = $1 AND reservation_id = $2 LIMIT 1", [draft.tenantId, draft.reservationId]);
+  if (existing[0]) return mapTicket(existing[0], secret, true);
+  const token = tokenFor(secret, draft.tenantId, draft.id);
+  const rows = await executor.query<TicketRow>("INSERT INTO transport_tickets (id, tenant_id, trip_id, reservation_id, ticket_token_hash, fare_amount_minor, fare_currency) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, tenant_id, trip_id, reservation_id, ticket_token_hash, fare_amount_minor, fare_currency, status, issued_at, cancelled_at", [draft.id, draft.tenantId, draft.tripId, draft.reservationId, tokenHash(token), draft.fareAmountMinor, draft.fareCurrency]);
+  if (!rows[0]) throw new Error("Ticket could not be issued");
+  return mapTicket(rows[0], secret, true);
+}
+
+export async function listTransportManifest(executor: SqlExecutor, tenantId: string, tripId: string, secret: string): Promise<readonly TransportManifestEntry[]> {
+  const reservations = await listTransportPassengerReservations(executor, tenantId, tripId);
+  const tickets = await executor.query<TicketRow>("SELECT id, tenant_id, trip_id, reservation_id, ticket_token_hash, fare_amount_minor, fare_currency, status, issued_at, cancelled_at FROM transport_tickets WHERE tenant_id = $1 AND trip_id = $2 ORDER BY issued_at, id", [tenantId, tripId]);
+  const ticketByReservation = new Map(tickets.map((ticket) => [ticket.reservation_id, mapTicket(ticket, secret)]));
+  return reservations.map((reservation) => ({ reservation, ticket: ticketByReservation.get(reservation.id) ?? null }));
+}
+
+export function createDatabaseTransportAdmin(pool: Pool, ticketSecret = "") {
+  return { listRoutes: (tenantId: string) => withTenantTransaction(pool, tenantId, (executor) => listTransportRoutes(executor, tenantId)), createRoute: (draft: TransportRouteDraft) => withTenantTransaction(pool, draft.tenantId, (executor) => createTransportRoute(executor, draft)), listTrips: (tenantId: string, from?: Date, to?: Date) => withTenantTransaction(pool, tenantId, (executor) => listTransportTrips(executor, tenantId, from, to)), createTrip: (draft: TransportTripDraft) => withTenantTransaction(pool, draft.tenantId, (executor) => createTransportTrip(executor, draft)), listReservations: (tenantId: string, tripId: string) => withTenantTransaction(pool, tenantId, (executor) => listTransportPassengerReservations(executor, tenantId, tripId)), createReservation: (draft: TransportPassengerReservationDraft) => withTenantTransaction(pool, draft.tenantId, (executor) => createTransportPassengerReservation(executor, draft)), setReservationStatus: (input: { tenantId: string; tripId: string; reservationId: string; status: ReservationStatus; actorId?: string }) => withTenantTransaction(pool, input.tenantId, (executor) => setTransportPassengerReservationStatus(executor, input)), createTicket: (draft: Pick<TransportTicket, "id" | "tenantId" | "tripId" | "reservationId" | "fareAmountMinor" | "fareCurrency">) => withTenantTransaction(pool, draft.tenantId, (executor) => createTransportTicket(executor, draft, ticketSecret)), listManifest: (tenantId: string, tripId: string) => withTenantTransaction(pool, tenantId, (executor) => listTransportManifest(executor, tenantId, tripId, ticketSecret)) };
 }

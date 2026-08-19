@@ -56,6 +56,23 @@ export interface TransportPassengerReservation {
 
 export type TransportPassengerReservationDraft = Omit<TransportPassengerReservation, "status"> & { status?: ReservationStatus };
 
+export interface TransportTicket {
+  id: string;
+  tenantId: string;
+  tripId: string;
+  reservationId: string;
+  fareAmountMinor: number;
+  fareCurrency: string;
+  status: "issued" | "cancelled";
+  issuedAt: Date;
+  ticketToken?: string;
+}
+
+export interface TransportManifestEntry {
+  reservation: TransportPassengerReservation;
+  ticket: TransportTicket | null;
+}
+
 function validDate(value: Date): boolean { return Number.isFinite(value.getTime()); }
 
 export function validateTransportRouteDraft(draft: TransportRouteDraft): string[] {
@@ -98,5 +115,13 @@ export function validateTransportPassengerReservationDraft(draft: TransportPasse
   if (!origin || !destination || origin.sequence >= destination.sequence) errors.push("Boarding stop must come before arrival stop");
   if (draft.createIdempotencyKey !== undefined && (draft.createIdempotencyKey.trim().length < 8 || draft.createIdempotencyKey.trim().length > 200)) errors.push("Reservation retry key must be between 8 and 200 characters");
   if (draft.status && !["held", "confirmed"].includes(draft.status)) errors.push("New passenger reservations must be held or confirmed");
+  return errors;
+}
+
+export function validateTransportTicketDraft(draft: Pick<TransportTicket, "id" | "tenantId" | "tripId" | "reservationId" | "fareAmountMinor" | "fareCurrency">): string[] {
+  const errors: string[] = [];
+  if (!draft.id || !draft.tenantId || !draft.tripId || !draft.reservationId) errors.push("Ticket identity is required");
+  if (!Number.isInteger(draft.fareAmountMinor) || draft.fareAmountMinor < 0) errors.push("Fare must be a whole number of minor currency units");
+  if (!/^[A-Z]{3}$/.test(draft.fareCurrency)) errors.push("Fare currency must be a three-letter code");
   return errors;
 }
