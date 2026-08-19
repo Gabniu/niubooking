@@ -1,14 +1,14 @@
 # Test Catalog
 
-Current staging deployment evidence (2026-08-15): Booking is running on
-`vp-server` in an isolated API/web/database stack. All 29 migrations applied,
+Current repository verification (2026-08-19): Booking is running on
+`vp-server` in an isolated API/web/database stack. All 34 migrations apply,
 both health probes returned 200, the web shell served successfully, `/auth/session`
 returned an unauthenticated response, and `/auth/login` returned the NOVA Auth
 redirect with the exact callback and S256 PKCE. The stack is bound to localhost
 ports 3110/3111 behind the HTTPS nginx vhost; its environment file is outside
 the source bundle.
 
-Fast-lane update: the original 190-test baseline is now 296 compiled tests (293 passing in the local fast lane); the three real-PostgreSQL tests pass against the approved server when run through the temporary server lane, while the local lane skips them when `TEST_DATABASE_URL` is absent.
+Fast-lane update: the compiled suite now contains 406 tests (403 passing and 3 intentionally skipped locally); the three real-PostgreSQL tests pass in CI, while the local lane skips them when `TEST_DATABASE_URL` is absent.
 
 Test IDs connect product intent to automated evidence. The repository currently has 296 compiled Node tests and 20 passing browser journeys; this catalog adds the real-database layer and reserves acceptance suites for future batches.
 
@@ -48,7 +48,7 @@ Approved-server staging evidence (2026-08-15): current-source temporary API and 
 | TEST-PACK-003 | Driving lessons allocate instructor and vehicle without conflict | Pack acceptance | Golden-fixture suite | planned |
 | TEST-PACK-004 | Fitness classes enforce occurrence capacity rather than resource exclusivity alone | Pack acceptance | Golden-fixture suite | planned |
 | TEST-PACK-005 | General-service fixtures prove configurable vocabulary and workflows | Pack acceptance | Golden-fixture suite | planned |
-| TEST-TRN-001 | Route search produces dated trips with ordered stops, passenger reservations, immutable fare snapshots, valid boarding windows, and a privacy-safe public ticket view | Transport acceptance | `packages/domain/src/transport.test.ts`, `packages/database/src/transport.test.ts`, `apps/api/src/transport-routes.test.ts`; PostgreSQL concurrency and typed public journey pending | partial |
+| TEST-TRN-001 | Route search produces dated trips with ordered stops, passenger reservations, immutable fare snapshots, valid boarding windows, safe public cancellation, and a privacy-safe public ticket view | Transport acceptance | `packages/domain/src/transport.test.ts`, `packages/database/src/transport.test.ts`, `apps/api/src/transport-routes.test.ts`; PostgreSQL concurrency and typed public journey pending | partial |
 | TEST-TRN-002 | Concurrent seat/capacity sales never oversell and boarding is auditable | Database concurrency and journey | `packages/database/src/transport.test.ts`, `apps/api/src/transport-routes.test.ts`; trip and occurrence atomic admission/release plus idempotent boarding/audit unit proof present, real PostgreSQL concurrency and browser conductor journey pending | partial |
 | TEST-TRN-003 | Charter reserves the whole vehicle and crew for the journey interval | Transport acceptance | Golden-fixture suite | planned |
 | TEST-LIVE-001 | Authenticated telemetry is fresh, ordered, rate-bounded, and attached to the correct active trip | Realtime integration | Simulator and load suite | planned |

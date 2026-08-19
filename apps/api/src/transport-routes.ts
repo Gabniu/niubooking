@@ -19,6 +19,7 @@ export interface TransportAdmin {
   readPublicTicket?(token: string): Promise<PublicTransportTicket | null>;
   discoverPublicTrips?(input: { tenantId: string; publicCode: string; from?: Date; to?: Date }): Promise<readonly PublicTransportTrip[]>;
   reservePublic?(input: { tenantId: string; publicCode: string; tripId: string; customerName: string; originStopId: string; destinationStopId: string; quantity: number; idempotencyKey: string; contact?: { channel: CommunicationChannel; destination: string; consentGranted: boolean } }): Promise<TransportPassengerReservation>;
+  cancelPublic?(input: { token: string; idempotencyKey: string }): Promise<TransportPassengerReservation | null>;
 }
 
 export interface TransportRouteDependencies {
@@ -97,8 +98,17 @@ export function registerTransportRoutes(app: FastifyInstance, dependencies: Tran
     if (name.length < 1 || name.length > 200 || !origin || origin.length > 120 || !destination || destination.length > 120 || !Number.isInteger(body?.quantity) || (body?.quantity ?? 0) <= 0 || key.length < 8 || key.length > 200 || !validContact) return reply.code(400).send({ data: null, error: { code: "TRANSPORT_RESERVATION_INVALID", message: "Name, stops, quantity, retry key, and consented contact details are required." } });
     try {
       const reservation = await dependencies.transportAdmin.reservePublic({ tenantId: resolution.destination.tenantId, publicCode: resolution.destination.publicCode, tripId: request.params.tripId, customerName: name, originStopId: origin, destinationStopId: destination, quantity: body.quantity, idempotencyKey: key, ...(contact ? { contact: { channel: contact.channel, destination: contact.destination.trim(), consentGranted: true } } : {}) });
-      return reply.code(201).send({ data: { reservationId: reservation.id, tripId: reservation.tripId, originStopId: reservation.originStopId, destinationStopId: reservation.destinationStopId, quantity: reservation.quantity, status: reservation.status }, error: null });
+      return reply.code(201).send({ data: { reservationId: reservation.id, tripId: reservation.tripId, originStopId: reservation.originStopId, destinationStopId: reservation.destinationStopId, quantity: reservation.quantity, status: reservation.status, ...(reservation.manageToken ? { manageToken: reservation.manageToken } : {}) }, error: null });
     } catch (error) { const message = error instanceof Error ? error.message : "This trip is no longer available."; const conflict = /capacity|unavailable/iu.test(message); return reply.code(conflict ? 409 : 400).send({ data: null, error: { code: conflict ? "TRANSPORT_CAPACITY_FULL" : "TRANSPORT_RESERVATION_INVALID", message: conflict ? "That trip is full. Please choose another trip." : "This trip cannot be booked from this link." } }); }
+  });
+
+  app.post<{ Params: { token: string }; Body: { idempotencyKey: string } }>("/v1/public/transport/reservations/:token/cancel", async (request, reply) => {
+    if (!dependencies.transportAdmin?.cancelPublic) return reply.code(503).send({ data: null, error: { code: "TRANSPORT_UNAVAILABLE", message: "Passenger cancellation is temporarily unavailable." } });
+    const token = request.params.token.trim();
+    const key = request.body?.idempotencyKey?.trim() ?? "";
+    if (!/^[A-Za-z0-9_.-]{48,512}$/u.test(token) || key.length < 8 || key.length > 200) return reply.code(400).send({ data: null, error: { code: "TRANSPORT_CANCELLATION_INVALID", message: "A valid reservation link and retry key are required." } });
+    try { const reservation = await dependencies.transportAdmin.cancelPublic({ token, idempotencyKey: key }); if (!reservation) return reply.code(404).send({ data: null, error: { code: "TRANSPORT_RESERVATION_NOT_FOUND", message: "This reservation link is no longer available." } }); return reply.send({ data: { reservationId: reservation.id, tripId: reservation.tripId, status: reservation.status }, error: null }); }
+    catch (error) { const message = error instanceof Error ? error.message : "This reservation cannot be cancelled."; return reply.code(409).send({ data: null, error: { code: "TRANSPORT_CANCELLATION_CONFLICT", message: /boarding/iu.test(message) ? "Cancellation is no longer available after boarding starts." : "This reservation cannot be cancelled now." } }); }
   });
 
   app.get<{ Params: { tenantId: string } }>("/v1/tenants/:tenantId/transport/routes", async (request, reply) => {

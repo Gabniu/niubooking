@@ -29,6 +29,8 @@ charter operators without creating a second booking engine.
   consent-aware contact capture, idempotent admission, and tenant rechecks.
 - [x] Migration `033_transport_boardings.sql` and an idempotent, append-only
   staff boarding action that checks in the reservation and records audit data.
+- [x] Migration `034_transport_reservation_manage.sql` and an opaque,
+  expiring public cancellation capability that releases trip capacity once.
 - [ ] Public passenger reservation journey, boarding, and typed
   staff/public pages.
 - [ ] Seat assignment/open-capacity refinement, cancellation policy, and

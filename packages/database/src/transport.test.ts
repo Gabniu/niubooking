@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import test from "node:test";
-import { boardTransportTicket, createPublicTransportPassengerReservation, createTransportPassengerReservation, createTransportRoute, createTransportTicket, createTransportTrip, listPublicTransportTrips, listTransportManifest, listTransportPassengerReservations, listTransportRoutes, listTransportTrips, setTransportPassengerReservationStatus } from "./transport.js";
+import { boardTransportTicket, cancelPublicTransportReservation, createPublicTransportPassengerReservation, createTransportPassengerReservation, createTransportRoute, createTransportTicket, createTransportTrip, listPublicTransportTrips, listTransportManifest, listTransportPassengerReservations, listTransportRoutes, listTransportTrips, setTransportPassengerReservationStatus } from "./transport.js";
 
 const routeRow = { id: "route-1", tenant_id: "tenant-1", version: 1, name: "CBD — Westlands", mode: "matatu" as const, status: "draft" as const };
 const stops = [{ stop_id: "cbd", sequence: 1, boarding_minutes: 10, alighting_minutes: 0 }, { stop_id: "westlands", sequence: 2, boarding_minutes: 10, alighting_minutes: 10 }];
@@ -162,4 +162,18 @@ test("boards an issued ticket once and records audit evidence", async () => {
   const result = await boardTransportTicket(executor, { id: "boarding-1", tenantId: "tenant-1", tripId: "trip-1", ticketId: "ticket-1", idempotencyKey: "board-retry-1", actorId: "staff-1" });
   assert.equal(result.action, "boarded");
   assert.ok(statements.some((statement) => statement.startsWith("INSERT INTO audit_events")));
+});
+
+test("cancels a public reservation through its expiring manage capability", async () => {
+  const current = { id: "reservation-1", tenant_id: "tenant-1", trip_id: "trip-1", occurrence_id: "occurrence-1", customer_id: "customer-1", origin_stop_id: "cbd", destination_stop_id: "westlands", quantity: 2, status: "confirmed" as const, create_idempotency_key: "public-transport-1" };
+  const executor = { query: async <T>(sql: string) => {
+    if (sql.includes("manage_token_expires_at")) return [{ ...current, manage_token_expires_at: new Date(Date.now() + 60_000), boarding_starts_at: new Date(Date.now() + 60_000) }] as T[];
+    if (sql.startsWith("SELECT tr.reservation_id")) return [current] as T[];
+    if (sql.startsWith("UPDATE transport_trips") || sql.startsWith("UPDATE service_occurrences")) return [{ id: "capacity-1" }] as T[];
+    if (sql.startsWith("UPDATE service_reservations")) return [{ ...current, status: "cancelled" }] as T[];
+    if (sql.startsWith("INSERT INTO audit_events")) return [{ id: "audit-1" }] as T[];
+    return [] as T[];
+  } };
+  const result = await cancelPublicTransportReservation(executor, { tenantId: "tenant-1", reservationId: "reservation-1", token: "opaque-manage-token", idempotencyKey: "cancel-retry-1" });
+  assert.equal(result?.status, "cancelled");
 });

@@ -113,6 +113,15 @@ test("creates a public transport reservation without returning customer identity
   assert.equal((seen.input as { tenantId: string }).tenantId, "tenant-transport");
 });
 
+test("cancels a public transport reservation through its opaque manage link", async () => {
+  const token = `${"a".repeat(32)}.${"b".repeat(43)}`;
+  const app = createApiServer({ resolve, transportAdmin: { listRoutes: async () => [], createRoute: async (input) => input as typeof route, listTrips: async () => [], createTrip: async (input) => input as typeof trip, cancelPublic: async () => ({ ...passengerReservation, status: "cancelled" }) } });
+  const response = await app.inject({ method: "POST", url: `/v1/public/transport/reservations/${token}/cancel`, payload: { idempotencyKey: "cancel-retry-1" } });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().data.status, "cancelled");
+  assert.equal("customerId" in response.json().data, false);
+});
+
 test("boards a ticket through an idempotent staff action", async () => {
   const boarding = { id: "boarding-1", tenantId: "tenant-transport", tripId: "trip-1", reservationId: "reservation-1", ticketId: "ticket-1", actorId: "transport-user", action: "boarded" as const, idempotencyKey: "board-retry-1", boardedAt: new Date("2026-08-20T06:05:00Z") };
   const app = createApiServer({ resolve, transportAdmin: { listRoutes: async () => [], createRoute: async (input) => input as typeof route, listTrips: async () => [], createTrip: async (input) => input as typeof trip, boardTicket: async () => boarding } });

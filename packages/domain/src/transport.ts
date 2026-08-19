@@ -52,6 +52,8 @@ export interface TransportPassengerReservation {
   quantity: number;
   status: ReservationStatus;
   createIdempotencyKey?: string;
+  /** Present only in the one-time public response that creates the reservation. */
+  manageToken?: string;
 }
 
 export type TransportPassengerReservationDraft = Omit<TransportPassengerReservation, "status"> & { status?: ReservationStatus };

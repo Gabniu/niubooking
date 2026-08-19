@@ -25,7 +25,7 @@ What is missing, checked rather than assumed:
 | Dockerfiles | `infra/docker/api/Dockerfile`, `infra/docker/web/Dockerfile` |
 | staging compose file | `infra/compose-booking-staging.yaml` |
 | git repository | initialised; `main` is pushed to `https://github.com/Gabniu/niubooking` |
-| Size | 353 source files pass the 300-line gate; 29 ordered migrations |
+| Size | 362 source files pass the 300-line gate; 34 ordered migrations |
 | Migration runner | `scripts/run-migrations.mjs` with checksum-protected `npm run migrate` |
 | API probes | `/health/live` and database-backed `/health/ready` |
 | Communication worker | `apps/worker/src/main.ts`, internal `/health/live` and `/health/ready`, bounded outbox cadence, provider adapters, and a non-root image |
