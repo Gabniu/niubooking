@@ -61,3 +61,10 @@ test("maps a full transport trip to a simple next step", async () => {
   assert.equal(response.statusCode, 409);
   assert.equal(response.json().error.message, "That trip is full. Please choose another trip.");
 });
+
+test("updates passenger status through the tenant contract", async () => {
+  const app = createApiServer({ resolve, transportAdmin: { listRoutes: async () => [], createRoute: async (input) => input as typeof route, listTrips: async () => [], createTrip: async (input) => input as typeof trip, listReservations: async () => [], createReservation: async (input) => ({ ...passengerReservation, ...input }), setReservationStatus: async (input) => ({ ...passengerReservation, ...input }) } });
+  const response = await app.inject({ method: "POST", url: "/v1/tenants/tenant-transport/transport/trips/trip-1/reservations/reservation-1/status", payload: { status: "cancelled" } });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().data.status, "cancelled");
+});

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createTransportPassengerReservation, createTransportRoute, createTransportTrip, listTransportPassengerReservations, listTransportRoutes, listTransportTrips } from "./transport.js";
+import { createTransportPassengerReservation, createTransportRoute, createTransportTrip, listTransportPassengerReservations, listTransportRoutes, listTransportTrips, setTransportPassengerReservationStatus } from "./transport.js";
 
 const routeRow = { id: "route-1", tenant_id: "tenant-1", version: 1, name: "CBD — Westlands", mode: "matatu" as const, status: "draft" as const };
 const stops = [{ stop_id: "cbd", sequence: 1, boarding_minutes: 10, alighting_minutes: 0 }, { stop_id: "westlands", sequence: 2, boarding_minutes: 10, alighting_minutes: 10 }];
@@ -71,4 +71,22 @@ test("rejects a passenger reservation when the requested stop order is invalid",
     return [] as T[];
   } };
   await assert.rejects(() => createTransportPassengerReservation(executor, { id: "reservation-1", tenantId: "tenant-1", tripId: "trip-1", occurrenceId: "occurrence-1", customerId: "customer-1", originStopId: "westlands", destinationStopId: "cbd", quantity: 1, createIdempotencyKey: "retry-123" }), /come before/iu);
+});
+
+test("releases trip and occurrence capacity when a passenger cancels", async () => {
+  const current = { id: "reservation-1", tenant_id: "tenant-1", trip_id: "trip-1", occurrence_id: "occurrence-1", customer_id: "customer-1", origin_stop_id: "cbd", destination_stop_id: "westlands", quantity: 2, status: "confirmed" as const, create_idempotency_key: "retry-123" };
+  const statements: string[] = [];
+  const executor = { query: async <T>(sql: string) => {
+    statements.push(sql);
+    if (sql.startsWith("SELECT tr.reservation_id")) return [current] as T[];
+    if (sql.startsWith("UPDATE transport_trips")) return [{ id: "trip-1" }] as T[];
+    if (sql.startsWith("UPDATE service_occurrences")) return [{ id: "occurrence-1" }] as T[];
+    if (sql.startsWith("UPDATE service_reservations")) return [{ ...current, status: "cancelled" }] as T[];
+    if (sql.startsWith("INSERT INTO audit_events")) return [{ id: "audit-1" }] as T[];
+    return [] as T[];
+  } };
+  const result = await setTransportPassengerReservationStatus(executor, { tenantId: "tenant-1", tripId: "trip-1", reservationId: "reservation-1", status: "cancelled", actorId: "staff-1" });
+  assert.equal(result.status, "cancelled");
+  assert.ok(statements.some((statement) => statement.startsWith("UPDATE transport_trips SET reserved_quantity = reserved_quantity -")));
+  assert.ok(statements.some((statement) => statement.startsWith("UPDATE service_occurrences SET reserved_quantity = reserved_quantity -")));
 });

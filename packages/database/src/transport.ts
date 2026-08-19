@@ -1,9 +1,10 @@
 // Ownership: tenant-scoped transport route/trip persistence layered on occurrences.
 
-import { validateTransportPassengerReservationDraft, validateTransportRouteDraft, validateTransportTripDraft, type TransportPassengerReservation, type TransportPassengerReservationDraft, type TransportRoute, type TransportRouteDraft, type TransportTrip, type TransportTripDraft } from "@bookingapp/domain";
+import { isCapacityReserving, validateReservationStatusChange, validateTransportPassengerReservationDraft, validateTransportRouteDraft, validateTransportTripDraft, type ReservationStatus, type TransportPassengerReservation, type TransportPassengerReservationDraft, type TransportRoute, type TransportRouteDraft, type TransportTrip, type TransportTripDraft } from "@bookingapp/domain";
 import type { SqlExecutor } from "./tenant-membership.js";
 import { withTenantTransaction } from "./pg-executor.js";
 import type { Pool } from "pg";
+import { appendAuditEvent } from "./audit-events.js";
 
 interface RouteRow { id: string; tenant_id: string; version: number; name: string; mode: TransportRoute["mode"]; status: TransportRoute["status"]; stops: readonly StopRow[]; }
 interface StopRow { stop_id: string; sequence: number; boarding_minutes: number; alighting_minutes: number; }
@@ -83,6 +84,29 @@ export async function listTransportPassengerReservations(executor: SqlExecutor, 
   return rows.map(mapPassengerReservation);
 }
 
+export async function setTransportPassengerReservationStatus(executor: SqlExecutor, input: { tenantId: string; tripId: string; reservationId: string; status: ReservationStatus; actorId?: string }): Promise<TransportPassengerReservation> {
+  const rows = await executor.query<PassengerReservationRow>(`SELECT ${passengerReservationColumns} FROM transport_trip_reservations tr JOIN service_reservations sr ON sr.tenant_id = tr.tenant_id AND sr.id = tr.reservation_id WHERE tr.tenant_id = $1 AND tr.trip_id = $2 AND tr.reservation_id = $3 FOR UPDATE`, [input.tenantId, input.tripId, input.reservationId]);
+  const current = rows[0];
+  if (!current) throw new Error("Passenger reservation was not found");
+  const errors = validateReservationStatusChange(current.status, input.status);
+  if (errors.length) throw new Error(errors.join("; "));
+  if (current.status !== input.status && isCapacityReserving(current.status) !== isCapacityReserving(input.status)) {
+    const direction = isCapacityReserving(input.status) ? "reserve" : "release";
+    const tripUpdate = direction === "reserve"
+      ? await executor.query("UPDATE transport_trips SET reserved_quantity = reserved_quantity + $3, updated_at = now() WHERE tenant_id = $1 AND id = $2 AND reserved_quantity + $3 <= capacity RETURNING id", [input.tenantId, input.tripId, current.quantity])
+      : await executor.query("UPDATE transport_trips SET reserved_quantity = reserved_quantity - $3, updated_at = now() WHERE tenant_id = $1 AND id = $2 AND reserved_quantity >= $3 RETURNING id", [input.tenantId, input.tripId, current.quantity]);
+    if (!tripUpdate[0]) throw new Error(direction === "reserve" ? "Trip capacity is unavailable" : "Trip inventory is inconsistent");
+    const occurrenceUpdate = direction === "reserve"
+      ? await executor.query("UPDATE service_occurrences SET reserved_quantity = reserved_quantity + $3, updated_at = now() WHERE tenant_id = $1 AND id = $2 AND status IN ('published', 'open') AND (capacity IS NULL OR reserved_quantity + $3 <= capacity) RETURNING id", [input.tenantId, current.occurrence_id, current.quantity])
+      : await executor.query("UPDATE service_occurrences SET reserved_quantity = reserved_quantity - $3, updated_at = now() WHERE tenant_id = $1 AND id = $2 AND reserved_quantity >= $3 RETURNING id", [input.tenantId, current.occurrence_id, current.quantity]);
+    if (!occurrenceUpdate[0]) throw new Error(direction === "reserve" ? "Occurrence capacity is unavailable" : "Occurrence inventory is inconsistent");
+  }
+  const updated = await executor.query<PassengerReservationRow>("UPDATE service_reservations SET status = $4, updated_at = now() WHERE tenant_id = $1 AND occurrence_id = $2 AND id = $3 RETURNING id, tenant_id, occurrence_id, customer_id, quantity, status, create_idempotency_key", [input.tenantId, current.occurrence_id, input.reservationId, input.status]);
+  if (!updated[0]) throw new Error("Passenger reservation status could not be updated");
+  if (current.status !== input.status) await appendAuditEvent(executor, { tenantId: input.tenantId, actorType: input.actorId ? "user" : "system", actorId: input.actorId ?? null, action: "reservation.status_changed", entityType: "reservation", entityId: input.reservationId, metadata: { trip_id: input.tripId, from_status: current.status, to_status: input.status, quantity: current.quantity } });
+  return mapPassengerReservation({ ...updated[0], trip_id: input.tripId, origin_stop_id: current.origin_stop_id, destination_stop_id: current.destination_stop_id, quantity: current.quantity, create_idempotency_key: current.create_idempotency_key });
+}
+
 export function createDatabaseTransportAdmin(pool: Pool) {
-  return { listRoutes: (tenantId: string) => withTenantTransaction(pool, tenantId, (executor) => listTransportRoutes(executor, tenantId)), createRoute: (draft: TransportRouteDraft) => withTenantTransaction(pool, draft.tenantId, (executor) => createTransportRoute(executor, draft)), listTrips: (tenantId: string, from?: Date, to?: Date) => withTenantTransaction(pool, tenantId, (executor) => listTransportTrips(executor, tenantId, from, to)), createTrip: (draft: TransportTripDraft) => withTenantTransaction(pool, draft.tenantId, (executor) => createTransportTrip(executor, draft)), listReservations: (tenantId: string, tripId: string) => withTenantTransaction(pool, tenantId, (executor) => listTransportPassengerReservations(executor, tenantId, tripId)), createReservation: (draft: TransportPassengerReservationDraft) => withTenantTransaction(pool, draft.tenantId, (executor) => createTransportPassengerReservation(executor, draft)) };
+  return { listRoutes: (tenantId: string) => withTenantTransaction(pool, tenantId, (executor) => listTransportRoutes(executor, tenantId)), createRoute: (draft: TransportRouteDraft) => withTenantTransaction(pool, draft.tenantId, (executor) => createTransportRoute(executor, draft)), listTrips: (tenantId: string, from?: Date, to?: Date) => withTenantTransaction(pool, tenantId, (executor) => listTransportTrips(executor, tenantId, from, to)), createTrip: (draft: TransportTripDraft) => withTenantTransaction(pool, draft.tenantId, (executor) => createTransportTrip(executor, draft)), listReservations: (tenantId: string, tripId: string) => withTenantTransaction(pool, tenantId, (executor) => listTransportPassengerReservations(executor, tenantId, tripId)), createReservation: (draft: TransportPassengerReservationDraft) => withTenantTransaction(pool, draft.tenantId, (executor) => createTransportPassengerReservation(executor, draft)), setReservationStatus: (input: { tenantId: string; tripId: string; reservationId: string; status: ReservationStatus; actorId?: string }) => withTenantTransaction(pool, input.tenantId, (executor) => setTransportPassengerReservationStatus(executor, input)) };
 }

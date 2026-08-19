@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { type CapacityMode, type TransportMode, type TransportPassengerReservation, type TransportPassengerReservationDraft, type TransportRoute, type TransportRouteDraft, type TransportRouteStatus, type TransportStopRef, type TransportTrip, type TransportTripDraft } from "@bookingapp/domain";
+import { type CapacityMode, type ReservationStatus, type TransportMode, type TransportPassengerReservation, type TransportPassengerReservationDraft, type TransportRoute, type TransportRouteDraft, type TransportRouteStatus, type TransportStopRef, type TransportTrip, type TransportTripDraft } from "@bookingapp/domain";
 import type { TenantContextRequest } from "./tenant-context-handler.js";
 
 export interface TransportAdmin {
@@ -12,6 +12,7 @@ export interface TransportAdmin {
   createTrip(draft: TransportTripDraft): Promise<TransportTrip>;
   listReservations?(tenantId: string, tripId: string): Promise<readonly TransportPassengerReservation[]>;
   createReservation?(draft: TransportPassengerReservationDraft): Promise<TransportPassengerReservation>;
+  setReservationStatus?(input: { tenantId: string; tripId: string; reservationId: string; status: ReservationStatus; actorId?: string }): Promise<TransportPassengerReservation>;
 }
 
 export interface TransportRouteDependencies {
@@ -104,5 +105,15 @@ export function registerTransportRoutes(app: FastifyInstance, dependencies: Tran
     const draft: TransportPassengerReservationDraft = { id: randomUUID(), tenantId: request.params.tenantId, tripId: request.params.tripId, occurrenceId: body.occurrenceId.trim(), customerId: body.customerId.trim(), originStopId: body.originStopId.trim(), destinationStopId: body.destinationStopId.trim(), quantity: body.quantity, createIdempotencyKey: body.idempotencyKey.trim(), ...(body.status ? { status: body.status } : {}) };
     try { return reply.code(201).send({ data: serializeReservation(await dependencies.transportAdmin.createReservation(draft)), error: null }); }
     catch (error) { const message = error instanceof Error ? error.message : "Passenger reservation could not be created."; const conflict = /capacity|unavailable/iu.test(message); return reply.code(conflict ? 409 : 400).send({ data: null, error: { code: conflict ? "TRANSPORT_CAPACITY_FULL" : "TRANSPORT_RESERVATION_INVALID", message: conflict ? "That trip is full. Please choose another trip." : message } }); }
+  });
+
+  app.post<{ Params: { tenantId: string; tripId: string; reservationId: string }; Body: { status: ReservationStatus } }>("/v1/tenants/:tenantId/transport/trips/:tripId/reservations/:reservationId/status", async (request, reply) => {
+    const context = await dependencies.resolve(request);
+    if (!allowed(context, request.params.tenantId)) return reply.code(403).send({ data: null, error: { code: "TENANT_ACCESS_DENIED", message: "You do not have access to this workspace." } });
+    if (!dependencies.transportAdmin?.setReservationStatus) return reply.code(503).send({ data: null, error: { code: "TRANSPORT_UNAVAILABLE", message: "Transport reservation updates are temporarily unavailable." } });
+    const status = request.body?.status;
+    if (!["held", "confirmed", "checked_in", "completed", "cancelled", "no_show"].includes(status)) return reply.code(400).send({ data: null, error: { code: "TRANSPORT_RESERVATION_INVALID", message: "Choose a valid passenger reservation status." } });
+    try { return reply.send({ data: serializeReservation(await dependencies.transportAdmin.setReservationStatus({ tenantId: request.params.tenantId, tripId: request.params.tripId, reservationId: request.params.reservationId, status, ...(context.mappedUserId ? { actorId: context.mappedUserId } : {}) })), error: null }); }
+    catch (error) { const message = error instanceof Error ? error.message : "Passenger reservation status could not be updated."; const conflict = /capacity|inventory/iu.test(message); return reply.code(conflict ? 409 : 400).send({ data: null, error: { code: conflict ? "TRANSPORT_CAPACITY_CONFLICT" : "TRANSPORT_RESERVATION_INVALID", message: conflict ? "That passenger change is not available." : message } }); }
   });
 }
