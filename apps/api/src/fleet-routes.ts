@@ -4,8 +4,9 @@ import { randomBytes, randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { classifyPositionFreshness, type FleetDevice, type FleetTrackingSession, type FleetTripAssignment, type TelemetryReceipt, type VehiclePosition } from "@bookingapp/domain";
 import { createFleetDeviceCredential, type FleetCurrentProjection } from "@bookingapp/database";
-import type { DriverPositionUpload } from "@bookingapp/contracts";
+import type { DriverPositionUpload, FleetStreamEvent, StaffLiveFleetResponse } from "@bookingapp/contracts";
 import type { TenantContextRequest } from "./tenant-context-handler.js";
+import type { FleetLiveStream } from "./fleet-live-stream.js";
 
 export interface FleetTrackingAdmin {
   enroll(input: { id: string; tenantId: string; branchId: string; userId?: string | null; vehicleResourceId?: string | null; platform: "android" | "ios" | "hardware"; label: string; credentialSecret: string; actorId?: string }): Promise<FleetDevice>;
@@ -22,6 +23,7 @@ export interface FleetTrackingAdmin {
 export interface FleetRouteDependencies {
   resolve(request: FastifyRequest<{ Params: { tenantId: string } }>): TenantContextRequest | Promise<TenantContextRequest>;
   fleetTracking?: FleetTrackingAdmin;
+  liveStream?: FleetLiveStream;
 }
 
 const managerRoles = ["owner", "admin", "manager", "dispatcher"];
@@ -31,6 +33,8 @@ function branchAllowed(context: TenantContextRequest, branchId: string): boolean
 function bearer(request: FastifyRequest): string | null { const value = request.headers.authorization; return value?.startsWith("Bearer ") && value.length <= 1024 ? value.slice(7).trim() || null : null; }
 function text(value: unknown, max = 200): string | null { if (typeof value !== "string") return null; const result = value.trim(); return result.length > 0 && result.length <= max ? result : null; }
 function sessionJson(session: FleetTrackingSession) { return { ...session, startedAt: session.startedAt.toISOString(), expiresAt: session.expiresAt.toISOString(), endedAt: session.endedAt?.toISOString() ?? null }; }
+function fleetResponse(positions: readonly FleetCurrentProjection[]): StaffLiveFleetResponse { return { data: positions.map((item) => ({ ...item, capturedAt: item.capturedAt?.toISOString() ?? null, freshness: item.capturedAt ? classifyPositionFreshness(item.capturedAt, new Date()) : "offline", eta: null })), error: null }; }
+function streamEvent(type: FleetStreamEvent["type"], version: number, response: StaffLiveFleetResponse): FleetStreamEvent { return { type, version, response }; }
 
 export function registerFleetRoutes(app: FastifyInstance, dependencies: FleetRouteDependencies): void {
   app.post<{ Params: { tenantId: string }; Body: { branchId: string; userId?: string | null; vehicleResourceId?: string | null; platform: "android" | "ios" | "hardware"; label: string } }>("/v1/tenants/:tenantId/fleet/devices", async (request, reply) => {
@@ -89,7 +93,32 @@ export function registerFleetRoutes(app: FastifyInstance, dependencies: FleetRou
     const branchIds = context.membership?.role === "owner" ? undefined : context.membership?.branchIds ?? [];
     const assignedUserId = ["driver", "conductor"].includes(context.membership?.role ?? "") ? context.mappedUserId ?? undefined : undefined;
     const positions = await dependencies.fleetTracking.listCurrent(request.params.tenantId, branchIds, assignedUserId);
-    return reply.send({ data: positions.map((item) => ({ ...item, capturedAt: item.capturedAt?.toISOString() ?? null, freshness: item.capturedAt ? classifyPositionFreshness(item.capturedAt, new Date()) : "offline", eta: null })), error: null });
+    return reply.send(fleetResponse(positions));
+  });
+
+  app.get<{ Params: { tenantId: string } }>("/v1/tenants/:tenantId/fleet/stream", async (request, reply) => {
+    const context = await dependencies.resolve(request);
+    if (!admitted(context, request.params.tenantId, viewerRoles)) return reply.code(403).send({ data: null, error: { code: "FLEET_ACCESS_DENIED", message: "You do not have access to live fleet locations." } });
+    if (!dependencies.fleetTracking || !dependencies.liveStream) return reply.code(503).send({ data: null, error: { code: "LIVE_FLEET_UNAVAILABLE", message: "Live fleet updates are temporarily unavailable." } });
+    const branchIds = context.membership?.role === "owner" ? undefined : context.membership?.branchIds ?? [];
+    const assignedUserId = ["driver", "conductor"].includes(context.membership?.role ?? "") ? context.mappedUserId ?? undefined : undefined;
+    const raw = reply.raw;
+    reply.hijack();
+    raw.writeHead(200, { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-cache, no-transform", connection: "keep-alive", "x-accel-buffering": "no" });
+    let version = 0;
+    let writing = false;
+    let queued = false;
+    const write = (event: FleetStreamEvent): void => { if (!raw.destroyed) raw.write(`id: ${event.version}\nevent: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`); };
+    const snapshot = async (type: FleetStreamEvent["type"]): Promise<void> => {
+      if (writing) { queued = true; return; }
+      writing = true;
+      try { write(streamEvent(type, ++version, fleetResponse(await dependencies.fleetTracking!.listCurrent(request.params.tenantId, branchIds, assignedUserId)))); }
+      finally { writing = false; if (queued && !raw.destroyed) { queued = false; void snapshot("changed"); } }
+    };
+    const unsubscribe = dependencies.liveStream.subscribe(request.params.tenantId, () => void snapshot("changed"));
+    const keepAlive = setInterval(() => { if (!raw.destroyed) raw.write(": keep-alive\n\n"); }, 25_000);
+    request.raw.once("close", () => { clearInterval(keepAlive); unsubscribe(); });
+    await snapshot("snapshot");
   });
 
   app.post<{ Body: DriverPositionUpload }>("/v1/fleet/telemetry", async (request, reply) => {
@@ -101,6 +130,7 @@ export function registerFleetRoutes(app: FastifyInstance, dependencies: FleetRou
       const result = await dependencies.fleetTracking.ingestCredential(credential, { ...body, sessionId, eventId, capturedAt });
       if (!result) return reply.code(401).send({ data: null, error: { code: "TRACKING_UNAUTHENTICATED", message: "This tracking device is not connected." } });
       if (result.receipt.decision === "reject") { const inactive = result.receipt.reasons.some((reason) => /session/iu.test(reason)); return reply.code(inactive ? 409 : 400).send({ data: null, error: { code: inactive ? "TRACKING_SESSION_INACTIVE" : "POSITION_INVALID", message: inactive ? "Tracking has stopped for this trip." : "This location update could not be used." } }); }
+      if (result.receipt.decision === "advance_current") dependencies.liveStream?.publish(result.receipt.tenantId, streamEvent("changed", Date.now(), { data: null, error: null }));
       return reply.code(202).send({ data: { eventId: result.receipt.eventId, decision: result.receipt.decision, receivedAt: result.receivedAt.toISOString() }, error: null });
     } catch { return reply.code(400).send({ data: null, error: { code: "POSITION_INVALID", message: "This location update could not be used." } }); }
   });

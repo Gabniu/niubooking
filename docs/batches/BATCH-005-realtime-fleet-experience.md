@@ -28,7 +28,8 @@ reservation, fleet, identity, or tenant model.
   RLS, active-session uniqueness, audited handover, unit proof, and a
   server-run PostgreSQL integration lane.
 - [x] Authenticated driver enrollment/start/stop, explicit handover, and credential-bound telemetry ingestion API; API contract tests cover admission and malformed input.
-- [x] Authorized owner/admin/manager/dispatcher current-fleet query and staff list. The tenant/branch/assignment-filtered query is surfaced in `/app/transport` with honest polling, freshness, empty, denied, error, and retry states; streaming fan-out, map, and ETA remain.
+- [x] Authorized owner/admin/manager/dispatcher current-fleet query and staff list. The tenant/branch/assignment-filtered query is surfaced in `/app/transport` with honest freshness, empty, denied, error, retry, and polling fallback states.
+- [x] First streaming fan-out slice: accepted current telemetry emits a tenant-scoped change signal, authorized staff can subscribe through SSE, and the client refetches the authoritative scoped snapshot. Multi-instance messaging, map, and ETA remain.
 - [ ] Rider trip tracker and organization-configured public route projection.
 - [ ] NIU Driver React Native application with physical-device background tests.
 - [ ] MapLibre map, route-aware smoothing, confidence, stale disclosure, and ETA

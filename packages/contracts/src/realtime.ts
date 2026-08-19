@@ -59,6 +59,12 @@ export interface StaffLiveFleetResponse {
   } | null;
 }
 
+export interface FleetStreamEvent {
+  readonly type: "snapshot" | "changed";
+  readonly version: number;
+  readonly response: StaffLiveFleetResponse;
+}
+
 export interface RiderLiveTripResponse {
   readonly data: Omit<LiveVehicleProjection, "branchId"> | null;
   readonly error: {

@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { LiveVehicleProjection } from "@bookingapp/contracts";
-import { fetchFleetCurrent, type FleetState } from "../../src/fleet-staff-client.js";
+import { fetchFleetCurrent, openFleetStream, type FleetEventSource, type FleetState } from "../../src/fleet-staff-client.js";
 import { apiBase } from "./workspace-admission.js";
 
 const request = (input: string, init: { credentials: "include" }) => window.fetch(input, init);
@@ -46,9 +46,21 @@ function FleetStateView({ state, onRetry }: { state: FleetState; onRetry: () => 
 export function FleetOperationsPanel({ tenantId }: { tenantId: string }) {
   const [state, setState] = useState<FleetState>({ kind: "loading" });
   const [refreshing, setRefreshing] = useState(false);
+  const [streaming, setStreaming] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const load = useCallback(async () => { setRefreshing(true); try { setState(await fetchFleetCurrent(request, apiBase, tenantId)); } catch { setState({ kind: "error", message: "Live vehicle locations could not be loaded. Please try again." }); } finally { setRefreshing(false); setNow(Date.now()); } }, [tenantId]);
-  useEffect(() => { void load(); const interval = window.setInterval(() => { if (document.visibilityState === "visible") void load(); }, 10_000); const clock = window.setInterval(() => setNow(Date.now()), 15_000); return () => { window.clearInterval(interval); window.clearInterval(clock); }; }, [load]);
+  useEffect(() => {
+    void load();
+    let streamActive = false;
+    let closeStream = () => {};
+    if (apiBase && typeof EventSource !== "undefined") {
+      const factory = (url: string, init: { withCredentials: boolean }): FleetEventSource => new EventSource(url, init) as unknown as FleetEventSource;
+      closeStream = openFleetStream(factory, apiBase, tenantId, (value) => { streamActive = true; setStreaming(true); setState({ kind: "ready", value }); setNow(Date.now()); }, () => { streamActive = true; setStreaming(true); void load(); }, () => { streamActive = false; setStreaming(false); });
+    }
+    const interval = window.setInterval(() => { if (document.visibilityState === "visible" && !streamActive) void load(); }, 30_000);
+    const clock = window.setInterval(() => setNow(Date.now()), 15_000);
+    return () => { closeStream(); window.clearInterval(interval); window.clearInterval(clock); };
+  }, [load, tenantId]);
   const readyVehicles = state.kind === "ready" ? state.value : [];
-  return <section className="fleet-operations-panel" aria-labelledby="fleet-panel-title"><header className="fleet-panel-heading"><div><p className="eyebrow">Live operations</p><h2 id="fleet-panel-title">Vehicles on the move</h2><p>Location updates are scoped to your current workspace.</p></div><div className="fleet-panel-actions"><span className="fleet-refresh-status" role="status">{refreshing ? "Updating" : "Auto-refresh 10s"}</span><button className="fleet-refresh" type="button" onClick={() => void load()} disabled={refreshing}>{refreshing ? "Updating" : "Refresh"}</button></div></header><FleetStateView state={state} onRetry={() => void load()} />{readyVehicles.length > 0 && <div className="fleet-vehicle-list">{readyVehicles.map((vehicle) => <VehicleRow key={`${vehicle.tripId}-${vehicle.vehicleLabel}`} vehicle={vehicle} now={now} />)}</div>}<footer className="fleet-panel-footnote"><span>List view</span><span>Map and ETA will appear when route geometry and prediction are enabled.</span></footer></section>;
+  return <section className="fleet-operations-panel" aria-labelledby="fleet-panel-title"><header className="fleet-panel-heading"><div><p className="eyebrow">Live operations</p><h2 id="fleet-panel-title">Vehicles on the move</h2><p>Location updates are scoped to your current workspace.</p></div><div className="fleet-panel-actions"><span className="fleet-refresh-status" role="status">{refreshing ? "Updating" : streaming ? "Live connection" : "Checking every 30s"}</span><button className="fleet-refresh" type="button" onClick={() => void load()} disabled={refreshing}>{refreshing ? "Updating" : "Refresh"}</button></div></header><FleetStateView state={state} onRetry={() => void load()} />{readyVehicles.length > 0 && <div className="fleet-vehicle-list">{readyVehicles.map((vehicle) => <VehicleRow key={`${vehicle.tripId}-${vehicle.vehicleLabel}`} vehicle={vehicle} now={now} />)}</div>}<footer className="fleet-panel-footnote"><span>{streaming ? "Live list" : "Fallback list"}</span><span>Map and ETA will appear when route geometry and prediction are enabled.</span></footer></section>;
 }

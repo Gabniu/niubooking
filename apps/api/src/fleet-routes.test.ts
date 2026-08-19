@@ -82,3 +82,15 @@ test("telemetry requires a device credential and never accepts tenant or device 
   const response = await app.inject({ method: "POST", url: "/v1/fleet/telemetry", headers: { authorization: "Bearer credential-1" }, payload });
   assert.equal(response.statusCode, 202); assert.equal(seenCredential, "credential-1"); assert.equal(seenDevice, false);
 });
+
+test("accepted current telemetry publishes only a tenant-scoped change signal", async () => {
+  const published: string[] = [];
+  const app = createApiServer({ resolve: () => context("owner"), liveStream: { subscribe: () => () => {}, publish: (tenantId) => published.push(tenantId) }, fleetTracking: fleet({ ingestCredential: async (_credential, position) => ({ receipt: { tenantId: "tenant-1", eventId: position.eventId, sessionId: position.sessionId, deviceId: "device-1", decision: "advance_current", reasons: [], replayed: false }, receivedAt: new Date("2030-01-01T09:00:01Z") }) }) });
+  const response = await app.inject({ method: "POST", url: "/v1/fleet/telemetry", headers: { authorization: "Bearer credential-1" }, payload: { sessionId: "session-1", eventId: "event-2", sequence: 2, capturedAt: "2030-01-01T09:00:00Z", latitude: -1.28, longitude: 36.81, accuracyMetres: 8 } });
+  assert.equal(response.statusCode, 202); assert.deepEqual(published, ["tenant-1"]); await app.close();
+});
+
+test("stream denies roles without fleet visibility before opening a connection", async () => {
+  const app = createApiServer({ resolve: () => context("rider"), fleetTracking: fleet(), liveStream: { subscribe: () => () => {}, publish: () => {} } });
+  assert.equal((await app.inject({ method: "GET", url: "/v1/tenants/tenant-1/fleet/stream", headers: { accept: "text/event-stream" } })).statusCode, 403); await app.close();
+});
