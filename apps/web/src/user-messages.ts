@@ -58,6 +58,8 @@ const known: Record<string, string> = {
   TRANSPORT_BOARDING_CONFLICT: "This ticket cannot be boarded now.",
   TRANSPORT_SEAT_INVALID: "Please choose one valid seat for each passenger.",
   TRANSPORT_SEAT_CONFLICT: "One of those seats was just taken. Please choose different seats.",
+  FLEET_ACCESS_DENIED: "You do not have access to these live vehicle locations.",
+  LIVE_FLEET_UNAVAILABLE: "Live vehicle locations are temporarily unavailable. Please try again.",
   MANAGE_NOT_FOUND: "This appointment link could not be found.",
   MANAGE_INVALID: "This appointment link is no longer valid.",
 };

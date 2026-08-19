@@ -62,6 +62,7 @@ test("branch manager receives only branch-filtered privacy-safe fleet projection
   const response = await app.inject({ method: "GET", url: "/v1/tenants/tenant-1/fleet/current" });
   assert.equal(response.statusCode, 200); assert.deepEqual(branches, ["branch-1"]); assert.equal(assignedUser, undefined);
   assert.equal(response.json().data[0].vehicleLabel, "Matatu 1");
+  assert.equal(response.json().data[0].eta, null);
   assert.equal("deviceId" in response.json().data[0], false);
   assert.equal("sessionId" in response.json().data[0], false);
 });

@@ -89,7 +89,7 @@ export function registerFleetRoutes(app: FastifyInstance, dependencies: FleetRou
     const branchIds = context.membership?.role === "owner" ? undefined : context.membership?.branchIds ?? [];
     const assignedUserId = ["driver", "conductor"].includes(context.membership?.role ?? "") ? context.mappedUserId ?? undefined : undefined;
     const positions = await dependencies.fleetTracking.listCurrent(request.params.tenantId, branchIds, assignedUserId);
-    return reply.send({ data: positions.map((item) => ({ ...item, capturedAt: item.capturedAt?.toISOString() ?? null, freshness: item.capturedAt ? classifyPositionFreshness(item.capturedAt, new Date()) : "offline" })), error: null });
+    return reply.send({ data: positions.map((item) => ({ ...item, capturedAt: item.capturedAt?.toISOString() ?? null, freshness: item.capturedAt ? classifyPositionFreshness(item.capturedAt, new Date()) : "offline", eta: null })), error: null });
   });
 
   app.post<{ Body: DriverPositionUpload }>("/v1/fleet/telemetry", async (request, reply) => {
