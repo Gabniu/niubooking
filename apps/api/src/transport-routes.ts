@@ -1,0 +1,86 @@
+// Ownership: tenant-authorized transport route and trip HTTP contracts.
+
+import { randomUUID } from "node:crypto";
+import type { FastifyInstance, FastifyRequest } from "fastify";
+import { type CapacityMode, type TransportMode, type TransportRoute, type TransportRouteDraft, type TransportRouteStatus, type TransportStopRef, type TransportTrip, type TransportTripDraft } from "@bookingapp/domain";
+import type { TenantContextRequest } from "./tenant-context-handler.js";
+
+export interface TransportAdmin {
+  listRoutes(tenantId: string): Promise<readonly TransportRoute[]>;
+  createRoute(draft: TransportRouteDraft): Promise<TransportRoute>;
+  listTrips(tenantId: string, from?: Date, to?: Date): Promise<readonly TransportTrip[]>;
+  createTrip(draft: TransportTripDraft): Promise<TransportTrip>;
+}
+
+export interface TransportRouteDependencies {
+  resolve(request: FastifyRequest<{ Params: { tenantId: string } }>): TenantContextRequest | Promise<TenantContextRequest>;
+  transportAdmin?: TransportAdmin;
+}
+
+const modes = new Set<TransportMode>(["bus", "matatu", "shuttle", "charter"]);
+const statuses = new Set<TransportRouteStatus>(["draft", "published", "archived"]);
+const capacityModes = new Set<CapacityMode>(["seat", "open"]);
+
+function allowed(context: TenantContextRequest, tenantId: string, roles = ["owner", "admin", "manager"]): boolean {
+  return Boolean(context.identity && context.membership && context.membership.tenantId === tenantId && roles.includes(context.membership.role));
+}
+
+function dates(query: { from?: string; to?: string }): { from?: Date; to?: Date } | null {
+  const from = query.from ? new Date(query.from) : undefined;
+  const to = query.to ? new Date(query.to) : undefined;
+  if ((from && Number.isNaN(from.getTime())) || (to && Number.isNaN(to.getTime())) || (from && to && to <= from)) return null;
+  return { ...(from ? { from } : {}), ...(to ? { to } : {}) };
+}
+
+function routeStops(value: unknown): TransportStopRef[] | null {
+  if (!Array.isArray(value) || value.length < 2 || value.length > 256) return null;
+  const stops = value.map((stop) => ({ stopId: typeof stop?.stopId === "string" ? stop.stopId.trim() : "", sequence: stop?.sequence, boardingMinutes: stop?.boardingMinutes, alightingMinutes: stop?.alightingMinutes }));
+  const ordered = stops.every((stop, index) => stop.sequence === index + 1);
+  return ordered && stops.every((stop) => stop.stopId.length > 0 && stop.stopId.length <= 120 && Number.isInteger(stop.sequence) && Number.isInteger(stop.boardingMinutes) && Number.isInteger(stop.alightingMinutes) && stop.boardingMinutes >= 0 && stop.alightingMinutes >= 0) ? stops as TransportStopRef[] : null;
+}
+
+function serializeRoute(route: TransportRoute): Record<string, unknown> { return { ...route, stops: route.stops.map((stop) => ({ ...stop })) }; }
+function serializeTrip(trip: TransportTrip): Record<string, unknown> { return { ...trip, boardingStartsAt: trip.boardingStartsAt.toISOString(), boardingEndsAt: trip.boardingEndsAt.toISOString() }; }
+
+export function registerTransportRoutes(app: FastifyInstance, dependencies: TransportRouteDependencies): void {
+  app.get<{ Params: { tenantId: string } }>("/v1/tenants/:tenantId/transport/routes", async (request, reply) => {
+    const context = await dependencies.resolve(request);
+    if (!allowed(context, request.params.tenantId)) return reply.code(403).send({ data: null, error: { code: "TENANT_ACCESS_DENIED", message: "You do not have access to this workspace." } });
+    if (!dependencies.transportAdmin) return reply.code(503).send({ data: null, error: { code: "TRANSPORT_UNAVAILABLE", message: "Transport routes are temporarily unavailable." } });
+    return reply.send({ data: (await dependencies.transportAdmin.listRoutes(request.params.tenantId)).map(serializeRoute), error: null });
+  });
+
+  app.post<{ Params: { tenantId: string }; Body: { name: string; mode: TransportMode; version?: number; status?: TransportRouteStatus; stops: unknown } }>("/v1/tenants/:tenantId/transport/routes", async (request, reply) => {
+    const context = await dependencies.resolve(request);
+    if (!allowed(context, request.params.tenantId, ["owner", "admin"])) return reply.code(403).send({ data: null, error: { code: "TENANT_ACCESS_DENIED", message: "You do not have access to this workspace." } });
+    if (!dependencies.transportAdmin) return reply.code(503).send({ data: null, error: { code: "TRANSPORT_UNAVAILABLE", message: "Transport routes are temporarily unavailable." } });
+    const body = request.body;
+    const stops = routeStops(body?.stops);
+    if (!body?.name?.trim() || body.name.trim().length > 200 || !modes.has(body.mode) || (body.version !== undefined && (!Number.isInteger(body.version) || body.version < 1)) || (body.status !== undefined && !statuses.has(body.status)) || !stops) return reply.code(400).send({ data: null, error: { code: "TRANSPORT_ROUTE_INVALID", message: "Route name, mode, version, and ordered stops are required." } });
+    const draft: TransportRouteDraft = { id: randomUUID(), tenantId: request.params.tenantId, version: body.version ?? 1, name: body.name.trim(), mode: body.mode, stops, ...(body.status ? { status: body.status } : {}) };
+    try { return reply.code(201).send({ data: serializeRoute(await dependencies.transportAdmin.createRoute(draft)), error: null }); }
+    catch (error) { return reply.code(400).send({ data: null, error: { code: "TRANSPORT_ROUTE_INVALID", message: error instanceof Error ? error.message : "Route could not be created." } }); }
+  });
+
+  app.get<{ Params: { tenantId: string }; Querystring: { from?: string; to?: string } }>("/v1/tenants/:tenantId/transport/trips", async (request, reply) => {
+    const context = await dependencies.resolve(request);
+    if (!allowed(context, request.params.tenantId)) return reply.code(403).send({ data: null, error: { code: "TENANT_ACCESS_DENIED", message: "You do not have access to this workspace." } });
+    if (!dependencies.transportAdmin) return reply.code(503).send({ data: null, error: { code: "TRANSPORT_UNAVAILABLE", message: "Transport trips are temporarily unavailable." } });
+    const window = dates(request.query);
+    if (!window) return reply.code(400).send({ data: null, error: { code: "TRANSPORT_TRIP_INVALID", message: "Trip date filters are invalid." } });
+    return reply.send({ data: (await dependencies.transportAdmin.listTrips(request.params.tenantId, window.from, window.to)).map(serializeTrip), error: null });
+  });
+
+  app.post<{ Params: { tenantId: string }; Body: { routeId: string; routeVersion: number; occurrenceId: string; capacityMode: CapacityMode; capacity: number; boardingStartsAt: string; boardingEndsAt: string; vehicleResourceId?: string | null } }>("/v1/tenants/:tenantId/transport/trips", async (request, reply) => {
+    const context = await dependencies.resolve(request);
+    if (!allowed(context, request.params.tenantId, ["owner", "admin"])) return reply.code(403).send({ data: null, error: { code: "TENANT_ACCESS_DENIED", message: "You do not have access to this workspace." } });
+    if (!dependencies.transportAdmin) return reply.code(503).send({ data: null, error: { code: "TRANSPORT_UNAVAILABLE", message: "Transport trips are temporarily unavailable." } });
+    const body = request.body;
+    const startsAt = new Date(body?.boardingStartsAt ?? "");
+    const endsAt = new Date(body?.boardingEndsAt ?? "");
+    if (!body?.routeId?.trim() || !body?.occurrenceId?.trim() || !Number.isInteger(body.routeVersion) || body.routeVersion < 1 || !capacityModes.has(body.capacityMode) || !Number.isInteger(body.capacity) || body.capacity <= 0 || Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime()) || endsAt <= startsAt || (body.vehicleResourceId !== undefined && body.vehicleResourceId !== null && (typeof body.vehicleResourceId !== "string" || body.vehicleResourceId.trim().length > 120))) return reply.code(400).send({ data: null, error: { code: "TRANSPORT_TRIP_INVALID", message: "Route, occurrence, capacity, and a valid boarding window are required." } });
+    const draft: TransportTripDraft = { id: randomUUID(), tenantId: request.params.tenantId, routeId: body.routeId.trim(), routeVersion: body.routeVersion, occurrenceId: body.occurrenceId.trim(), capacityMode: body.capacityMode, capacity: body.capacity, boardingStartsAt: startsAt, boardingEndsAt: endsAt, vehicleResourceId: body.vehicleResourceId?.trim() || null };
+    try { return reply.code(201).send({ data: serializeTrip(await dependencies.transportAdmin.createTrip(draft)), error: null }); }
+    catch (error) { return reply.code(400).send({ data: null, error: { code: "TRANSPORT_TRIP_INVALID", message: error instanceof Error ? error.message : "Trip could not be created." } }); }
+  });
+}

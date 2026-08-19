@@ -17,8 +17,9 @@ charter operators without creating a second booking engine.
   versions, ordered stops, dated trips, boarding windows, and vehicle links.
 - [x] Database adapter tests for ordered route reads, route writes, tenant-safe
   trip creation, occurrence-window validation, and trip-window reads.
-- [ ] Authorized API search/publish/reservation routes and typed staff/public
-  journeys.
+- [x] Authorized API route/trip search and publish routes with tenant checks,
+  safe validation, runtime database composition, and contract tests.
+- [ ] Reservation, ticket, manifest, boarding, and typed staff/public journeys.
 - [ ] Seat/open-capacity allocation, tickets, manifests, and boarding audit.
 
 ## Capability IDs and proof
