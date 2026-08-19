@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { Pool } from "pg";
-import { assignFleetTripCrew, enrollFleetDevice, handoverFleetTrackingSession, ingestFleetPosition, startFleetTrackingSession } from "./realtime-tracking.js";
+import { assignFleetTripCrew, createDatabaseFleetTrackingAdmin, createFleetDeviceCredential, enrollFleetDevice, handoverFleetTrackingSession, startFleetTrackingSession } from "./realtime-tracking.js";
 import { runMigrations } from "./migrations.js";
 import { withTenantTransaction } from "./pg-executor.js";
 
@@ -35,14 +35,17 @@ test("tracking persists history, resists replay, and isolates current state", { 
       await enrollFleetDevice(executor, { id: "device-1", tenantId, branchId: "branch-1", userId: "driver-1", platform: "android", label: "Driver phone", credentialSecret: "integration-driver-secret-is-long-enough", actorId: "manager-1" });
       await startFleetTrackingSession(executor, { id: "session-1", tenantId, tripId: "trip-1", deviceId: "device-1", driverUserId: "driver-1", expiresAt: new Date(now.getTime() + 3_600_000), actorId: "manager-1" });
     });
+    const trackingAdmin = createDatabaseFleetTrackingAdmin(pool);
+    const credential = createFleetDeviceCredential(tenantId, "device-1", "integration-driver-secret-is-long-enough");
 
-    const newest = { eventId: "event-2", sessionId: "session-1", deviceId: "device-1", sequence: 2, capturedAt: new Date(now.getTime() + 20_000), receivedAt: new Date(now.getTime() + 21_000), latitude: -1.2864, longitude: 36.8172, accuracyMetres: 8 };
-    const delayed = { ...newest, eventId: "event-1", sequence: 1, capturedAt: new Date(now.getTime() + 10_000), receivedAt: new Date(now.getTime() + 22_000), latitude: -1.2865 };
-    const receipts = await withTenantTransaction(pool, tenantId, async (executor) => [
-      await ingestFleetPosition(executor, { tenantId, position: newest }),
-      await ingestFleetPosition(executor, { tenantId, position: delayed }),
-      await ingestFleetPosition(executor, { tenantId, position: newest }),
-    ]);
+    const newest = { eventId: "event-2", sessionId: "session-1", sequence: 2, capturedAt: new Date(now.getTime() + 20_000), latitude: -1.2864, longitude: 36.8172, accuracyMetres: 8 };
+    const delayed = { ...newest, eventId: "event-1", sequence: 1, capturedAt: new Date(now.getTime() + 10_000), latitude: -1.2865 };
+    const receipts = [];
+    for (const position of [newest, delayed, newest]) {
+      const result = await trackingAdmin.ingestCredential(credential, position);
+      assert.ok(result);
+      receipts.push(result.receipt);
+    }
     assert.deepEqual(receipts.map((receipt) => [receipt.decision, receipt.replayed]), [["advance_current", false], ["history_only", false], ["advance_current", true]]);
 
     const evidence = await withTenantTransaction(pool, tenantId, async (executor) => ({

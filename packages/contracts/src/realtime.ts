@@ -3,6 +3,7 @@
 import type { PositionFreshness } from "@bookingapp/domain";
 
 export interface DriverPositionUpload {
+  readonly sessionId: string;
   readonly eventId: string;
   readonly sequence: number;
   readonly capturedAt: string;

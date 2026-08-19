@@ -27,8 +27,8 @@ reservation, fleet, identity, or tenant model.
   persistence in migration `037_realtime_tracking_foundation.sql`, with forced
   RLS, active-session uniqueness, audited handover, unit proof, and a
   server-run PostgreSQL integration lane.
-- [ ] Authenticated driver enrollment/start/stop and telemetry ingestion API.
-- [ ] Authorized owner/admin/manager/dispatcher current-fleet query and stream.
+- [x] Authenticated driver enrollment/start/stop, explicit handover, and credential-bound telemetry ingestion API; API contract tests cover admission and malformed input.
+- [ ] Authorized owner/admin/manager/dispatcher current-fleet query and stream. The tenant/branch/assignment-filtered current query is now wired; streaming fan-out and the staff UI remain.
 - [ ] Rider trip tracker and organization-configured public route projection.
 - [ ] NIU Driver React Native application with physical-device background tests.
 - [ ] MapLibre map, route-aware smoothing, confidence, stale disclosure, and ETA
@@ -46,7 +46,7 @@ reservation, fleet, identity, or tenant model.
 
 | Capability | Required proof |
 |---|---|
-| `CAP-LIVE-001` Driver telemetry and trip matching | `TEST-LIVE-001` proves enrolled-device authentication, rate bounds, validation, ordering, offline replay, and correct active trip |
+| `CAP-LIVE-001` Driver telemetry and trip matching | `TEST-LIVE-001` proves enrolled-device authentication, credential-bound ingestion, validation, ordering, offline replay, and correct active trip; rate/load and phone suites remain |
 | `CAP-LIVE-002` Rider live map and ETA | `TEST-LIVE-002` proves journey-only authorization, smooth movement, uncertainty, stale/offline disclosure, and revocation |
 | `CAP-LIVE-003` Staff realtime fleet operations | `TEST-LIVE-003` proves organization/branch/assignment scope for owner, admin, manager, dispatcher, conductor, driver, and audited support denial/elevation |
 | `CAP-LIVE-004` GPS hardware interoperability | `TEST-LIVE-004` proves normalized Traccar forwarding without bypassing NIU authorization |

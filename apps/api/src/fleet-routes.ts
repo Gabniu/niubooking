@@ -1,0 +1,107 @@
+// Ownership: authenticated staff/driver fleet commands and credential-bound telemetry ingest.
+
+import { randomBytes, randomUUID } from "node:crypto";
+import type { FastifyInstance, FastifyRequest } from "fastify";
+import { classifyPositionFreshness, type FleetDevice, type FleetTrackingSession, type FleetTripAssignment, type TelemetryReceipt, type VehiclePosition } from "@bookingapp/domain";
+import { createFleetDeviceCredential, type FleetCurrentProjection } from "@bookingapp/database";
+import type { DriverPositionUpload } from "@bookingapp/contracts";
+import type { TenantContextRequest } from "./tenant-context-handler.js";
+
+export interface FleetTrackingAdmin {
+  enroll(input: { id: string; tenantId: string; branchId: string; userId?: string | null; vehicleResourceId?: string | null; platform: "android" | "ios" | "hardware"; label: string; credentialSecret: string; actorId?: string }): Promise<FleetDevice>;
+  assign(input: { id: string; tenantId: string; branchId: string; tripId: string; userId: string; role: "driver" | "conductor"; actorId?: string }): Promise<FleetTripAssignment>;
+  start(input: { id: string; tenantId: string; tripId: string; deviceId: string; driverUserId: string; expiresAt: Date; actorId?: string }): Promise<FleetTrackingSession>;
+  handover(input: { previousSessionId: string; id: string; tenantId: string; tripId: string; deviceId: string; driverUserId: string; expiresAt: Date; actorId?: string }): Promise<FleetTrackingSession>;
+  end(input: { tenantId: string; sessionId: string; actorId?: string; reason: string; driverUserId?: string; allowManage?: boolean }): Promise<FleetTrackingSession>;
+  listCurrent(tenantId: string, branchIds?: readonly string[], assignedUserId?: string): Promise<readonly FleetCurrentProjection[]>;
+  readTripBranch(tenantId: string, tripId: string): Promise<string | null>;
+  readSessionScope(tenantId: string, sessionId: string): Promise<{ branchId: string; driverUserId: string } | null>;
+  ingestCredential(credential: string, position: Omit<VehiclePosition, "deviceId" | "receivedAt">): Promise<{ receipt: TelemetryReceipt; receivedAt: Date } | null>;
+}
+
+export interface FleetRouteDependencies {
+  resolve(request: FastifyRequest<{ Params: { tenantId: string } }>): TenantContextRequest | Promise<TenantContextRequest>;
+  fleetTracking?: FleetTrackingAdmin;
+}
+
+const managerRoles = ["owner", "admin", "manager", "dispatcher"];
+const viewerRoles = [...managerRoles, "manager", "driver", "conductor"];
+function admitted(context: TenantContextRequest, tenantId: string, roles: readonly string[]): boolean { return Boolean(context.identity && context.mappedUserId && context.membership?.tenantId === tenantId && roles.includes(context.membership.role)); }
+function branchAllowed(context: TenantContextRequest, branchId: string): boolean { return context.membership?.role === "owner" || context.membership?.branchIds.includes(branchId) === true; }
+function bearer(request: FastifyRequest): string | null { const value = request.headers.authorization; return value?.startsWith("Bearer ") && value.length <= 1024 ? value.slice(7).trim() || null : null; }
+function text(value: unknown, max = 200): string | null { if (typeof value !== "string") return null; const result = value.trim(); return result.length > 0 && result.length <= max ? result : null; }
+function sessionJson(session: FleetTrackingSession) { return { ...session, startedAt: session.startedAt.toISOString(), expiresAt: session.expiresAt.toISOString(), endedAt: session.endedAt?.toISOString() ?? null }; }
+
+export function registerFleetRoutes(app: FastifyInstance, dependencies: FleetRouteDependencies): void {
+  app.post<{ Params: { tenantId: string }; Body: { branchId: string; userId?: string | null; vehicleResourceId?: string | null; platform: "android" | "ios" | "hardware"; label: string } }>("/v1/tenants/:tenantId/fleet/devices", async (request, reply) => {
+    const context = await dependencies.resolve(request);
+    if (!admitted(context, request.params.tenantId, ["owner"])) return reply.code(403).send({ data: null, error: { code: "FLEET_ACCESS_DENIED", message: "Only an owner can enroll tracking devices." } });
+    if (!dependencies.fleetTracking) return reply.code(503).send({ data: null, error: { code: "LIVE_FLEET_UNAVAILABLE", message: "Fleet tracking is temporarily unavailable." } });
+    const body = request.body; const branchId = text(body?.branchId); const label = text(body?.label); const userId = text(body?.userId); const vehicleResourceId = text(body?.vehicleResourceId);
+    if (!branchId || !branchAllowed(context, branchId) || !label || !["android", "ios", "hardware"].includes(body?.platform) || (!userId && !vehicleResourceId)) return reply.code(400).send({ data: null, error: { code: "FLEET_DEVICE_INVALID", message: "Choose a branch, driver or vehicle, platform, and device name." } });
+    const id = randomUUID(); const secret = randomBytes(32).toString("base64url");
+    try { const device = await dependencies.fleetTracking.enroll({ id, tenantId: request.params.tenantId, branchId, userId, vehicleResourceId, platform: body.platform, label, credentialSecret: secret, actorId: context.mappedUserId! }); return reply.code(201).send({ data: { ...device, enrolledAt: device.enrolledAt.toISOString(), revokedAt: null, credential: createFleetDeviceCredential(request.params.tenantId, id, secret) }, error: null }); }
+    catch { return reply.code(400).send({ data: null, error: { code: "FLEET_DEVICE_INVALID", message: "That device could not be enrolled. Check the branch, driver, and vehicle." } }); }
+  });
+
+  app.post<{ Params: { tenantId: string }; Body: { branchId: string; tripId: string; userId: string; role: "driver" | "conductor" } }>("/v1/tenants/:tenantId/fleet/assignments", async (request, reply) => {
+    const context = await dependencies.resolve(request); const body = request.body; const branchId = text(body?.branchId); const tripId = text(body?.tripId); const userId = text(body?.userId);
+    if (!admitted(context, request.params.tenantId, managerRoles) || !branchId || !branchAllowed(context, branchId)) return reply.code(403).send({ data: null, error: { code: "FLEET_ACCESS_DENIED", message: "You do not have access to assign that trip." } });
+    if (!dependencies.fleetTracking) return reply.code(503).send({ data: null, error: { code: "LIVE_FLEET_UNAVAILABLE", message: "Fleet tracking is temporarily unavailable." } });
+    if (!tripId || !userId || !["driver", "conductor"].includes(body?.role)) return reply.code(400).send({ data: null, error: { code: "FLEET_ASSIGNMENT_INVALID", message: "Choose a trip, team member, and crew role." } });
+    try { const assignment = await dependencies.fleetTracking.assign({ id: randomUUID(), tenantId: request.params.tenantId, branchId, tripId, userId, role: body.role, actorId: context.mappedUserId! }); return reply.code(201).send({ data: assignment, error: null }); }
+    catch { return reply.code(400).send({ data: null, error: { code: "FLEET_ASSIGNMENT_INVALID", message: "That crew assignment could not be saved. Check the trip, branch, and team member." } }); }
+  });
+
+  app.post<{ Params: { tenantId: string }; Body: { tripId: string; deviceId: string; durationMinutes?: number } }>("/v1/tenants/:tenantId/fleet/tracking-sessions", async (request, reply) => {
+    const context = await dependencies.resolve(request); const body = request.body; const tripId = text(body?.tripId); const deviceId = text(body?.deviceId); const duration = body?.durationMinutes ?? 480;
+    if (!admitted(context, request.params.tenantId, ["driver"])) return reply.code(403).send({ data: null, error: { code: "FLEET_ACCESS_DENIED", message: "Only the assigned driver can start tracking." } });
+    if (!dependencies.fleetTracking) return reply.code(503).send({ data: null, error: { code: "LIVE_FLEET_UNAVAILABLE", message: "Fleet tracking is temporarily unavailable." } });
+    if (!tripId || !deviceId || !Number.isInteger(duration) || duration < 5 || duration > 1_440) return reply.code(400).send({ data: null, error: { code: "TRACKING_SESSION_INVALID", message: "Choose an assigned trip and enrolled device." } });
+    try { const session = await dependencies.fleetTracking.start({ id: randomUUID(), tenantId: request.params.tenantId, tripId, deviceId, driverUserId: context.mappedUserId!, expiresAt: new Date(Date.now() + duration * 60_000), actorId: context.mappedUserId! }); return reply.code(201).send({ data: sessionJson(session), error: null }); }
+    catch { return reply.code(409).send({ data: null, error: { code: "TRACKING_SESSION_INVALID", message: "Tracking could not start. Check the assigned trip and device, or end the active session first." } }); }
+  });
+
+  app.post<{ Params: { tenantId: string; sessionId: string }; Body: { reason?: string } }>("/v1/tenants/:tenantId/fleet/tracking-sessions/:sessionId/end", async (request, reply) => {
+    const context = await dependencies.resolve(request);
+    if (!admitted(context, request.params.tenantId, viewerRoles)) return reply.code(403).send({ data: null, error: { code: "FLEET_ACCESS_DENIED", message: "You cannot end this tracking session." } });
+    if (!dependencies.fleetTracking) return reply.code(503).send({ data: null, error: { code: "LIVE_FLEET_UNAVAILABLE", message: "Fleet tracking is temporarily unavailable." } });
+    const scope = await dependencies.fleetTracking.readSessionScope(request.params.tenantId, request.params.sessionId); const canManage = managerRoles.includes(context.membership!.role);
+    if (!scope || (!canManage && scope.driverUserId !== context.mappedUserId) || (canManage && !branchAllowed(context, scope.branchId))) return reply.code(403).send({ data: null, error: { code: "FLEET_ACCESS_DENIED", message: "You cannot end this tracking session." } });
+    try { return reply.send({ data: sessionJson(await dependencies.fleetTracking.end({ tenantId: request.params.tenantId, sessionId: request.params.sessionId, actorId: context.mappedUserId!, driverUserId: context.mappedUserId!, allowManage: canManage, reason: text(request.body?.reason, 200) ?? "stopped" })), error: null }); }
+    catch { return reply.code(409).send({ data: null, error: { code: "TRACKING_SESSION_INACTIVE", message: "That tracking session has already ended." } }); }
+  });
+
+  app.post<{ Params: { tenantId: string; previousSessionId: string }; Body: { tripId: string; deviceId: string; driverUserId: string; durationMinutes?: number } }>("/v1/tenants/:tenantId/fleet/tracking-sessions/:previousSessionId/handover", async (request, reply) => {
+    const context = await dependencies.resolve(request); const body = request.body; const tripId = text(body?.tripId); const deviceId = text(body?.deviceId); const driverUserId = text(body?.driverUserId); const duration = body?.durationMinutes ?? 480;
+    if (!admitted(context, request.params.tenantId, managerRoles)) return reply.code(403).send({ data: null, error: { code: "FLEET_ACCESS_DENIED", message: "You cannot hand over this tracking session." } });
+    if (!dependencies.fleetTracking) return reply.code(503).send({ data: null, error: { code: "LIVE_FLEET_UNAVAILABLE", message: "Fleet tracking is temporarily unavailable." } });
+    const scope = await dependencies.fleetTracking.readSessionScope(request.params.tenantId, request.params.previousSessionId);
+    if (!scope || !branchAllowed(context, scope.branchId) || !tripId || !deviceId || !driverUserId || !Number.isInteger(duration) || duration < 5 || duration > 1_440) return reply.code(403).send({ data: null, error: { code: "FLEET_ACCESS_DENIED", message: "You cannot hand over this tracking session." } });
+    try { const session = await dependencies.fleetTracking.handover({ previousSessionId: request.params.previousSessionId, id: randomUUID(), tenantId: request.params.tenantId, tripId, deviceId, driverUserId, expiresAt: new Date(Date.now() + duration * 60_000), actorId: context.mappedUserId! }); return reply.code(201).send({ data: sessionJson(session), error: null }); }
+    catch { return reply.code(409).send({ data: null, error: { code: "TRACKING_SESSION_INVALID", message: "Tracking could not be handed over. Check the active trip and enrolled device." } }); }
+  });
+
+  app.get<{ Params: { tenantId: string } }>("/v1/tenants/:tenantId/fleet/current", async (request, reply) => {
+    const context = await dependencies.resolve(request);
+    if (!admitted(context, request.params.tenantId, viewerRoles)) return reply.code(403).send({ data: null, error: { code: "FLEET_ACCESS_DENIED", message: "You do not have access to live fleet locations." } });
+    if (!dependencies.fleetTracking) return reply.code(503).send({ data: null, error: { code: "LIVE_FLEET_UNAVAILABLE", message: "Live fleet locations are temporarily unavailable." } });
+    const branchIds = context.membership?.role === "owner" ? undefined : context.membership?.branchIds ?? [];
+    const assignedUserId = ["driver", "conductor"].includes(context.membership?.role ?? "") ? context.mappedUserId ?? undefined : undefined;
+    const positions = await dependencies.fleetTracking.listCurrent(request.params.tenantId, branchIds, assignedUserId);
+    return reply.send({ data: positions.map((item) => ({ ...item, capturedAt: item.capturedAt?.toISOString() ?? null, freshness: item.capturedAt ? classifyPositionFreshness(item.capturedAt, new Date()) : "offline" })), error: null });
+  });
+
+  app.post<{ Body: DriverPositionUpload }>("/v1/fleet/telemetry", async (request, reply) => {
+    if (!dependencies.fleetTracking) return reply.code(503).send({ data: null, error: { code: "LIVE_FLEET_UNAVAILABLE", message: "Tracking is temporarily unavailable." } });
+    const credential = bearer(request); const body = request.body; const sessionId = text(body?.sessionId); const eventId = text(body?.eventId); const capturedAt = new Date(body?.capturedAt ?? "");
+    if (!credential) return reply.code(401).send({ data: null, error: { code: "TRACKING_UNAUTHENTICATED", message: "This tracking device is not connected." } });
+    if (!sessionId || !eventId || !Number.isSafeInteger(body?.sequence) || Number.isNaN(capturedAt.getTime())) return reply.code(400).send({ data: null, error: { code: "POSITION_INVALID", message: "This location update is incomplete." } });
+    try {
+      const result = await dependencies.fleetTracking.ingestCredential(credential, { ...body, sessionId, eventId, capturedAt });
+      if (!result) return reply.code(401).send({ data: null, error: { code: "TRACKING_UNAUTHENTICATED", message: "This tracking device is not connected." } });
+      if (result.receipt.decision === "reject") { const inactive = result.receipt.reasons.some((reason) => /session/iu.test(reason)); return reply.code(inactive ? 409 : 400).send({ data: null, error: { code: inactive ? "TRACKING_SESSION_INACTIVE" : "POSITION_INVALID", message: inactive ? "Tracking has stopped for this trip." : "This location update could not be used." } }); }
+      return reply.code(202).send({ data: { eventId: result.receipt.eventId, decision: result.receipt.decision, receivedAt: result.receivedAt.toISOString() }, error: null });
+    } catch { return reply.code(400).send({ data: null, error: { code: "POSITION_INVALID", message: "This location update could not be used." } }); }
+  });
+}
