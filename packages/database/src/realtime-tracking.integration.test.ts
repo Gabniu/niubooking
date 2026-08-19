@@ -18,6 +18,8 @@ test("tracking persists history, resists replay, and isolates current state", { 
   await bootstrap.end();
   const pool = new Pool({ connectionString, max: 4, options: `-c search_path=${schema},public` });
   const tenantId = "tenant-tracking";
+  const readerRole = `tracking_reader_${process.pid}_${Date.now()}`;
+  assert.match(readerRole, /^[a-z][a-z0-9_]{0,62}$/u);
   const now = new Date();
   try {
     await runMigrations(pool, { directory: migrationsDirectory, schema });
@@ -52,8 +54,18 @@ test("tracking persists history, resists replay, and isolates current state", { 
     assert.equal(evidence.history[0]?.count, "2");
     assert.equal(evidence.receipts[0]?.count, "2");
 
-    const hidden = await withTenantTransaction(pool, "other-tenant", (executor) => executor.query("SELECT event_id FROM fleet_current_positions" , []));
-    assert.equal(hidden.length, 0);
+    await pool.query(`CREATE ROLE "${readerRole}" NOLOGIN NOSUPERUSER NOBYPASSRLS`);
+    await pool.query(`GRANT USAGE ON SCHEMA "${schema}" TO "${readerRole}"`);
+    await pool.query(`GRANT SELECT ON fleet_current_positions TO "${readerRole}"`);
+    const reader = await pool.connect();
+    try {
+      await reader.query("BEGIN");
+      await reader.query(`SET LOCAL ROLE "${readerRole}"`);
+      await reader.query("SELECT set_config('booking.tenant_id', 'other-tenant', true)");
+      const hidden = await reader.query("SELECT event_id FROM fleet_current_positions");
+      assert.equal(hidden.rows.length, 0);
+      await reader.query("ROLLBACK");
+    } finally { reader.release(); }
 
     await assert.rejects(() => withTenantTransaction(pool, tenantId, (executor) => startFleetTrackingSession(executor, { id: "session-conflict", tenantId, tripId: "trip-1", deviceId: "device-1", driverUserId: "driver-1", expiresAt: new Date(now.getTime() + 3_600_000) })), /fleet_active_session/iu);
     await withTenantTransaction(pool, tenantId, async (executor) => {
@@ -62,6 +74,7 @@ test("tracking persists history, resists replay, and isolates current state", { 
     });
   } finally {
     await pool.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+    await pool.query(`DROP ROLE IF EXISTS "${readerRole}"`);
     await pool.end();
   }
 });
