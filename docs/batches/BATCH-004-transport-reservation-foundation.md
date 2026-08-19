@@ -10,6 +10,17 @@ reserves the whole vehicle and crew for one journey interval.
 This batch must support matatu/bus operators, scheduled shuttle services, and
 charter operators without creating a second booking engine.
 
+## Current progress
+
+- [x] Domain route/trip contracts and invariant tests.
+- [x] Additive migration `030_transport_foundation.sql` for tenant-scoped route
+  versions, ordered stops, dated trips, boarding windows, and vehicle links.
+- [x] Database adapter tests for ordered route reads, route writes, tenant-safe
+  trip creation, occurrence-window validation, and trip-window reads.
+- [ ] Authorized API search/publish/reservation routes and typed staff/public
+  journeys.
+- [ ] Seat/open-capacity allocation, tickets, manifests, and boarding audit.
+
 ## Capability IDs and proof
 
 | Capability | Required proof |
