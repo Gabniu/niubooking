@@ -1,6 +1,6 @@
 // Ownership: public transport journey client; only opaque QR and manage tokens cross the browser boundary.
 
-import type { PublicTransportCancellationResponse, PublicTransportReservationResponse, PublicTransportTripsResponse } from "@bookingapp/contracts";
+import type { PublicTransportCancellationResponse, PublicTransportReservationResponse, PublicTransportTicketResponse, PublicTransportTripsResponse } from "@bookingapp/contracts";
 import { userFacingMessage } from "./user-messages.js";
 
 export type TransportFetcher = (url: string, init?: { method?: "POST" | "GET"; headers?: Record<string, string>; body?: string }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
@@ -47,5 +47,16 @@ export async function cancelPublicTransportReservation(fetcher: TransportFetcher
     return { kind: response.status === 404 ? "unavailable" : "error", message: message(response.status, body.error, "We could not cancel this reservation. Please try again.") };
   } catch {
     return { kind: "error", message: "We could not cancel this reservation. Check your connection and try again." };
+  }
+}
+
+export async function fetchPublicTransportTicket(fetcher: TransportFetcher, baseUrl: string, token: string): Promise<TransportState<NonNullable<PublicTransportTicketResponse["data"]>>> {
+  try {
+    const response = await fetcher(`${baseUrl}/v1/public/transport/tickets/${encodeURIComponent(token)}`);
+    const body = (await response.json()) as PublicTransportTicketResponse;
+    if (body.data) return { kind: "ready", value: body.data };
+    return { kind: response.status === 404 ? "unavailable" : "error", message: message(response.status, body.error, "This ticket link is not available.") };
+  } catch {
+    return { kind: "error", message: "We could not load this ticket. Check your connection and try again." };
   }
 }

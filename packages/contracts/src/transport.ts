@@ -36,6 +36,26 @@ export interface PublicTransportCancellationResponse {
   error: { code: "TRANSPORT_UNAVAILABLE" | "TRANSPORT_CANCELLATION_INVALID" | "TRANSPORT_RESERVATION_NOT_FOUND" | "TRANSPORT_CANCELLATION_CONFLICT"; message: string } | null;
 }
 
+export interface PublicTransportTicketSummary {
+  routeName: string;
+  mode: TransportMode;
+  originStopId: string;
+  destinationStopId: string;
+  quantity: number;
+  reservationStatus: ReservationStatus;
+  status: "issued" | "cancelled";
+  fareAmountMinor: number;
+  fareCurrency: string;
+  issuedAt: string;
+  boardingStartsAt: string;
+  boardingEndsAt: string;
+}
+
+export interface PublicTransportTicketResponse {
+  data: PublicTransportTicketSummary | null;
+  error: { code: "TRANSPORT_UNAVAILABLE" | "TRANSPORT_TICKET_NOT_FOUND"; message: string } | null;
+}
+
 export interface TransportRouteSummary {
   id: string;
   tenantId: string;

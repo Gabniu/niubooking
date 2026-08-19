@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cancelPublicTransportReservation, createPublicTransportReservation, fetchPublicTransportTrips } from "./transport-public-client.js";
+import { cancelPublicTransportReservation, createPublicTransportReservation, fetchPublicTransportTicket, fetchPublicTransportTrips } from "./transport-public-client.js";
 
 const trip = { id: "trip-1", routeName: "Town → Airport", mode: "matatu", stops: [{ stopId: "Town", sequence: 1, boardingMinutes: 10, alightingMinutes: 2 }, { stopId: "Airport", sequence: 2, boardingMinutes: 5, alightingMinutes: 10 }], capacityMode: "seat", capacity: 14, remainingCapacity: 8, boardingStartsAt: "2026-09-01T06:00:00.000Z", boardingEndsAt: "2026-09-01T06:20:00.000Z" } as const;
 
@@ -19,4 +19,10 @@ test("cancels a reservation with its one-time manage capability", async () => {
   const state = await cancelPublicTransportReservation(async (url, init) => { assert.match(url, /reservations\/manage-token\/cancel/u); assert.equal(init?.method, "POST"); return { ok: true, status: 200, json: async () => ({ data: { reservationId: "reservation-1", tripId: "trip-1", status: "cancelled" }, error: null }) }; }, "https://booking.test", "manage-token", "retry-key-123");
   assert.equal(state.kind, "ready");
   if (state.kind === "ready") assert.equal(state.value.status, "cancelled");
+});
+
+test("loads a privacy-safe public ticket by opaque token", async () => {
+  const state = await fetchPublicTransportTicket(async (url) => { assert.match(url, /transport\/tickets\/ticket-token/u); return { ok: true, status: 200, json: async () => ({ data: { routeName: "Town to Airport", mode: "bus", originStopId: "Town", destinationStopId: "Airport", quantity: 1, reservationStatus: "confirmed", status: "issued", fareAmountMinor: 25000, fareCurrency: "KES", issuedAt: "2026-09-01T07:00:00.000Z", boardingStartsAt: "2026-09-01T08:00:00.000Z", boardingEndsAt: "2026-09-01T08:20:00.000Z" }, error: null }) }; }, "https://booking.test", "ticket-token");
+  assert.equal(state.kind, "ready");
+  if (state.kind === "ready") assert.equal(state.value.routeName, "Town to Airport");
 });

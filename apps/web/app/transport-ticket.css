@@ -1,0 +1,28 @@
+/* Ownership: compact public transport ticket view; no tenant or passenger identity is rendered. */
+.transport-ticket-page { min-height: 100vh; color: var(--public-text); background: var(--public-canvas); }
+.transport-ticket-shell { width: min(100% - 32px, 720px); margin: 0 auto; padding: clamp(30px, 6vw, 56px) 0 72px; }
+.transport-ticket-heading { max-width: 540px; }
+.transport-ticket-heading h1 { margin: 8px 0 0; color: var(--public-text); font-size: clamp(30px, 5vw, 42px); font-weight: 400; letter-spacing: -.045em; line-height: 1.05; }
+.transport-ticket-heading > p:last-child { margin: 11px 0 0; color: var(--public-muted); font-size: 14px; line-height: 1.5; }
+.transport-ticket-card, .transport-ticket-empty { margin-top: 22px; padding: 22px; border: 1px solid var(--public-border); border-radius: 14px; background: #fff; box-shadow: 0 16px 40px rgb(15 23 42 / 5%); }
+.transport-ticket-card-top { display: flex; align-items: start; justify-content: space-between; gap: 14px; }
+.transport-ticket-card h2 { margin: 7px 0 0; color: var(--public-text); font-size: 24px; font-weight: 400; letter-spacing: -.035em; }
+.transport-ticket-badge { padding: 5px 8px; border-radius: 999px; font-size: 11px; white-space: nowrap; }
+.transport-ticket-badge-issued { color: #166534; background: #dcfce7; }
+.transport-ticket-badge-cancelled { color: #9f1239; background: #fff1f2; }
+.transport-ticket-route { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 12px; align-items: center; margin-top: 22px; padding: 16px 14px; border: 1px solid #dfe5ef; border-radius: 11px; background: #fafbff; }
+.transport-ticket-route div { display: grid; gap: 5px; min-width: 0; }
+.transport-ticket-route span { color: var(--public-muted); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+.transport-ticket-route strong { overflow: hidden; color: var(--public-text); font-size: 15px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.transport-ticket-route-arrow { color: var(--public-navy) !important; font-size: 16px !important; }
+.transport-ticket-details { display: grid; gap: 0; margin: 18px 0 0; }
+.transport-ticket-details div { display: flex; justify-content: space-between; gap: 18px; padding: 10px 0; border-bottom: 1px solid var(--public-border); }
+.transport-ticket-details dt { color: var(--public-muted); font-size: 11px; }
+.transport-ticket-details dd { margin: 0; color: var(--public-text); font-size: 12px; font-weight: 500; text-align: right; }
+.transport-ticket-note { margin: 17px 0 0; color: var(--public-muted); font-size: 11px; line-height: 1.5; }
+.transport-ticket-empty { display: grid; justify-items: center; text-align: center; }
+.transport-ticket-empty img { width: min(170px, 52vw); height: auto; margin-bottom: 7px; }
+.transport-ticket-empty h2 { margin: 3px 0 0; color: var(--public-text); font-size: 22px; font-weight: 400; }
+.transport-ticket-empty p { max-width: 390px; margin: 8px 0 17px; color: var(--public-muted); font-size: 13px; line-height: 1.5; }
+.transport-ticket-back { display: inline-flex; margin-top: 14px; }
+@media (max-width: 520px) { .transport-ticket-shell { width: min(100% - 24px, 620px); padding-top: 28px; } .transport-ticket-card, .transport-ticket-empty { padding: 17px; } .transport-ticket-route { gap: 8px; padding: 13px 10px; } .transport-ticket-route strong { font-size: 13px; } }
