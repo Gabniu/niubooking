@@ -16,12 +16,12 @@ test("rejects repeated or gapped route stops", () => {
 });
 
 test("accepts a trip whose boarding window fits its occurrence", () => {
-  const trip = { id: "trip-1", tenantId: "tenant-1", routeId: "route-1", routeVersion: 1, occurrenceId: "occurrence-1", capacityMode: "open" as const, capacity: 33, boardingStartsAt: new Date("2026-09-01T07:00:00Z"), boardingEndsAt: new Date("2026-09-01T07:30:00Z") };
+  const trip = { id: "trip-1", tenantId: "tenant-1", branchId: "branch-1", routeId: "route-1", routeVersion: 1, occurrenceId: "occurrence-1", capacityMode: "open" as const, capacity: 33, boardingStartsAt: new Date("2026-09-01T07:00:00Z"), boardingEndsAt: new Date("2026-09-01T07:30:00Z") };
   assert.deepEqual(validateTransportTripDraft(trip, route, { id: "occurrence-1", tenantId: "tenant-1", startsAt, endsAt }), []);
 });
 
 test("rejects cross-tenant, stale-route, and out-of-window trips", () => {
-  const errors = validateTransportTripDraft({ id: "trip-1", tenantId: "tenant-2", routeId: "route-1", routeVersion: 2, occurrenceId: "occurrence-2", capacityMode: "seat", capacity: 0, boardingStartsAt: new Date("2026-09-01T06:00:00Z"), boardingEndsAt: new Date("2026-09-01T11:00:00Z") }, route, { id: "occurrence-1", tenantId: "tenant-1", startsAt, endsAt });
+  const errors = validateTransportTripDraft({ id: "trip-1", tenantId: "tenant-2", branchId: "branch-1", routeId: "route-1", routeVersion: 2, occurrenceId: "occurrence-2", capacityMode: "seat", capacity: 0, boardingStartsAt: new Date("2026-09-01T06:00:00Z"), boardingEndsAt: new Date("2026-09-01T11:00:00Z") }, route, { id: "occurrence-1", tenantId: "tenant-1", startsAt, endsAt });
   assert.match(errors.join(";"), /tenant|current|capacity|before|after|match/iu);
 });
 

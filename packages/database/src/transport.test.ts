@@ -5,7 +5,7 @@ import { assignTransportReservationSeats, boardTransportTicket, cancelPublicTran
 
 const routeRow = { id: "route-1", tenant_id: "tenant-1", version: 1, name: "CBD — Westlands", mode: "matatu" as const, status: "draft" as const };
 const stops = [{ stop_id: "cbd", sequence: 1, boarding_minutes: 10, alighting_minutes: 0 }, { stop_id: "westlands", sequence: 2, boarding_minutes: 10, alighting_minutes: 10 }];
-const tripRow = { id: "trip-1", tenant_id: "tenant-1", route_id: "route-1", route_version: 1, occurrence_id: "occurrence-1", capacity_mode: "open" as const, capacity: 33, boarding_starts_at: new Date("2026-09-01T07:00:00Z"), boarding_ends_at: new Date("2026-09-01T07:30:00Z"), vehicle_resource_id: null };
+const tripRow = { id: "trip-1", tenant_id: "tenant-1", branch_id: "branch-1", route_id: "route-1", route_version: 1, occurrence_id: "occurrence-1", capacity_mode: "open" as const, capacity: 33, boarding_starts_at: new Date("2026-09-01T07:00:00Z"), boarding_ends_at: new Date("2026-09-01T07:30:00Z"), vehicle_resource_id: null };
 
 test("lists tenant routes with ordered stops", async () => {
   const executor = { query: async <T>() => [{ ...routeRow, stops }] as T[] };
@@ -27,17 +27,18 @@ test("creates a trip only when its route and occurrence share the tenant", async
     if (sql.includes("FROM service_occurrences")) return [{ id: "occurrence-1", tenant_id: "tenant-1", starts_at: new Date("2026-09-01T07:00:00Z"), ends_at: new Date("2026-09-01T10:00:00Z") }] as T[];
     return [tripRow] as T[];
   } };
-  const trip = await createTransportTrip(executor, { ...tripRow, tenantId: "tenant-1", routeId: "route-1", routeVersion: 1, occurrenceId: "occurrence-1", capacityMode: "open", capacity: 33, boardingStartsAt: tripRow.boarding_starts_at, boardingEndsAt: tripRow.boarding_ends_at });
+  const trip = await createTransportTrip(executor, { ...tripRow, tenantId: "tenant-1", branchId: "branch-1", routeId: "route-1", routeVersion: 1, occurrenceId: "occurrence-1", capacityMode: "open", capacity: 33, boardingStartsAt: tripRow.boarding_starts_at, boardingEndsAt: tripRow.boarding_ends_at });
   assert.equal(trip.routeVersion, 1);
 });
 
 test("rejects a trip outside its occurrence window", async () => {
   const executor = { query: async <T>(sql: string) => {
+    if (sql.includes("FROM tenant_branches")) return [{ id: "branch-1" }] as T[];
     if (sql.includes("FROM transport_routes")) return [{ id: "route-1", tenant_id: "tenant-1", version: 1 }] as T[];
     if (sql.includes("FROM service_occurrences")) return [{ id: "occurrence-1", tenant_id: "tenant-1", starts_at: new Date("2026-09-01T07:00:00Z"), ends_at: new Date("2026-09-01T10:00:00Z") }] as T[];
     return [] as T[];
   } };
-  await assert.rejects(() => createTransportTrip(executor, { ...tripRow, tenantId: "tenant-1", routeId: "route-1", routeVersion: 1, occurrenceId: "occurrence-1", capacityMode: "open", capacity: 33, boardingStartsAt: new Date("2026-09-01T06:00:00Z"), boardingEndsAt: new Date("2026-09-01T07:30:00Z") }), /before/iu);
+  await assert.rejects(() => createTransportTrip(executor, { ...tripRow, tenantId: "tenant-1", branchId: "branch-1", routeId: "route-1", routeVersion: 1, occurrenceId: "occurrence-1", capacityMode: "open", capacity: 33, boardingStartsAt: new Date("2026-09-01T06:00:00Z"), boardingEndsAt: new Date("2026-09-01T07:30:00Z") }), /before/iu);
 });
 
 test("lists trips within a boarding window", async () => {

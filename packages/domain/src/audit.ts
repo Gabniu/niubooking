@@ -1,8 +1,23 @@
 // Ownership: durable, tenant-scoped audit vocabulary shared by mutation adapters.
 
 export type AuditActorType = "user" | "system" | "integration";
-export type AuditAction = "reservation.status_changed" | "transport.boarded" | "transport.seats_assigned" | "gtfs.feed_published";
-export type AuditEntityType = "reservation" | "gtfs_feed_version";
+export type AuditAction =
+  | "reservation.status_changed"
+  | "transport.boarded"
+  | "transport.seats_assigned"
+  | "gtfs.feed_published"
+  | "fleet.device_enrolled"
+  | "fleet.device_revoked"
+  | "fleet.trip_assigned"
+  | "fleet.tracking_started"
+  | "fleet.tracking_handover"
+  | "fleet.tracking_ended";
+export type AuditEntityType =
+  | "reservation"
+  | "gtfs_feed_version"
+  | "fleet_device"
+  | "transport_trip_assignment"
+  | "fleet_tracking_session";
 
 export interface AuditEvent {
   id: string;

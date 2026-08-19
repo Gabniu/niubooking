@@ -22,8 +22,11 @@ reservation, fleet, identity, or tenant model.
   ADR-0018.
 - [x] Deterministic access, telemetry validation, ordering, and freshness domain
   policies with executable tests.
-- [ ] Additive tenant/branch/trip-scoped device, session, current-position, and
-  partitioned history persistence.
+- [x] Additive tenant/branch/trip-scoped device, assignment, session,
+  idempotent receipt, newer-wins current-position, and partitioned history
+  persistence in migration `037_realtime_tracking_foundation.sql`, with forced
+  RLS, active-session uniqueness, audited handover, unit proof, and a
+  server-run PostgreSQL integration lane.
 - [ ] Authenticated driver enrollment/start/stop and telemetry ingestion API.
 - [ ] Authorized owner/admin/manager/dispatcher current-fleet query and stream.
 - [ ] Rider trip tracker and organization-configured public route projection.

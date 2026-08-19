@@ -8,7 +8,7 @@ import type { TenantContextRequest } from "./tenant-context-handler.js";
 export interface TransportAdmin {
   listRoutes(tenantId: string): Promise<readonly TransportRoute[]>;
   createRoute(draft: TransportRouteDraft): Promise<TransportRoute>;
-  listTrips(tenantId: string, from?: Date, to?: Date): Promise<readonly TransportTrip[]>;
+  listTrips(tenantId: string, from?: Date, to?: Date, branchIds?: readonly string[]): Promise<readonly TransportTrip[]>;
   createTrip(draft: TransportTripDraft): Promise<TransportTrip>;
   listReservations?(tenantId: string, tripId: string): Promise<readonly TransportPassengerReservation[]>;
   createReservation?(draft: TransportPassengerReservationDraft): Promise<TransportPassengerReservation>;
@@ -35,6 +35,10 @@ const capacityModes = new Set<CapacityMode>(["seat", "open"]);
 
 function allowed(context: TenantContextRequest, tenantId: string, roles = ["owner", "admin", "manager"]): boolean {
   return Boolean(context.identity && context.membership && context.membership.tenantId === tenantId && roles.includes(context.membership.role));
+}
+
+function allowedBranch(context: TenantContextRequest, tenantId: string, branchId: string): boolean {
+  return allowed(context, tenantId) && (context.membership?.role === "owner" || context.membership?.branchIds.includes(branchId) === true);
 }
 
 function dates(query: { from?: string; to?: string }): { from?: Date; to?: Date } | null {
@@ -143,18 +147,21 @@ export function registerTransportRoutes(app: FastifyInstance, dependencies: Tran
     if (!dependencies.transportAdmin) return reply.code(503).send({ data: null, error: { code: "TRANSPORT_UNAVAILABLE", message: "Transport trips are temporarily unavailable." } });
     const window = dates(request.query);
     if (!window) return reply.code(400).send({ data: null, error: { code: "TRANSPORT_TRIP_INVALID", message: "Trip date filters are invalid." } });
-    return reply.send({ data: (await dependencies.transportAdmin.listTrips(request.params.tenantId, window.from, window.to)).map(serializeTrip), error: null });
+    const branchIds = context.membership?.role === "owner" ? undefined : context.membership?.branchIds ?? [];
+    return reply.send({ data: (await dependencies.transportAdmin.listTrips(request.params.tenantId, window.from, window.to, branchIds)).map(serializeTrip), error: null });
   });
 
-  app.post<{ Params: { tenantId: string }; Body: { routeId: string; routeVersion: number; occurrenceId: string; capacityMode: CapacityMode; capacity: number; boardingStartsAt: string; boardingEndsAt: string; vehicleResourceId?: string | null } }>("/v1/tenants/:tenantId/transport/trips", async (request, reply) => {
+  app.post<{ Params: { tenantId: string }; Body: { branchId: string; routeId: string; routeVersion: number; occurrenceId: string; capacityMode: CapacityMode; capacity: number; boardingStartsAt: string; boardingEndsAt: string; vehicleResourceId?: string | null } }>("/v1/tenants/:tenantId/transport/trips", async (request, reply) => {
     const context = await dependencies.resolve(request);
     if (!allowed(context, request.params.tenantId, ["owner", "admin"])) return reply.code(403).send({ data: null, error: { code: "TENANT_ACCESS_DENIED", message: "You do not have access to this workspace." } });
     if (!dependencies.transportAdmin) return reply.code(503).send({ data: null, error: { code: "TRANSPORT_UNAVAILABLE", message: "Transport trips are temporarily unavailable." } });
     const body = request.body;
     const startsAt = new Date(body?.boardingStartsAt ?? "");
     const endsAt = new Date(body?.boardingEndsAt ?? "");
-    if (!body?.routeId?.trim() || !body?.occurrenceId?.trim() || !Number.isInteger(body.routeVersion) || body.routeVersion < 1 || !capacityModes.has(body.capacityMode) || !Number.isInteger(body.capacity) || body.capacity <= 0 || Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime()) || endsAt <= startsAt || (body.vehicleResourceId !== undefined && body.vehicleResourceId !== null && (typeof body.vehicleResourceId !== "string" || body.vehicleResourceId.trim().length > 120))) return reply.code(400).send({ data: null, error: { code: "TRANSPORT_TRIP_INVALID", message: "Route, occurrence, capacity, and a valid boarding window are required." } });
-    const draft: TransportTripDraft = { id: randomUUID(), tenantId: request.params.tenantId, routeId: body.routeId.trim(), routeVersion: body.routeVersion, occurrenceId: body.occurrenceId.trim(), capacityMode: body.capacityMode, capacity: body.capacity, boardingStartsAt: startsAt, boardingEndsAt: endsAt, vehicleResourceId: body.vehicleResourceId?.trim() || null };
+    const branchId = body?.branchId?.trim() ?? "";
+    if (!allowedBranch(context, request.params.tenantId, branchId)) return reply.code(403).send({ data: null, error: { code: "TENANT_ACCESS_DENIED", message: "You do not have access to that branch." } });
+    if (!branchId || branchId.length > 120 || !body?.routeId?.trim() || !body?.occurrenceId?.trim() || !Number.isInteger(body.routeVersion) || body.routeVersion < 1 || !capacityModes.has(body.capacityMode) || !Number.isInteger(body.capacity) || body.capacity <= 0 || Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime()) || endsAt <= startsAt || (body.vehicleResourceId !== undefined && body.vehicleResourceId !== null && (typeof body.vehicleResourceId !== "string" || body.vehicleResourceId.trim().length > 120))) return reply.code(400).send({ data: null, error: { code: "TRANSPORT_TRIP_INVALID", message: "Branch, route, occurrence, capacity, and a valid boarding window are required." } });
+    const draft: TransportTripDraft = { id: randomUUID(), tenantId: request.params.tenantId, branchId, routeId: body.routeId.trim(), routeVersion: body.routeVersion, occurrenceId: body.occurrenceId.trim(), capacityMode: body.capacityMode, capacity: body.capacity, boardingStartsAt: startsAt, boardingEndsAt: endsAt, vehicleResourceId: body.vehicleResourceId?.trim() || null };
     try { return reply.code(201).send({ data: serializeTrip(await dependencies.transportAdmin.createTrip(draft)), error: null }); }
     catch (error) { return reply.code(400).send({ data: null, error: { code: "TRANSPORT_TRIP_INVALID", message: error instanceof Error ? error.message : "Trip could not be created." } }); }
   });

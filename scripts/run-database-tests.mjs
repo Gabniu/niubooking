@@ -10,12 +10,12 @@ function run(command, arguments_, options = {}) {
 }
 
 if (suppliedDatabase) {
-  run(process.execPath, ["--test", "--test-concurrency=1", "packages/database/dist/migrations.integration.test.js", "packages/database/dist/occurrences.concurrency.integration.test.js"]);
+  run(process.execPath, ["--test", "--test-concurrency=1", "packages/database/dist/migrations.integration.test.js", "packages/database/dist/occurrences.concurrency.integration.test.js", "packages/database/dist/realtime-tracking.integration.test.js"]);
 } else if (process.env.CI === "true") {
   // CI owns its ephemeral Docker runner. A developer workstation never starts a database implicitly.
   try {
     run("docker", [...compose, "up", "--detach", "--wait"]);
-    run(process.execPath, ["--test", "--test-concurrency=1", "packages/database/dist/migrations.integration.test.js", "packages/database/dist/occurrences.concurrency.integration.test.js"], {
+    run(process.execPath, ["--test", "--test-concurrency=1", "packages/database/dist/migrations.integration.test.js", "packages/database/dist/occurrences.concurrency.integration.test.js", "packages/database/dist/realtime-tracking.integration.test.js"], {
       env: {
         ...process.env,
         TEST_DATABASE_URL: "postgresql://bookingapp_test:bookingapp_test@127.0.0.1:55432/bookingapp_test",

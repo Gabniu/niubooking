@@ -28,6 +28,8 @@ export type TransportRouteDraft = Omit<TransportRoute, "status"> & { status?: Tr
 export interface TransportTrip {
   id: string;
   tenantId: string;
+  /** Null only for trips created before branch-scoped transport was introduced. */
+  branchId: string | null;
   routeId: string;
   routeVersion: number;
   occurrenceId: string;
@@ -39,7 +41,7 @@ export interface TransportTrip {
   reservedQuantity?: number;
 }
 
-export type TransportTripDraft = Omit<TransportTrip, "reservedQuantity">;
+export type TransportTripDraft = Omit<TransportTrip, "reservedQuantity" | "branchId"> & { branchId: string };
 
 export interface TransportPassengerReservation {
   id: string;
@@ -137,7 +139,7 @@ export function validateTransportRouteDraft(draft: TransportRouteDraft): string[
 
 export function validateTransportTripDraft(draft: TransportTripDraft, route: Pick<TransportRoute, "id" | "tenantId" | "version">, occurrence: Pick<ServiceOccurrence, "id" | "tenantId" | "startsAt" | "endsAt">): string[] {
   const errors: string[] = [];
-  if (!draft.id || !draft.tenantId || !draft.routeId || !draft.occurrenceId) errors.push("Trip identity is required");
+  if (!draft.id || !draft.tenantId || !draft.branchId || !draft.routeId || !draft.occurrenceId) errors.push("Trip and branch identity are required");
   if (draft.tenantId !== route.tenantId || draft.tenantId !== occurrence.tenantId) errors.push("Trip, route, and occurrence must share a tenant");
   if (draft.routeId !== route.id || draft.routeVersion !== route.version) errors.push("Trip route version is not current");
   if (draft.occurrenceId !== occurrence.id) errors.push("Trip occurrence does not match the supplied occurrence");

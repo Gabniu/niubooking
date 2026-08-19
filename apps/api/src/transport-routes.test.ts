@@ -6,7 +6,7 @@ const identity = { issuer: "https://novaauth.niuautomations.com", subject: "tran
 const membership = { userId: "transport-user", tenantId: "tenant-transport", branchIds: [], role: "owner", status: "active" as const };
 const resolve = (request: { params: { tenantId: string } }) => ({ identity, mappedUserId: "transport-user", membership, requestedTenantId: request.params.tenantId });
 const route = { id: "route-1", tenantId: "tenant-transport", version: 1, name: "CBD to Westlands", mode: "matatu" as const, status: "published" as const, stops: [{ stopId: "cbd", sequence: 1, boardingMinutes: 5, alightingMinutes: 0 }, { stopId: "westlands", sequence: 2, boardingMinutes: 0, alightingMinutes: 5 }] };
-const trip = { id: "trip-1", tenantId: "tenant-transport", routeId: "route-1", routeVersion: 1, occurrenceId: "occ-1", capacityMode: "open" as const, capacity: 14, boardingStartsAt: new Date("2026-08-20T06:00:00Z"), boardingEndsAt: new Date("2026-08-20T06:30:00Z"), vehicleResourceId: "vehicle-1" };
+const trip = { id: "trip-1", tenantId: "tenant-transport", branchId: "branch-1", routeId: "route-1", routeVersion: 1, occurrenceId: "occ-1", capacityMode: "open" as const, capacity: 14, boardingStartsAt: new Date("2026-08-20T06:00:00Z"), boardingEndsAt: new Date("2026-08-20T06:30:00Z"), vehicleResourceId: "vehicle-1" };
 const passengerReservation = { id: "reservation-1", tenantId: "tenant-transport", tripId: "trip-1", occurrenceId: "occ-1", customerId: "customer-1", originStopId: "cbd", destinationStopId: "westlands", quantity: 2, status: "confirmed" as const, createIdempotencyKey: "retry-123" };
 const ticket = { id: "ticket-1", tenantId: "tenant-transport", tripId: "trip-1", reservationId: "reservation-1", fareAmountMinor: 2500, fareCurrency: "KES", status: "issued" as const, issuedAt: new Date("2026-08-19T10:00:00Z"), ticketToken: "opaque-ticket-token" };
 const publicCode = "transport-public-code-1";
@@ -28,7 +28,7 @@ test("creates a route and trip through the real HTTP contracts", async () => {
   const routeResponse = await app.inject({ method: "POST", url: "/v1/tenants/tenant-transport/transport/routes", payload: { name: "CBD to Westlands", mode: "matatu", status: "published", stops: route.stops } });
   assert.equal(routeResponse.statusCode, 201);
   assert.equal((seen.route as { tenantId: string }).tenantId, "tenant-transport");
-  const tripResponse = await app.inject({ method: "POST", url: "/v1/tenants/tenant-transport/transport/trips", payload: { routeId: "route-1", routeVersion: 1, occurrenceId: "occ-1", capacityMode: "open", capacity: 14, boardingStartsAt: "2026-08-20T06:00:00Z", boardingEndsAt: "2026-08-20T06:30:00Z", vehicleResourceId: "vehicle-1" } });
+  const tripResponse = await app.inject({ method: "POST", url: "/v1/tenants/tenant-transport/transport/trips", payload: { branchId: "branch-1", routeId: "route-1", routeVersion: 1, occurrenceId: "occ-1", capacityMode: "open", capacity: 14, boardingStartsAt: "2026-08-20T06:00:00Z", boardingEndsAt: "2026-08-20T06:30:00Z", vehicleResourceId: "vehicle-1" } });
   assert.equal(tripResponse.statusCode, 201);
   assert.equal((seen.trip as { capacity: number }).capacity, 14);
 });

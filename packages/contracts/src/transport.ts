@@ -70,6 +70,7 @@ export interface TransportRouteSummary {
 export interface TransportTripSummary {
   id: string;
   tenantId: string;
+  branchId: string | null;
   routeId: string;
   routeVersion: number;
   occurrenceId: string;

@@ -18,6 +18,7 @@ export * from "./industry-pack-settings.js";
 export * from "./occurrences.js";
 export * from "./transport.js";
 export * from "./gtfs-publication.js";
+export * from "./realtime-tracking.js";
 export * from "./feedback.js";
 export * from "./feedback-admin.js";
 export * from "./feedback-responses-admin.js";
