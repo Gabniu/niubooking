@@ -51,6 +51,8 @@ export interface TransportPassengerReservation {
   destinationStopId: string;
   quantity: number;
   status: ReservationStatus;
+  /** Assigned labels are present for seat-mode trips after staff assignment. */
+  seatLabels?: readonly string[];
   createIdempotencyKey?: string;
   /** Present only in the one-time public response that creates the reservation. */
   manageToken?: string;
@@ -82,6 +84,7 @@ export interface PublicTransportTicket {
   originStopId: string;
   destinationStopId: string;
   quantity: number;
+  seatLabels?: readonly string[];
   reservationStatus: ReservationStatus;
   status: TransportTicket["status"];
   fareAmountMinor: number;
@@ -157,6 +160,17 @@ export function validateTransportPassengerReservationDraft(draft: TransportPasse
   if (!origin || !destination || origin.sequence >= destination.sequence) errors.push("Boarding stop must come before arrival stop");
   if (draft.createIdempotencyKey !== undefined && (draft.createIdempotencyKey.trim().length < 8 || draft.createIdempotencyKey.trim().length > 200)) errors.push("Reservation retry key must be between 8 and 200 characters");
   if (draft.status && !["held", "confirmed"].includes(draft.status)) errors.push("New passenger reservations must be held or confirmed");
+  return errors;
+}
+
+export function validateTransportSeatAssignment(input: { capacityMode: CapacityMode; capacity: number; quantity: number; seatLabels: readonly string[] }): string[] {
+  const errors: string[] = [];
+  if (input.capacityMode !== "seat") errors.push("Only seat-based trips can assign seats");
+  if (!Number.isInteger(input.capacity) || input.capacity < 1) errors.push("Trip capacity must be a positive integer");
+  if (!Number.isInteger(input.quantity) || input.quantity < 1) errors.push("Passenger quantity must be a positive integer");
+  if (input.seatLabels.length !== input.quantity) errors.push("Choose one seat for each passenger");
+  if (new Set(input.seatLabels).size !== input.seatLabels.length) errors.push("A passenger cannot use the same seat twice");
+  if (input.seatLabels.some((label) => !/^[1-9]\d{0,3}$/u.test(label) || Number(label) > input.capacity)) errors.push("Choose seats within the trip capacity");
   return errors;
 }
 

@@ -34,6 +34,12 @@
 .transport-manifest-card { margin-top: 14px; }
 .transport-manifest-row { flex-wrap: wrap; }
 .transport-manifest-person { flex: 1 1 210px; }
+.transport-seat-controls { display: grid; gap: 5px; margin-top: 8px; }
+.transport-seat-controls label { color: #475569; font-size: 10px; font-weight: 600; }
+.transport-seat-controls label span { color: #94a3b8; font-weight: 400; }
+.transport-seat-controls > div { display: flex; align-items: center; gap: 6px; }
+.transport-seat-controls input { width: 104px; min-height: 30px; padding: 5px 7px; border: 1px solid #d8deea; border-radius: 7px; color: #17213a; background: #fff; font: inherit; font-size: 11px; }
+.transport-seat-controls input:focus-visible { outline: 2px solid #b9b6ff; outline-offset: 1px; }
 .transport-status-pill, .transport-ticket-state { padding: 4px 7px; border-radius: 999px; color: #475569; background: #eef2f7; font-size: 10px; text-transform: capitalize; }
 .transport-status-confirmed, .transport-status-held { color: #0f766e; background: #dcfce7; }
 .transport-status-boarded, .transport-status-completed { color: #140ba7; background: #e7e5ff; }

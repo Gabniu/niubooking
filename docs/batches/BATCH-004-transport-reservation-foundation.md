@@ -31,12 +31,15 @@ charter operators without creating a second booking engine.
   staff boarding action that checks in the reservation and records audit data.
 - [x] Migration `034_transport_reservation_manage.sql` and an opaque,
   expiring public cancellation capability that releases trip capacity once.
+- [x] Migration `035_transport_seat_assignments.sql` and a locked, tenant-safe
+  seat assignment action with capacity, passenger-count, and conflict checks;
+  staff manifests and public tickets expose assigned seats.
 - [x] Public passenger reservation journey on Next `/trip/[code]` with typed
   trip search, ordered stop selection, passenger reservation, success, and
   public cancellation actions; unavailable and retry states are wired.
-- [ ] Typed staff routes/trips, manifest, conductor boarding, public ticket
-  management, seat assignment/open-capacity refinement, cancellation policy,
-  and real PostgreSQL/browser reservation proof.
+- [ ] Connected PostgreSQL/browser reservation proof, offline conductor journey,
+  and live vehicle tracking. Seat assignment/open-capacity refinement is now
+  implemented for staff manifests.
 
 ## Capability IDs and proof
 

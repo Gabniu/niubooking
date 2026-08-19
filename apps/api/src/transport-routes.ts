@@ -13,6 +13,7 @@ export interface TransportAdmin {
   listReservations?(tenantId: string, tripId: string): Promise<readonly TransportPassengerReservation[]>;
   createReservation?(draft: TransportPassengerReservationDraft): Promise<TransportPassengerReservation>;
   setReservationStatus?(input: { tenantId: string; tripId: string; reservationId: string; status: ReservationStatus; actorId?: string }): Promise<TransportPassengerReservation>;
+  assignSeats?(input: { tenantId: string; tripId: string; reservationId: string; seatLabels: readonly string[]; actorId?: string }): Promise<TransportPassengerReservation>;
   boardTicket?(input: { id: string; tenantId: string; tripId: string; ticketId: string; idempotencyKey: string; actorId?: string }): Promise<TransportBoarding>;
   listManifest?(tenantId: string, tripId: string): Promise<readonly TransportManifestEntry[]>;
   createTicket?(draft: Pick<TransportTicket, "id" | "tenantId" | "tripId" | "reservationId" | "fareAmountMinor" | "fareCurrency">): Promise<TransportTicket>;
@@ -48,6 +49,12 @@ function routeStops(value: unknown): TransportStopRef[] | null {
   const stops = value.map((stop) => ({ stopId: typeof stop?.stopId === "string" ? stop.stopId.trim() : "", sequence: stop?.sequence, boardingMinutes: stop?.boardingMinutes, alightingMinutes: stop?.alightingMinutes }));
   const ordered = stops.every((stop, index) => stop.sequence === index + 1);
   return ordered && stops.every((stop) => stop.stopId.length > 0 && stop.stopId.length <= 120 && Number.isInteger(stop.sequence) && Number.isInteger(stop.boardingMinutes) && Number.isInteger(stop.alightingMinutes) && stop.boardingMinutes >= 0 && stop.alightingMinutes >= 0) ? stops as TransportStopRef[] : null;
+}
+
+function seatLabels(value: unknown): string[] | null {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 64) return null;
+  const labels = value.map((label) => typeof label === "string" ? label.trim() : "");
+  return labels.every((label) => /^[1-9]\d{0,3}$/u.test(label)) ? labels : null;
 }
 
 function serializeRoute(route: TransportRoute): Record<string, unknown> { return { ...route, stops: route.stops.map((stop) => ({ ...stop })) }; }
@@ -179,6 +186,22 @@ export function registerTransportRoutes(app: FastifyInstance, dependencies: Tran
     if (!["held", "confirmed", "checked_in", "completed", "cancelled", "no_show"].includes(status)) return reply.code(400).send({ data: null, error: { code: "TRANSPORT_RESERVATION_INVALID", message: "Choose a valid passenger reservation status." } });
     try { return reply.send({ data: serializeReservation(await dependencies.transportAdmin.setReservationStatus({ tenantId: request.params.tenantId, tripId: request.params.tripId, reservationId: request.params.reservationId, status, ...(context.mappedUserId ? { actorId: context.mappedUserId } : {}) })), error: null }); }
     catch (error) { const message = error instanceof Error ? error.message : "Passenger reservation status could not be updated."; const conflict = /capacity|inventory/iu.test(message); return reply.code(conflict ? 409 : 400).send({ data: null, error: { code: conflict ? "TRANSPORT_CAPACITY_CONFLICT" : "TRANSPORT_RESERVATION_INVALID", message: conflict ? "That passenger change is not available." : message } }); }
+  });
+
+  app.post<{ Params: { tenantId: string; tripId: string; reservationId: string }; Body: { seatLabels: unknown } }>("/v1/tenants/:tenantId/transport/trips/:tripId/reservations/:reservationId/seats", async (request, reply) => {
+    const context = await dependencies.resolve(request);
+    if (!allowed(context, request.params.tenantId)) return reply.code(403).send({ data: null, error: { code: "TENANT_ACCESS_DENIED", message: "You do not have access to this workspace." } });
+    if (!dependencies.transportAdmin?.assignSeats) return reply.code(503).send({ data: null, error: { code: "TRANSPORT_UNAVAILABLE", message: "Seat assignment is temporarily unavailable." } });
+    const labels = seatLabels(request.body?.seatLabels);
+    if (!labels) return reply.code(400).send({ data: null, error: { code: "TRANSPORT_SEAT_INVALID", message: "Please choose one valid seat for each passenger." } });
+    try {
+      const reservation = await dependencies.transportAdmin.assignSeats({ tenantId: request.params.tenantId, tripId: request.params.tripId, reservationId: request.params.reservationId, seatLabels: labels, ...(context.mappedUserId ? { actorId: context.mappedUserId } : {}) });
+      return reply.send({ data: serializeReservation(reservation), error: null });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Seat assignment could not be saved.";
+      const conflict = /already assigned|just taken|occupied/iu.test(message);
+      return reply.code(conflict ? 409 : 400).send({ data: null, error: { code: conflict ? "TRANSPORT_SEAT_CONFLICT" : "TRANSPORT_SEAT_INVALID", message: conflict ? "One of those seats was just taken. Please choose different seats." : "Please choose one valid seat for each passenger." } });
+    }
   });
 
   app.post<{ Params: { tenantId: string; tripId: string; ticketId: string }; Body: { idempotencyKey: string } }>("/v1/tenants/:tenantId/transport/trips/:tripId/tickets/:ticketId/board", async (request, reply) => {

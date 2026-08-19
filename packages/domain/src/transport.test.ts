@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { validateTransportRouteDraft, validateTransportTripDraft, type TransportRouteDraft } from "./transport.js";
+import { validateTransportRouteDraft, validateTransportSeatAssignment, validateTransportTripDraft, type TransportRouteDraft } from "./transport.js";
 
 const startsAt = new Date("2026-09-01T07:00:00Z");
 const endsAt = new Date("2026-09-01T10:00:00Z");
@@ -23,4 +23,10 @@ test("accepts a trip whose boarding window fits its occurrence", () => {
 test("rejects cross-tenant, stale-route, and out-of-window trips", () => {
   const errors = validateTransportTripDraft({ id: "trip-1", tenantId: "tenant-2", routeId: "route-1", routeVersion: 2, occurrenceId: "occurrence-2", capacityMode: "seat", capacity: 0, boardingStartsAt: new Date("2026-09-01T06:00:00Z"), boardingEndsAt: new Date("2026-09-01T11:00:00Z") }, route, { id: "occurrence-1", tenantId: "tenant-1", startsAt, endsAt });
   assert.match(errors.join(";"), /tenant|current|capacity|before|after|match/iu);
+});
+
+test("validates seat assignments without changing open-capacity trips", () => {
+  assert.deepEqual(validateTransportSeatAssignment({ capacityMode: "seat", capacity: 4, quantity: 2, seatLabels: ["1", "4"] }), []);
+  assert.match(validateTransportSeatAssignment({ capacityMode: "open", capacity: 4, quantity: 1, seatLabels: ["1"] }).join("; "), /seat-based/iu);
+  assert.match(validateTransportSeatAssignment({ capacityMode: "seat", capacity: 4, quantity: 2, seatLabels: ["1", "1"] }).join("; "), /same seat/iu);
 });

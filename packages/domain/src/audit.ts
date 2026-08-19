@@ -1,7 +1,7 @@
 // Ownership: durable, tenant-scoped audit vocabulary shared by mutation adapters.
 
 export type AuditActorType = "user" | "system" | "integration";
-export type AuditAction = "reservation.status_changed" | "transport.boarded";
+export type AuditAction = "reservation.status_changed" | "transport.boarded" | "transport.seats_assigned";
 
 export interface AuditEvent {
   id: string;

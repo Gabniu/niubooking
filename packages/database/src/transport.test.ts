@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import test from "node:test";
-import { boardTransportTicket, cancelPublicTransportReservation, createPublicTransportPassengerReservation, createTransportPassengerReservation, createTransportRoute, createTransportTicket, createTransportTrip, listPublicTransportTrips, listTransportManifest, listTransportPassengerReservations, listTransportRoutes, listTransportTrips, setTransportPassengerReservationStatus } from "./transport.js";
+import { assignTransportReservationSeats, boardTransportTicket, cancelPublicTransportReservation, createPublicTransportPassengerReservation, createTransportPassengerReservation, createTransportRoute, createTransportTicket, createTransportTrip, listPublicTransportTrips, listTransportManifest, listTransportPassengerReservations, listTransportRoutes, listTransportTrips, setTransportPassengerReservationStatus } from "./transport.js";
 
 const routeRow = { id: "route-1", tenant_id: "tenant-1", version: 1, name: "CBD — Westlands", mode: "matatu" as const, status: "draft" as const };
 const stops = [{ stop_id: "cbd", sequence: 1, boarding_minutes: 10, alighting_minutes: 0 }, { stop_id: "westlands", sequence: 2, boarding_minutes: 10, alighting_minutes: 10 }];
@@ -92,6 +92,28 @@ test("releases trip and occurrence capacity when a passenger cancels", async () 
   assert.ok(statements.some((statement) => statement.startsWith("UPDATE service_occurrences SET reserved_quantity = reserved_quantity -")));
 });
 
+test("assigns unique seats under a trip lock and rejects occupied seats", async () => {
+  const current = { id: "reservation-1", tenant_id: "tenant-1", trip_id: "trip-1", occurrence_id: "occurrence-1", customer_id: "customer-1", origin_stop_id: "cbd", destination_stop_id: "westlands", quantity: 2, status: "confirmed" as const, create_idempotency_key: "retry-123", seat_labels: [] as readonly string[] };
+  const executor = { query: async <T>(sql: string) => {
+    if (sql.startsWith("SELECT capacity_mode")) return [{ capacity_mode: "seat", capacity: 4 }] as T[];
+    if (sql.includes("FROM transport_trip_reservations") && sql.includes("FOR UPDATE")) return [current] as T[];
+    if (sql.startsWith("SELECT unnest")) return [] as T[];
+    if (sql.startsWith("UPDATE transport_trip_reservations")) return [{ seat_labels: ["1", "4"] }] as T[];
+    if (sql.startsWith("INSERT INTO audit_events")) return [{ id: "audit-1" }] as T[];
+    return [] as T[];
+  } };
+  const assigned = await assignTransportReservationSeats(executor, { tenantId: "tenant-1", tripId: "trip-1", reservationId: "reservation-1", seatLabels: ["1", "4"], actorId: "staff-1" });
+  assert.deepEqual(assigned.seatLabels, ["1", "4"]);
+
+  const conflictExecutor = { query: async <T>(sql: string) => {
+    if (sql.startsWith("SELECT capacity_mode")) return [{ capacity_mode: "seat", capacity: 4 }] as T[];
+    if (sql.includes("FROM transport_trip_reservations") && sql.includes("FOR UPDATE")) return [current] as T[];
+    if (sql.startsWith("SELECT unnest")) return [{ seat_label: "2" }] as T[];
+    return [] as T[];
+  } };
+  await assert.rejects(() => assignTransportReservationSeats(conflictExecutor, { tenantId: "tenant-1", tripId: "trip-1", reservationId: "reservation-1", seatLabels: ["2", "3"] }), /already assigned/iu);
+});
+
 test("issues a deterministic opaque ticket and builds a manifest", async () => {
   const current = { id: "reservation-1", tenant_id: "tenant-1", trip_id: "trip-1", occurrence_id: "occurrence-1", customer_id: "customer-1", origin_stop_id: "cbd", destination_stop_id: "westlands", quantity: 2, status: "confirmed" as const, create_idempotency_key: "retry-123" };
   const ticketRow = { id: "ticket-1", tenant_id: "tenant-1", trip_id: "trip-1", reservation_id: "reservation-1", ticket_token_hash: "hash", fare_amount_minor: 2500, fare_currency: "KES", status: "issued" as const, issued_at: new Date("2026-09-01T06:00:00Z"), cancelled_at: null };
@@ -117,6 +139,14 @@ test("reads a public ticket view without internal identities", async () => {
   const ticket = await readPublicTransportTicket(executor, token, "booking-secret");
   assert.equal(ticket?.routeName, "CBD — Westlands");
   assert.equal(ticket?.reservationStatus, "confirmed");
+});
+
+test("maps assigned seats into a public ticket projection", async () => {
+  const token = createHmac("sha256", "booking-secret").update("tenant-1:ticket-1").digest("base64url");
+  const executor = { query: async <T>() => [{ route_name: "Route", mode: "bus" as const, origin_stop_id: "a", destination_stop_id: "b", quantity: 1, seat_labels: ["3"], reservation_status: "confirmed" as const, status: "issued" as const, fare_amount_minor: 100, fare_currency: "KES", issued_at: new Date("2026-09-01T06:00:00Z"), boarding_starts_at: new Date("2026-09-01T07:00:00Z"), boarding_ends_at: new Date("2026-09-01T07:30:00Z") }] as T[] };
+  const { readPublicTransportTicket } = await import("./transport.js");
+  const ticket = await readPublicTransportTicket(executor, token, "booking-secret");
+  assert.deepEqual(ticket?.seatLabels, ["3"]);
 });
 
 test("discovers only published public transport trips through an active QR destination", async () => {

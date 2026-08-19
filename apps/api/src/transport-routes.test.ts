@@ -72,6 +72,19 @@ test("updates passenger status through the tenant contract", async () => {
   assert.equal(response.json().data.status, "cancelled");
 });
 
+test("assigns seats through the tenant contract and keeps conflict copy simple", async () => {
+  const assigned = { ...passengerReservation, seatLabels: ["1", "2"] as readonly string[] };
+  const app = createApiServer({ resolve, transportAdmin: { listRoutes: async () => [], createRoute: async (input) => input as typeof route, listTrips: async () => [], createTrip: async (input) => input as typeof trip, listReservations: async () => [], createReservation: async (input) => ({ ...passengerReservation, ...input }), assignSeats: async (input) => ({ ...assigned, ...input }) } });
+  const response = await app.inject({ method: "POST", url: "/v1/tenants/tenant-transport/transport/trips/trip-1/reservations/reservation-1/seats", payload: { seatLabels: ["1", "2"] } });
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json().data.seatLabels, ["1", "2"]);
+
+  const conflictApp = createApiServer({ resolve, transportAdmin: { listRoutes: async () => [], createRoute: async (input) => input as typeof route, listTrips: async () => [], createTrip: async (input) => input as typeof trip, assignSeats: async () => { throw new Error("One of those seats is already assigned"); } } });
+  const conflict = await conflictApp.inject({ method: "POST", url: "/v1/tenants/tenant-transport/transport/trips/trip-1/reservations/reservation-1/seats", payload: { seatLabels: ["1", "2"] } });
+  assert.equal(conflict.statusCode, 409);
+  assert.equal(conflict.json().error.message, "One of those seats was just taken. Please choose different seats.");
+});
+
 test("issues tickets and exposes a staff manifest without leaking token dates", async () => {
   const app = createApiServer({ resolve, transportAdmin: { listRoutes: async () => [], createRoute: async (input) => input as typeof route, listTrips: async () => [], createTrip: async (input) => input as typeof trip, listReservations: async () => [], createReservation: async (input) => ({ ...passengerReservation, ...input }), setReservationStatus: async (input) => ({ ...passengerReservation, ...input }), listManifest: async () => [{ reservation: passengerReservation, ticket }], createTicket: async (input) => ({ ...ticket, ...input }) } });
   const manifest = await app.inject({ method: "GET", url: "/v1/tenants/tenant-transport/transport/trips/trip-1/manifest" });

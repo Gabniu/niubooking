@@ -56,6 +56,8 @@ const known: Record<string, string> = {
   TRANSPORT_CAPACITY_CONFLICT: "That passenger change is not available.",
   TRANSPORT_BOARDING_INVALID: "Please check the boarding action and try again.",
   TRANSPORT_BOARDING_CONFLICT: "This ticket cannot be boarded now.",
+  TRANSPORT_SEAT_INVALID: "Please choose one valid seat for each passenger.",
+  TRANSPORT_SEAT_CONFLICT: "One of those seats was just taken. Please choose different seats.",
   MANAGE_NOT_FOUND: "This appointment link could not be found.",
   MANAGE_INVALID: "This appointment link is no longer valid.",
 };

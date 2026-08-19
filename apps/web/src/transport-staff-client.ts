@@ -1,6 +1,6 @@
 // Ownership: tenant-authorized transport operations client; identity and tenant admission stay in the shell.
 
-import type { TransportBoardingResponse, TransportManifestResponse, TransportRouteResponse, TransportRoutesResponse, TransportTripResponse, TransportTripsResponse } from "@bookingapp/contracts";
+import type { TransportBoardingResponse, TransportManifestResponse, TransportRouteResponse, TransportRoutesResponse, TransportSeatAssignmentResponse, TransportTripResponse, TransportTripsResponse } from "@bookingapp/contracts";
 import { userFacingMessage } from "./user-messages.js";
 
 export type TransportStaffFetcher = (url: string, init: { credentials: "include"; method?: "POST"; headers?: Record<string, string>; body?: string }) => Promise<{ status: number; json(): Promise<unknown> }>;
@@ -52,4 +52,10 @@ export async function boardTransportTicket(fetcher: TransportStaffFetcher, baseU
   const response = await fetcher(`${baseUrl}/v1/tenants/${encodeURIComponent(tenantId)}/transport/trips/${encodeURIComponent(tripId)}/tickets/${encodeURIComponent(ticketId)}/board`, { credentials: "include", method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ idempotencyKey }) });
   const body = (await response.json()) as TransportBoardingResponse;
   return body.data ? { kind: "ready", value: body.data } : failure(response.status, body.error, "That passenger could not be boarded.");
+}
+
+export async function assignTransportReservationSeats(fetcher: TransportStaffFetcher, baseUrl: string, tenantId: string, tripId: string, reservationId: string, seatLabels: readonly string[]): Promise<StaffState<NonNullable<TransportSeatAssignmentResponse["data"]>>> {
+  const response = await fetcher(`${baseUrl}/v1/tenants/${encodeURIComponent(tenantId)}/transport/trips/${encodeURIComponent(tripId)}/reservations/${encodeURIComponent(reservationId)}/seats`, { credentials: "include", method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ seatLabels }) });
+  const body = (await response.json()) as TransportSeatAssignmentResponse;
+  return body.data ? { kind: "ready", value: body.data } : failure(response.status, body.error, "Seats could not be assigned.");
 }

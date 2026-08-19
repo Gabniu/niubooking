@@ -42,6 +42,7 @@ export interface PublicTransportTicketSummary {
   originStopId: string;
   destinationStopId: string;
   quantity: number;
+  seatLabels?: readonly string[];
   reservationStatus: ReservationStatus;
   status: "issued" | "cancelled";
   fareAmountMinor: number;
@@ -90,6 +91,7 @@ export interface TransportReservationSummary {
   destinationStopId: string;
   quantity: number;
   status: ReservationStatus;
+  seatLabels?: readonly string[];
 }
 
 export interface TransportTicketSummary {
@@ -136,4 +138,9 @@ export interface TransportManifestResponse {
 export interface TransportBoardingResponse {
   data: { id: string; tenantId: string; tripId: string; reservationId: string; ticketId: string; action: "boarded"; idempotencyKey: string; boardedAt: string } | null;
   error: { code: "TENANT_ACCESS_DENIED" | "TRANSPORT_UNAVAILABLE" | "TRANSPORT_BOARDING_INVALID" | "TRANSPORT_BOARDING_CONFLICT"; message: string } | null;
+}
+
+export interface TransportSeatAssignmentResponse {
+  data: TransportReservationSummary | null;
+  error: { code: "TENANT_ACCESS_DENIED" | "TRANSPORT_UNAVAILABLE" | "TRANSPORT_SEAT_INVALID" | "TRANSPORT_SEAT_CONFLICT"; message: string } | null;
 }
