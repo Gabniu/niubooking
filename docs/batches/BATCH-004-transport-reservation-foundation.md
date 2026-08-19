@@ -23,7 +23,9 @@ charter operators without creating a second booking engine.
   retry-safe creation, and atomic trip plus occurrence capacity admission.
 - [x] Immutable fare-snapshot ticket issuance and tenant-authorized manifest
   retrieval with deterministic opaque ticket tokens.
-- [ ] Public passenger journey, ticket retrieval, boarding, and typed
+- [x] Public opaque ticket retrieval with a privacy-safe journey projection;
+  tenant, vehicle, and customer identity stay server-side.
+- [ ] Public passenger reservation journey, boarding, and typed
   staff/public pages.
 - [ ] Seat/open-capacity allocation, tickets, manifests, and boarding audit.
 
@@ -92,7 +94,8 @@ expose tenant IDs, internal vehicle IDs, or customer identity.
 2. Additive migrations for route versions, stops, trips, boarding windows,
    fare snapshots, tickets, seat/open-capacity allocations, and boarding audit.
 3. Tenant-authorized API routes for route search, trip publishing, reservation,
-   ticket retrieval, manifest, boarding, cancellation, and charter quote/
+   ticket issuance and manifest, plus an opaque public ticket retrieval route;
+   boarding, cancellation, and charter quote/
    reservation.
 4. Typed staff pages for routes/trips, manifest, conductor boarding, and
    charter operations; reuse pack navigation rather than adding a separate

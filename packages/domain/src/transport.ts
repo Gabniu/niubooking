@@ -73,6 +73,22 @@ export interface TransportManifestEntry {
   ticket: TransportTicket | null;
 }
 
+/** Public ticket view: journey details without tenant, vehicle, or customer identity. */
+export interface PublicTransportTicket {
+  routeName: string;
+  mode: TransportMode;
+  originStopId: string;
+  destinationStopId: string;
+  quantity: number;
+  reservationStatus: ReservationStatus;
+  status: TransportTicket["status"];
+  fareAmountMinor: number;
+  fareCurrency: string;
+  issuedAt: Date;
+  boardingStartsAt: Date;
+  boardingEndsAt: Date;
+}
+
 function validDate(value: Date): boolean { return Number.isFinite(value.getTime()); }
 
 export function validateTransportRouteDraft(draft: TransportRouteDraft): string[] {

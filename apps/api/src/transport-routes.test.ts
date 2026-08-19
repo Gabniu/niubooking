@@ -79,3 +79,15 @@ test("issues tickets and exposes a staff manifest without leaking token dates", 
   assert.equal(issued.statusCode, 201);
   assert.equal(issued.json().data.fareCurrency, "KES");
 });
+
+test("retrieves a public ticket without exposing tenant or customer identity", async () => {
+  const publicTicket = { routeName: "CBD — Westlands", mode: "matatu" as const, originStopId: "cbd", destinationStopId: "westlands", quantity: 2, reservationStatus: "confirmed" as const, status: "issued" as const, fareAmountMinor: 2500, fareCurrency: "KES", issuedAt: new Date("2026-08-19T10:00:00Z"), boardingStartsAt: new Date("2026-08-20T06:00:00Z"), boardingEndsAt: new Date("2026-08-20T06:30:00Z") };
+  const app = createApiServer({ resolve, transportAdmin: { listRoutes: async () => [], createRoute: async (input) => input as typeof route, listTrips: async () => [], createTrip: async (input) => input as typeof trip, readPublicTicket: async () => publicTicket } });
+  const token = "a".repeat(43);
+  const response = await app.inject({ method: "GET", url: `/v1/public/transport/tickets/${token}` });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().data.routeName, "CBD — Westlands");
+  assert.equal(response.json().data.issuedAt, "2026-08-19T10:00:00.000Z");
+  assert.equal("tenantId" in response.json().data, false);
+  assert.equal("customerId" in response.json().data, false);
+});

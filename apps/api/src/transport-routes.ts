@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { type CapacityMode, type ReservationStatus, type TransportManifestEntry, type TransportMode, type TransportPassengerReservation, type TransportPassengerReservationDraft, type TransportRoute, type TransportRouteDraft, type TransportRouteStatus, type TransportStopRef, type TransportTicket, type TransportTrip, type TransportTripDraft } from "@bookingapp/domain";
+import { type CapacityMode, type PublicTransportTicket, type ReservationStatus, type TransportManifestEntry, type TransportMode, type TransportPassengerReservation, type TransportPassengerReservationDraft, type TransportRoute, type TransportRouteDraft, type TransportRouteStatus, type TransportStopRef, type TransportTicket, type TransportTrip, type TransportTripDraft } from "@bookingapp/domain";
 import type { TenantContextRequest } from "./tenant-context-handler.js";
 
 export interface TransportAdmin {
@@ -15,6 +15,7 @@ export interface TransportAdmin {
   setReservationStatus?(input: { tenantId: string; tripId: string; reservationId: string; status: ReservationStatus; actorId?: string }): Promise<TransportPassengerReservation>;
   listManifest?(tenantId: string, tripId: string): Promise<readonly TransportManifestEntry[]>;
   createTicket?(draft: Pick<TransportTicket, "id" | "tenantId" | "tripId" | "reservationId" | "fareAmountMinor" | "fareCurrency">): Promise<TransportTicket>;
+  readPublicTicket?(token: string): Promise<PublicTransportTicket | null>;
 }
 
 export interface TransportRouteDependencies {
@@ -49,8 +50,16 @@ function serializeTrip(trip: TransportTrip): Record<string, unknown> { return { 
 function serializeReservation(reservation: TransportPassengerReservation): Record<string, unknown> { return { ...reservation }; }
 function serializeTicket(ticket: TransportTicket): Record<string, unknown> { return { ...ticket, issuedAt: ticket.issuedAt.toISOString() }; }
 function serializeManifest(entry: TransportManifestEntry): Record<string, unknown> { return { reservation: serializeReservation(entry.reservation), ticket: entry.ticket ? serializeTicket(entry.ticket) : null }; }
+function serializePublicTicket(ticket: PublicTransportTicket): Record<string, unknown> { return { ...ticket, issuedAt: ticket.issuedAt.toISOString(), boardingStartsAt: ticket.boardingStartsAt.toISOString(), boardingEndsAt: ticket.boardingEndsAt.toISOString() }; }
 
 export function registerTransportRoutes(app: FastifyInstance, dependencies: TransportRouteDependencies): void {
+  app.get<{ Params: { token: string } }>("/v1/public/transport/tickets/:token", async (request, reply) => {
+    if (!dependencies.transportAdmin?.readPublicTicket) return reply.code(503).send({ data: null, error: { code: "TRANSPORT_UNAVAILABLE", message: "Public ticket lookup is temporarily unavailable." } });
+    if (!/^[A-Za-z0-9_-]{32,256}$/u.test(request.params.token)) return reply.code(404).send({ data: null, error: { code: "TRANSPORT_TICKET_NOT_FOUND", message: "This ticket link is not available." } });
+    const ticket = await dependencies.transportAdmin.readPublicTicket(request.params.token);
+    return ticket ? reply.send({ data: serializePublicTicket(ticket), error: null }) : reply.code(404).send({ data: null, error: { code: "TRANSPORT_TICKET_NOT_FOUND", message: "This ticket link is not available." } });
+  });
+
   app.get<{ Params: { tenantId: string } }>("/v1/tenants/:tenantId/transport/routes", async (request, reply) => {
     const context = await dependencies.resolve(request);
     if (!allowed(context, request.params.tenantId)) return reply.code(403).send({ data: null, error: { code: "TENANT_ACCESS_DENIED", message: "You do not have access to this workspace." } });

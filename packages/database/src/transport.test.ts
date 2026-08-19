@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import test from "node:test";
 import { createTransportPassengerReservation, createTransportRoute, createTransportTicket, createTransportTrip, listTransportManifest, listTransportPassengerReservations, listTransportRoutes, listTransportTrips, setTransportPassengerReservationStatus } from "./transport.js";
 
@@ -107,4 +108,13 @@ test("issues a deterministic opaque ticket and builds a manifest", async () => {
   const manifest = await listTransportManifest(executor, "tenant-1", "trip-1", "booking-secret");
   assert.equal(manifest[0]?.ticket?.fareCurrency, "KES");
   assert.equal(manifest[0]?.ticket?.ticketToken, undefined);
+});
+
+test("reads a public ticket view without internal identities", async () => {
+  const token = createHmac("sha256", "booking-secret").update("tenant-1:ticket-1").digest("base64url");
+  const executor = { query: async <T>(sql: string) => sql.startsWith("SELECT r.name AS route_name") ? [{ route_name: "CBD — Westlands", mode: "matatu" as const, origin_stop_id: "cbd", destination_stop_id: "westlands", quantity: 2, reservation_status: "confirmed" as const, status: "issued" as const, fare_amount_minor: 2500, fare_currency: "KES", issued_at: new Date("2026-09-01T06:00:00Z"), boarding_starts_at: new Date("2026-09-01T07:00:00Z"), boarding_ends_at: new Date("2026-09-01T07:30:00Z") }] as T[] : [] as T[] };
+  const { readPublicTransportTicket } = await import("./transport.js");
+  const ticket = await readPublicTransportTicket(executor, token, "booking-secret");
+  assert.equal(ticket?.routeName, "CBD — Westlands");
+  assert.equal(ticket?.reservationStatus, "confirmed");
 });
