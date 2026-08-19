@@ -7,6 +7,7 @@ const membership = { userId: "transport-user", tenantId: "tenant-transport", bra
 const resolve = (request: { params: { tenantId: string } }) => ({ identity, mappedUserId: "transport-user", membership, requestedTenantId: request.params.tenantId });
 const route = { id: "route-1", tenantId: "tenant-transport", version: 1, name: "CBD to Westlands", mode: "matatu" as const, status: "published" as const, stops: [{ stopId: "cbd", sequence: 1, boardingMinutes: 5, alightingMinutes: 0 }, { stopId: "westlands", sequence: 2, boardingMinutes: 0, alightingMinutes: 5 }] };
 const trip = { id: "trip-1", tenantId: "tenant-transport", routeId: "route-1", routeVersion: 1, occurrenceId: "occ-1", capacityMode: "open" as const, capacity: 14, boardingStartsAt: new Date("2026-08-20T06:00:00Z"), boardingEndsAt: new Date("2026-08-20T06:30:00Z"), vehicleResourceId: "vehicle-1" };
+const passengerReservation = { id: "reservation-1", tenantId: "tenant-transport", tripId: "trip-1", occurrenceId: "occ-1", customerId: "customer-1", originStopId: "cbd", destinationStopId: "westlands", quantity: 2, status: "confirmed" as const, createIdempotencyKey: "retry-123" };
 
 test("lists transport routes and trips with tenant authorization and date serialization", async () => {
   const app = createApiServer({ resolve, transportAdmin: { listRoutes: async () => [route], createRoute: async (input) => input as typeof route, listTrips: async () => [trip], createTrip: async (input) => input as typeof trip } });
@@ -41,4 +42,22 @@ test("reports a clear unavailable response when transport persistence is not com
   const response = await app.inject({ method: "GET", url: "/v1/tenants/tenant-transport/transport/routes" });
   assert.equal(response.statusCode, 503);
   assert.equal(response.json().error.message, "Transport routes are temporarily unavailable.");
+});
+
+test("creates and lists a tenant-safe passenger reservation", async () => {
+  const seen: { reservation?: unknown } = {};
+  const app = createApiServer({ resolve, transportAdmin: { listRoutes: async () => [route], createRoute: async (input) => input as typeof route, listTrips: async () => [trip], createTrip: async (input) => input as typeof trip, listReservations: async () => [passengerReservation], createReservation: async (input) => { seen.reservation = input; return { ...passengerReservation, ...input }; } } });
+  const listed = await app.inject({ method: "GET", url: "/v1/tenants/tenant-transport/transport/trips/trip-1/reservations" });
+  assert.equal(listed.statusCode, 200);
+  assert.equal(listed.json().data[0].originStopId, "cbd");
+  const created = await app.inject({ method: "POST", url: "/v1/tenants/tenant-transport/transport/trips/trip-1/reservations", payload: { occurrenceId: "occ-1", customerId: "customer-1", originStopId: "cbd", destinationStopId: "westlands", quantity: 2, idempotencyKey: "retry-123" } });
+  assert.equal(created.statusCode, 201);
+  assert.equal((seen.reservation as { tripId: string }).tripId, "trip-1");
+});
+
+test("maps a full transport trip to a simple next step", async () => {
+  const app = createApiServer({ resolve, transportAdmin: { listRoutes: async () => [], createRoute: async (input) => input as typeof route, listTrips: async () => [], createTrip: async (input) => input as typeof trip, listReservations: async () => [], createReservation: async () => { throw new Error("Trip capacity is unavailable"); } } });
+  const response = await app.inject({ method: "POST", url: "/v1/tenants/tenant-transport/transport/trips/trip-1/reservations", payload: { occurrenceId: "occ-1", customerId: "customer-1", originStopId: "cbd", destinationStopId: "westlands", quantity: 2, idempotencyKey: "retry-123" } });
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.json().error.message, "That trip is full. Please choose another trip.");
 });

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createTransportRoute, createTransportTrip, listTransportRoutes, listTransportTrips } from "./transport.js";
+import { createTransportPassengerReservation, createTransportRoute, createTransportTrip, listTransportPassengerReservations, listTransportRoutes, listTransportTrips } from "./transport.js";
 
 const routeRow = { id: "route-1", tenant_id: "tenant-1", version: 1, name: "CBD — Westlands", mode: "matatu" as const, status: "draft" as const };
 const stops = [{ stop_id: "cbd", sequence: 1, boarding_minutes: 10, alighting_minutes: 0 }, { stop_id: "westlands", sequence: 2, boarding_minutes: 10, alighting_minutes: 10 }];
@@ -43,4 +43,32 @@ test("lists trips within a boarding window", async () => {
   const executor = { query: async <T>() => [tripRow] as T[] };
   const trips = await listTransportTrips(executor, "tenant-1", new Date("2026-09-01T06:00:00Z"), new Date("2026-09-01T08:00:00Z"));
   assert.equal(trips[0]?.id, "trip-1");
+});
+
+test("creates and lists a tenant-safe passenger reservation with trip capacity", async () => {
+  const reservationRow = { id: "reservation-1", tenant_id: "tenant-1", occurrence_id: "occurrence-1", customer_id: "customer-1", quantity: 2, status: "confirmed" as const, create_idempotency_key: "retry-123" };
+  const statements: string[] = [];
+  const executor = { query: async <T>(sql: string) => {
+    statements.push(sql);
+    if (sql.includes("FROM transport_trips")) return [{ ...tripRow, reserved_quantity: 4 }] as T[];
+    if (sql.includes("FROM transport_route_stops")) return stops as T[];
+    if (sql.startsWith("UPDATE transport_trips")) return [{ ...tripRow, reserved_quantity: 6 }] as T[];
+    if (sql.startsWith("UPDATE service_occurrences")) return [{ id: "occurrence-1" }] as T[];
+    if (sql.startsWith("INSERT INTO service_reservations")) return [reservationRow] as T[];
+    return [] as T[];
+  } };
+  const reservation = await createTransportPassengerReservation(executor, { id: "reservation-1", tenantId: "tenant-1", tripId: "trip-1", occurrenceId: "occurrence-1", customerId: "customer-1", originStopId: "cbd", destinationStopId: "westlands", quantity: 2, createIdempotencyKey: "retry-123" });
+  assert.equal(reservation.tripId, "trip-1");
+  assert.ok(statements.some((statement) => statement.startsWith("INSERT INTO transport_trip_reservations")));
+  const listed = await listTransportPassengerReservations({ query: async <T>() => [{ ...reservationRow, trip_id: "trip-1", origin_stop_id: "cbd", destination_stop_id: "westlands" }] as T[] }, "tenant-1", "trip-1");
+  assert.equal(listed[0]?.quantity, 2);
+});
+
+test("rejects a passenger reservation when the requested stop order is invalid", async () => {
+  const executor = { query: async <T>(sql: string) => {
+    if (sql.includes("FROM transport_trips")) return [{ ...tripRow, reserved_quantity: 0 }] as T[];
+    if (sql.includes("FROM transport_route_stops")) return stops as T[];
+    return [] as T[];
+  } };
+  await assert.rejects(() => createTransportPassengerReservation(executor, { id: "reservation-1", tenantId: "tenant-1", tripId: "trip-1", occurrenceId: "occurrence-1", customerId: "customer-1", originStopId: "westlands", destinationStopId: "cbd", quantity: 1, createIdempotencyKey: "retry-123" }), /come before/iu);
 });

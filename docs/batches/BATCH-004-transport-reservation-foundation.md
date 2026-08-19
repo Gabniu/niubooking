@@ -19,7 +19,10 @@ charter operators without creating a second booking engine.
   trip creation, occurrence-window validation, and trip-window reads.
 - [x] Authorized API route/trip search and publish routes with tenant checks,
   safe validation, runtime database composition, and contract tests.
-- [ ] Reservation, ticket, manifest, boarding, and typed staff/public journeys.
+- [x] Tenant-authorized passenger reservation API with origin/destination stops,
+  retry-safe creation, and atomic trip plus occurrence capacity admission.
+- [ ] Public passenger journey, cancellation, tickets, manifest, boarding, and
+  typed staff/public pages.
 - [ ] Seat/open-capacity allocation, tickets, manifests, and boarding audit.
 
 ## Capability IDs and proof

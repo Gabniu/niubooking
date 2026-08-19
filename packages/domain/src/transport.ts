@@ -1,6 +1,6 @@
 // Ownership: transport route and trip invariants layered on universal occurrences.
 
-import type { ServiceOccurrence } from "./occurrence.js";
+import type { ReservationStatus, ServiceOccurrence } from "./occurrence.js";
 
 export type TransportMode = "bus" | "matatu" | "shuttle" | "charter";
 export type CapacityMode = "seat" | "open";
@@ -36,9 +36,25 @@ export interface TransportTrip {
   boardingStartsAt: Date;
   boardingEndsAt: Date;
   vehicleResourceId?: string | null;
+  reservedQuantity?: number;
 }
 
-export type TransportTripDraft = TransportTrip;
+export type TransportTripDraft = Omit<TransportTrip, "reservedQuantity">;
+
+export interface TransportPassengerReservation {
+  id: string;
+  tenantId: string;
+  tripId: string;
+  occurrenceId: string;
+  customerId: string;
+  originStopId: string;
+  destinationStopId: string;
+  quantity: number;
+  status: ReservationStatus;
+  createIdempotencyKey?: string;
+}
+
+export type TransportPassengerReservationDraft = Omit<TransportPassengerReservation, "status"> & { status?: ReservationStatus };
 
 function validDate(value: Date): boolean { return Number.isFinite(value.getTime()); }
 
@@ -67,5 +83,20 @@ export function validateTransportTripDraft(draft: TransportTripDraft, route: Pic
   if (!validDate(draft.boardingStartsAt) || !validDate(draft.boardingEndsAt) || draft.boardingEndsAt <= draft.boardingStartsAt) errors.push("Boarding window must be valid and end after it starts");
   if (validDate(draft.boardingStartsAt) && draft.boardingStartsAt < occurrence.startsAt) errors.push("Boarding cannot start before the occurrence");
   if (validDate(draft.boardingEndsAt) && draft.boardingEndsAt > occurrence.endsAt) errors.push("Boarding cannot end after the occurrence");
+  return errors;
+}
+
+export function validateTransportPassengerReservationDraft(draft: TransportPassengerReservationDraft, trip: Pick<TransportTrip, "id" | "tenantId" | "occurrenceId" | "capacity" | "reservedQuantity">, stops: readonly TransportStopRef[]): string[] {
+  const errors: string[] = [];
+  if (!draft.id || !draft.tenantId || !draft.tripId || !draft.occurrenceId || !draft.customerId) errors.push("Passenger and trip identity are required");
+  if (draft.tenantId !== trip.tenantId || draft.tripId !== trip.id || draft.occurrenceId !== trip.occurrenceId) errors.push("Passenger, trip, and occurrence must share the same journey");
+  if (!Number.isInteger(draft.quantity) || draft.quantity <= 0) errors.push("Passenger quantity must be a positive integer");
+  if (trip.reservedQuantity !== undefined && draft.quantity + trip.reservedQuantity > trip.capacity) errors.push("Trip capacity is unavailable");
+  if (!draft.originStopId || !draft.destinationStopId || draft.originStopId === draft.destinationStopId) errors.push("Choose different boarding and arrival stops");
+  const origin = stops.find((stop) => stop.stopId === draft.originStopId);
+  const destination = stops.find((stop) => stop.stopId === draft.destinationStopId);
+  if (!origin || !destination || origin.sequence >= destination.sequence) errors.push("Boarding stop must come before arrival stop");
+  if (draft.createIdempotencyKey !== undefined && (draft.createIdempotencyKey.trim().length < 8 || draft.createIdempotencyKey.trim().length > 200)) errors.push("Reservation retry key must be between 8 and 200 characters");
+  if (draft.status && !["held", "confirmed"].includes(draft.status)) errors.push("New passenger reservations must be held or confirmed");
   return errors;
 }

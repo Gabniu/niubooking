@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { type CapacityMode, type TransportMode, type TransportRoute, type TransportRouteDraft, type TransportRouteStatus, type TransportStopRef, type TransportTrip, type TransportTripDraft } from "@bookingapp/domain";
+import { type CapacityMode, type TransportMode, type TransportPassengerReservation, type TransportPassengerReservationDraft, type TransportRoute, type TransportRouteDraft, type TransportRouteStatus, type TransportStopRef, type TransportTrip, type TransportTripDraft } from "@bookingapp/domain";
 import type { TenantContextRequest } from "./tenant-context-handler.js";
 
 export interface TransportAdmin {
@@ -10,6 +10,8 @@ export interface TransportAdmin {
   createRoute(draft: TransportRouteDraft): Promise<TransportRoute>;
   listTrips(tenantId: string, from?: Date, to?: Date): Promise<readonly TransportTrip[]>;
   createTrip(draft: TransportTripDraft): Promise<TransportTrip>;
+  listReservations?(tenantId: string, tripId: string): Promise<readonly TransportPassengerReservation[]>;
+  createReservation?(draft: TransportPassengerReservationDraft): Promise<TransportPassengerReservation>;
 }
 
 export interface TransportRouteDependencies {
@@ -41,6 +43,7 @@ function routeStops(value: unknown): TransportStopRef[] | null {
 
 function serializeRoute(route: TransportRoute): Record<string, unknown> { return { ...route, stops: route.stops.map((stop) => ({ ...stop })) }; }
 function serializeTrip(trip: TransportTrip): Record<string, unknown> { return { ...trip, boardingStartsAt: trip.boardingStartsAt.toISOString(), boardingEndsAt: trip.boardingEndsAt.toISOString() }; }
+function serializeReservation(reservation: TransportPassengerReservation): Record<string, unknown> { return { ...reservation }; }
 
 export function registerTransportRoutes(app: FastifyInstance, dependencies: TransportRouteDependencies): void {
   app.get<{ Params: { tenantId: string } }>("/v1/tenants/:tenantId/transport/routes", async (request, reply) => {
@@ -82,5 +85,24 @@ export function registerTransportRoutes(app: FastifyInstance, dependencies: Tran
     const draft: TransportTripDraft = { id: randomUUID(), tenantId: request.params.tenantId, routeId: body.routeId.trim(), routeVersion: body.routeVersion, occurrenceId: body.occurrenceId.trim(), capacityMode: body.capacityMode, capacity: body.capacity, boardingStartsAt: startsAt, boardingEndsAt: endsAt, vehicleResourceId: body.vehicleResourceId?.trim() || null };
     try { return reply.code(201).send({ data: serializeTrip(await dependencies.transportAdmin.createTrip(draft)), error: null }); }
     catch (error) { return reply.code(400).send({ data: null, error: { code: "TRANSPORT_TRIP_INVALID", message: error instanceof Error ? error.message : "Trip could not be created." } }); }
+  });
+
+  app.get<{ Params: { tenantId: string; tripId: string } }>("/v1/tenants/:tenantId/transport/trips/:tripId/reservations", async (request, reply) => {
+    const context = await dependencies.resolve(request);
+    if (!allowed(context, request.params.tenantId)) return reply.code(403).send({ data: null, error: { code: "TENANT_ACCESS_DENIED", message: "You do not have access to this workspace." } });
+    if (!dependencies.transportAdmin?.listReservations) return reply.code(503).send({ data: null, error: { code: "TRANSPORT_UNAVAILABLE", message: "Transport reservations are temporarily unavailable." } });
+    return reply.send({ data: (await dependencies.transportAdmin.listReservations(request.params.tenantId, request.params.tripId)).map(serializeReservation), error: null });
+  });
+
+  app.post<{ Params: { tenantId: string; tripId: string }; Body: { occurrenceId: string; customerId: string; originStopId: string; destinationStopId: string; quantity: number; idempotencyKey: string; status?: "held" | "confirmed" } }>("/v1/tenants/:tenantId/transport/trips/:tripId/reservations", async (request, reply) => {
+    const context = await dependencies.resolve(request);
+    if (!allowed(context, request.params.tenantId)) return reply.code(403).send({ data: null, error: { code: "TENANT_ACCESS_DENIED", message: "You do not have access to this workspace." } });
+    if (!dependencies.transportAdmin?.createReservation) return reply.code(503).send({ data: null, error: { code: "TRANSPORT_UNAVAILABLE", message: "Transport reservations are temporarily unavailable." } });
+    const body = request.body;
+    const text = [body?.occurrenceId, body?.customerId, body?.originStopId, body?.destinationStopId, body?.idempotencyKey];
+    if (text.some((value) => typeof value !== "string" || !value.trim()) || text.some((value) => typeof value === "string" && value.trim().length > 200) || !Number.isInteger(body?.quantity) || (body?.quantity ?? 0) <= 0 || (body?.status !== undefined && body.status !== "held" && body.status !== "confirmed")) return reply.code(400).send({ data: null, error: { code: "TRANSPORT_RESERVATION_INVALID", message: "Trip, passenger, stops, quantity, and a retry key are required." } });
+    const draft: TransportPassengerReservationDraft = { id: randomUUID(), tenantId: request.params.tenantId, tripId: request.params.tripId, occurrenceId: body.occurrenceId.trim(), customerId: body.customerId.trim(), originStopId: body.originStopId.trim(), destinationStopId: body.destinationStopId.trim(), quantity: body.quantity, createIdempotencyKey: body.idempotencyKey.trim(), ...(body.status ? { status: body.status } : {}) };
+    try { return reply.code(201).send({ data: serializeReservation(await dependencies.transportAdmin.createReservation(draft)), error: null }); }
+    catch (error) { const message = error instanceof Error ? error.message : "Passenger reservation could not be created."; const conflict = /capacity|unavailable/iu.test(message); return reply.code(conflict ? 409 : 400).send({ data: null, error: { code: conflict ? "TRANSPORT_CAPACITY_FULL" : "TRANSPORT_RESERVATION_INVALID", message: conflict ? "That trip is full. Please choose another trip." : message } }); }
   });
 }
