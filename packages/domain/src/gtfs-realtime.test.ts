@@ -11,6 +11,7 @@ import {
   type GtfsRealtimeVehiclePosition,
 } from "./gtfs-realtime.js";
 import { serializeGtfsRealtimeVehiclePositions } from "./gtfs-realtime-protobuf.js";
+import { readGtfsScheduleReferences } from "./gtfs-validation.js";
 
 const now = new Date("2026-08-19T12:00:00Z");
 const published: GtfsPublishedReferences = {
@@ -98,4 +99,15 @@ test("builds a deterministic privacy-safe VehiclePositions feed and drops stale 
   const encoded = serializeGtfsRealtimeVehiclePositions(result.feed);
   assert.ok(encoded.length > 20);
   assert.match(new TextDecoder().decode(encoded), /2\.0/iu);
+});
+
+test("snapshots only public route, trip, and stop IDs from a validated Schedule", () => {
+  const references = readGtfsScheduleReferences([
+    { fileName: "routes.txt", content: "route_id,agency_id,route_type\nroute-1,agency-1,3\n" },
+    { fileName: "trips.txt", content: "route_id,service_id,trip_id\nroute-1,service-1,trip-1\n" },
+    { fileName: "stops.txt", content: "stop_id,stop_name,stop_lat,stop_lon\nstop-1,One,0,0\n" },
+  ], "version-1");
+  assert.deepEqual([...references.routeIds], ["route-1"]);
+  assert.deepEqual([...references.tripIds], ["trip-1"]);
+  assert.deepEqual([...references.stopIds], ["stop-1"]);
 });

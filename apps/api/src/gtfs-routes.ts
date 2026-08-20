@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { GtfsFeatureReadiness, GtfsPublicationStatus, GtfsValidationReportResponse } from "@bookingapp/contracts";
 import { GtfsPublicationCommandError, type GtfsFeedPublicationStatus, type GtfsValidationIssue, type GtfsPublicationAction } from "@bookingapp/database";
-import { serializeGtfsRealtimeVehiclePositions, validateGtfsScheduleFiles, type GtfsScheduleFile } from "@bookingapp/domain";
+import { readGtfsScheduleReferences, serializeGtfsRealtimeVehiclePositions, validateGtfsScheduleFiles, type GtfsScheduleFile } from "@bookingapp/domain";
 import type { TenantContextRequest } from "./tenant-context-handler.js";
 import type { GtfsArtifactStore } from "./gtfs-artifact-store.js";
 import { persistGtfsScheduleArtifact } from "./gtfs-artifact-publisher.js";
@@ -16,7 +16,7 @@ export interface GtfsPublicationAdmin {
   readPublicVehiclePositions?(publicSlug: string): Promise<import("@bookingapp/domain").GtfsRealtimeVehiclePositionsFeed | null>;
   artifactStore?: GtfsArtifactStore;
   readScheduleFiles?(input: { tenantId: string; feedVersionId: string }): Promise<readonly GtfsScheduleFile[] | null>;
-  recordValidation?(input: { tenantId: string; feedVersionId: string; issues: readonly { code: string; severity: "error" | "warning" | "info"; fileName?: string; entityPublicId?: string; message: string; suggestedAction?: string }[]; scheduleSha256?: string; scheduleObjectKey?: string; actorId?: string | null }): Promise<NonNullable<GtfsFeedPublicationStatus["activeVersion"]>>;
+  recordValidation?(input: { tenantId: string; feedVersionId: string; issues: readonly { code: string; severity: "error" | "warning" | "info"; fileName?: string; entityPublicId?: string; message: string; suggestedAction?: string }[]; scheduleSha256?: string; scheduleObjectKey?: string; scheduleReferences?: import("@bookingapp/domain").GtfsPublishedReferences; actorId?: string | null }): Promise<NonNullable<GtfsFeedPublicationStatus["activeVersion"]>>;
   command?(input: { tenantId: string; feedVersionId: string; action: GtfsPublicationAction; idempotencyKey: string; actorId: string | null }): Promise<NonNullable<GtfsFeedPublicationStatus["activeVersion"]>>;
 }
 
@@ -93,9 +93,10 @@ export function registerGtfsRoutes(app: FastifyInstance, dependencies: RouteDepe
         const version = await publication.recordValidation({ tenantId: request.params.tenantId, feedVersionId: request.params.feedVersionId.trim(), issues, actorId: context.mappedUserId });
         return reply.code(422).send({ data: { feedVersion: versionSummary(version, {}) }, error: { code: "GTFS_GENERATION_INVALID", message: "The Schedule needs attention before it can be generated." } });
       }
+      const scheduleReferences = readGtfsScheduleReferences(files, request.params.feedVersionId.trim());
       const objectKey = `gtfs/${createHash("sha256").update(`${request.params.tenantId}:${request.params.feedVersionId}`).digest("hex")}.zip`;
       const artifact = await persistGtfsScheduleArtifact(publication.artifactStore, { objectKey, files });
-      const version = await publication.recordValidation({ tenantId: request.params.tenantId, feedVersionId: request.params.feedVersionId.trim(), issues, scheduleSha256: artifact.sha256, scheduleObjectKey: artifact.objectKey, actorId: context.mappedUserId });
+      const version = await publication.recordValidation({ tenantId: request.params.tenantId, feedVersionId: request.params.feedVersionId.trim(), issues, scheduleSha256: artifact.sha256, scheduleObjectKey: artifact.objectKey, scheduleReferences, actorId: context.mappedUserId });
       return reply.send({ data: { feedVersion: versionSummary(version, {}) }, error: null });
     } catch { return reply.code(503).send({ data: null, error: { code: "GTFS_GENERATION_UNAVAILABLE", message: "Schedule generation is temporarily unavailable." } }); }
   });

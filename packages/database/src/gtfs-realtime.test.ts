@@ -8,13 +8,13 @@ import { readPublicGtfsVehiclePositions } from "./gtfs-realtime.js";
 test("publishes only fresh positions with references present in the Schedule source", async () => {
   const client = {
     async query(sql: string) {
-      if (sql.includes("SELECT settings.tenant_id")) return { rows: [{ tenant_id: "tenant-1", version: "feed-1", realtime_publication_enabled: true }] };
+      if (sql.includes("SELECT settings.tenant_id")) return { rows: [{ tenant_id: "tenant-1", feed_version_id: "version-1", version: "feed-1", realtime_publication_enabled: true }] };
       if (sql.includes("SELECT timezone")) return { rows: [{ timezone: "Africa/Nairobi" }] };
       if (sql.includes("FROM fleet_tracking_sessions")) return { rows: [
         { entity_public_id: "vp-v1", vehicle_public_id: "v1", trip_public_id: "trip-1", route_public_id: "route-1", captured_at: new Date("2026-08-20T08:01:00Z"), latitude: -1.28, longitude: 36.82, bearing: null, speed_metres_per_second: null },
         { entity_public_id: "vp-v2", vehicle_public_id: "v2", trip_public_id: "private-trip", route_public_id: "route-1", captured_at: new Date("2026-08-20T08:01:00Z"), latitude: -1.28, longitude: 36.82, bearing: null, speed_metres_per_second: null },
       ] };
-      if (sql.includes("FROM gtfs_public_id_mappings mapping")) return { rows: [
+      if (sql.includes("FROM gtfs_feed_version_entities")) return { rows: [
         { entity_kind: "route", public_id: "route-1" }, { entity_kind: "trip", public_id: "trip-1" },
       ] };
       return { rows: [] };

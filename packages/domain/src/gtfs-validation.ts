@@ -1,6 +1,7 @@
 // Ownership: independent validation of serialized GTFS Schedule files.
 
 import type { GtfsScheduleFile } from "./gtfs-export.js";
+import type { GtfsPublishedReferences } from "./gtfs-realtime.js";
 
 export type GtfsArtifactSeverity = "error" | "warning" | "info";
 
@@ -78,4 +79,16 @@ export function validateGtfsScheduleFiles(files: readonly GtfsScheduleFile[]): r
   references(tables.get("frequencies.txt"), "frequencies.txt", "trip_id", values(trips ?? { headers: [], rows: [] }, "trip_id"), issues);
   if (tables.has("shapes.txt")) { duplicateIds(tables.get("shapes.txt")!, "shapes.txt", "shape_id", issues); references(trips, "trips.txt", "shape_id", values(tables.get("shapes.txt")!, "shape_id"), issues); }
   return issues;
+}
+
+export function readGtfsScheduleReferences(files: readonly GtfsScheduleFile[], scheduleVersion: string): GtfsPublishedReferences {
+  const issues: GtfsArtifactValidationIssue[] = [];
+  const tables = parseFiles(files, issues);
+  if (issues.length) throw new Error("Schedule references cannot be read from malformed files");
+  return {
+    scheduleVersion,
+    routeIds: new Set([...values(tables.get("routes.txt") ?? { headers: [], rows: [] }, "route_id")].filter(Boolean)),
+    tripIds: new Set([...values(tables.get("trips.txt") ?? { headers: [], rows: [] }, "trip_id")].filter(Boolean)),
+    stopIds: new Set([...values(tables.get("stops.txt") ?? { headers: [], rows: [] }, "stop_id")].filter(Boolean)),
+  };
 }

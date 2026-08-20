@@ -27,7 +27,7 @@ test("all migrations apply to PostgreSQL and rerun idempotently", { skip: !conne
       [schema],
     );
     const tableNames = new Set(tables.rows.map((row) => row.table_name));
-    for (const expected of ["bookings", "booking_resources", "customers", "feedback_responses", "service_occurrences", "service_reservations", "audit_events", "booking_sessions", "tenant_branches", "fleet_devices", "fleet_tracking_sessions", "fleet_telemetry_receipts", "fleet_position_history", "fleet_current_positions"]) {
+    for (const expected of ["bookings", "booking_resources", "customers", "feedback_responses", "service_occurrences", "service_reservations", "audit_events", "booking_sessions", "tenant_branches", "fleet_devices", "fleet_tracking_sessions", "fleet_telemetry_receipts", "fleet_position_history", "fleet_current_positions", "gtfs_feed_version_entities"]) {
       assert.equal(tableNames.has(expected), true, `missing ${expected}`);
     }
 

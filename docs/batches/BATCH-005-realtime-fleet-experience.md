@@ -45,6 +45,7 @@ reservation, fleet, identity, or tenant model.
 - [x] GTFS lifecycle command slice: owner/admin publish, withdraw, and explicit historical rollback are audited, idempotent, role-gated, and reflected in `/app/gtfs`; the command API refuses to validate without recorded independent evidence and refuses incomplete artifacts.
 - [x] GTFS artifact write slice: the configured filesystem store now creates immutable same-byte-replayable ZIP objects atomically through a temporary hard-link promotion, while the publisher boundary validates files and returns the content digest/size needed for database attachment.
 - [x] GTFS source/export slice: published transport routes, patterns, stops, calendars, exceptions, shapes, frequencies, and reserved public IDs now compose the Schedule draft; owner/admin `/app/gtfs` Generate Feed persists the artifact, records validation evidence, and audits the generation before publish.
+- [x] GTFS VehiclePositions slice: the public protobuf endpoint requires realtime opt-in and an active published Schedule, reads expiring current telemetry, validates against immutable route/trip/stop reference snapshots, and drops stale or unresolved entities; `/app/gtfs` shows enabled public endpoint links.
 - [ ] NIU Driver React Native application with physical-device background tests.
 - [ ] Regional tile/PMTiles cost proof, route matching, provider-backed ETA calculation,
   and the physical rider browser journey remain.
@@ -178,8 +179,10 @@ VehiclePositions now has a safe first slice: the public protobuf endpoint only
 reads an active published Schedule with realtime opt-in, joins expiring current
 positions to stable vehicle/trip/route mappings, rejects stale or unresolved
 rows, and never exposes driver, device, tenant, or session identifiers. The
-remaining work is the refresh worker, immutable Schedule-reference snapshots,
-staff controls, TripUpdates, Alerts, occupancy, and detours.
+remaining work is the refresh worker, staff controls, TripUpdates, Alerts,
+occupancy, and detours. Generated Schedule versions now persist immutable
+route/trip/stop reference snapshots so later transport edits cannot alter the
+meaning of a promoted feed.
 
 Add stable public IDs, operator profiles, named/geocoded stops, calendars and
 exceptions, route/trip metadata, stop-times, shapes, and frequency windows. The

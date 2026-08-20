@@ -46,6 +46,19 @@ test("failed validation cannot become ready", async () => {
   assert.ok(statements.some((sql) => sql.startsWith("INSERT INTO gtfs_validation_issues")));
 });
 
+test("records immutable Schedule references with generation evidence", async () => {
+  const statements: string[] = [];
+  const executor = { query: async <T>(sql: string) => {
+    statements.push(sql);
+    if (sql.startsWith("UPDATE gtfs_feed_versions")) return [{ id: "feed-1", tenant_id: "tenant-1", version: "v1", status: "ready", valid_from: "2026-08-20", valid_until: "2026-12-31", schedule_sha256: "a".repeat(64), schedule_object_key: "gtfs/feed-1.zip", generated_at: new Date(), validated_at: new Date(), published_at: null }] as T[];
+    if (sql.startsWith("INSERT INTO audit_events")) return [{ id: "audit-1" }] as T[];
+    return [] as T[];
+  } };
+  await recordGtfsValidation(executor, { tenantId: "tenant-1", feedVersionId: "feed-1", issues: [], scheduleReferences: { scheduleVersion: "v1", routeIds: new Set(["route-1"]), tripIds: new Set(["trip-1"]), stopIds: new Set(["stop-1"]) } });
+  assert.ok(statements.some((sql) => sql.startsWith("DELETE FROM gtfs_feed_version_entities")));
+  assert.equal(statements.filter((sql) => sql.startsWith("INSERT INTO gtfs_feed_version_entities")).length, 3);
+});
+
 test("publishes only a validated artifact and records the previous version", async () => {
   const statements: string[] = [];
   const executor = { query: async <T>(sql: string) => {

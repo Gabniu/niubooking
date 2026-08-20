@@ -99,9 +99,10 @@ The first delivered realtime slice is the public `vehicle-positions.pb`
 projection. It requires a published Schedule, realtime opt-in, an unexpired
 tracking session, a current position, and stable vehicle/trip/route mappings.
 It uses a dependency-free Protocol Buffer encoder, short cache headers, and
-drops stale or unresolved rows. Refresh workers, immutable per-version
-reference snapshots, TripUpdates, Alerts, occupancy, and detours remain
-explicit follow-on work.
+drops stale or unresolved rows. Generated versions snapshot route/trip/stop
+IDs in `gtfs_feed_version_entities`, so later source edits cannot silently
+change what the promoted feed means. Refresh workers, TripUpdates, Alerts,
+occupancy, and detours remain explicit follow-on work.
 
 # Product and authorization boundary
 
@@ -120,11 +121,11 @@ from GTFS.
 
 The core Schedule and realtime foundations now persist agency profiles,
 stable GTFS IDs, named/geocoded stops, service calendars, shapes, stop-times,
-frequency windows, feed versions, publication policy, tracking sessions, and
-current positions. Immutable per-feed reference snapshots, worker refresh
-orchestration, rider-quality extensions, TripUpdates, Alerts, occupancy,
-detours, and richer source settings remain explicit BATCH-005 work; array order
-and internal UUIDs are not an acceptable substitute.
+frequency windows, feed versions, immutable per-feed route/trip/stop reference
+snapshots, publication policy, tracking sessions, and current positions.
+Worker refresh orchestration, rider-quality extensions, TripUpdates, Alerts,
+occupancy, detours, and richer source settings remain explicit BATCH-005 work;
+array order and internal UUIDs are not an acceptable substitute.
 
 # Acceptance
 

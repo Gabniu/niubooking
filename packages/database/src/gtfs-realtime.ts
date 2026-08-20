@@ -5,7 +5,7 @@ import { withPublicTransaction, withTenantTransaction } from "./pg-executor.js";
 import type { Pool } from "pg";
 import type { SqlExecutor } from "./tenant-membership.js";
 
-interface FeedRow { tenant_id: string; version: string; realtime_publication_enabled: boolean; }
+interface FeedRow { tenant_id: string; feed_version_id: string; version: string; realtime_publication_enabled: boolean; }
 interface AgencyRow { timezone: string; }
 interface PositionRow {
   entity_public_id: string; vehicle_public_id: string; trip_public_id: string; route_public_id: string;
@@ -21,13 +21,13 @@ function dateInTimezone(value: Date, timezone: string): string {
 
 async function readFeed(executor: SqlExecutor, publicSlug: string): Promise<FeedRow | null> {
   const rows = await executor.query<FeedRow>(
-    "SELECT settings.tenant_id, version.version, settings.realtime_publication_enabled FROM gtfs_feed_settings settings JOIN gtfs_feed_versions version ON version.tenant_id = settings.tenant_id AND version.id = settings.active_version_id WHERE settings.public_slug = $1 AND settings.schedule_publication_enabled = true AND settings.realtime_publication_enabled = true AND version.status = 'published' AND version.schedule_object_key IS NOT NULL AND version.schedule_sha256 IS NOT NULL",
+    "SELECT settings.tenant_id, version.id AS feed_version_id, version.version, settings.realtime_publication_enabled FROM gtfs_feed_settings settings JOIN gtfs_feed_versions version ON version.tenant_id = settings.tenant_id AND version.id = settings.active_version_id WHERE settings.public_slug = $1 AND settings.schedule_publication_enabled = true AND settings.realtime_publication_enabled = true AND version.status = 'published' AND version.schedule_object_key IS NOT NULL AND version.schedule_sha256 IS NOT NULL",
     [publicSlug],
   );
   return rows[0] ?? null;
 }
 
-async function readPositions(executor: SqlExecutor, tenantId: string, now: Date, scheduleVersion: string): Promise<GtfsRealtimeVehiclePositionsFeed> {
+async function readPositions(executor: SqlExecutor, tenantId: string, feedVersionId: string, now: Date, scheduleVersion: string): Promise<GtfsRealtimeVehiclePositionsFeed> {
   const [agencyRows, rows, referenceRows] = await Promise.all([
     executor.query<AgencyRow>("SELECT timezone FROM transport_agencies WHERE tenant_id = $1 AND status = 'active' ORDER BY id LIMIT 1", [tenantId]),
     executor.query<PositionRow>(`SELECT 'vp-' || vehicle_map.public_id AS entity_public_id, vehicle_map.public_id AS vehicle_public_id, trip_map.public_id AS trip_public_id, route_map.public_id AS route_public_id, current.captured_at, current.latitude, current.longitude, current.heading_degrees AS bearing, current.speed_metres_per_second
@@ -41,11 +41,7 @@ async function readPositions(executor: SqlExecutor, tenantId: string, now: Date,
       JOIN gtfs_public_id_mappings route_map ON route_map.tenant_id = session.tenant_id AND route_map.entity_kind = 'route' AND route_map.internal_id = route.id AND route_map.retired_at IS NULL
       WHERE session.tenant_id = $1 AND session.status = 'active' AND session.expires_at > $2
       ORDER BY vehicle_map.public_id, trip_map.public_id`, [tenantId, now]),
-    executor.query<ReferenceRow>(`SELECT mapping.entity_kind, mapping.public_id FROM gtfs_public_id_mappings mapping
-      LEFT JOIN transport_routes route ON route.tenant_id = mapping.tenant_id AND route.id = mapping.internal_id AND mapping.entity_kind = 'route' AND route.status = 'published'
-      LEFT JOIN transport_trip_patterns pattern ON pattern.tenant_id = mapping.tenant_id AND pattern.id = mapping.internal_id AND mapping.entity_kind = 'trip' AND pattern.status = 'published'
-      LEFT JOIN transport_stops stop ON stop.tenant_id = mapping.tenant_id AND stop.id = mapping.internal_id AND mapping.entity_kind = 'stop' AND stop.status = 'active'
-      WHERE mapping.tenant_id = $1 AND mapping.retired_at IS NULL AND (route.id IS NOT NULL OR pattern.id IS NOT NULL OR stop.id IS NOT NULL)`, [tenantId]),
+    executor.query<ReferenceRow>("SELECT entity_kind, public_id FROM gtfs_feed_version_entities WHERE tenant_id = $1 AND feed_version_id = $2", [tenantId, feedVersionId]),
   ]);
   const timezone = agencyRows[0]?.timezone ?? "UTC";
   const candidates = rows.map((row) => ({
@@ -66,5 +62,5 @@ export async function readPublicGtfsVehiclePositions(pool: Pool, publicSlug: str
   if (!publicSlug.trim()) return null;
   const feed = await withPublicTransaction(pool, (executor) => readFeed(executor, publicSlug));
   if (!feed || !feed.realtime_publication_enabled) return null;
-  return withTenantTransaction(pool, feed.tenant_id, (executor) => readPositions(executor, feed.tenant_id, now, feed.version));
+  return withTenantTransaction(pool, feed.tenant_id, (executor) => readPositions(executor, feed.tenant_id, feed.feed_version_id, now, feed.version));
 }
