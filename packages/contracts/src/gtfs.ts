@@ -88,3 +88,11 @@ export interface GtfsPublicationCommandResponse {
     readonly message: string;
   } | null;
 }
+
+export interface GtfsPublicationGenerationResponse {
+  readonly data: { readonly feedVersion: GtfsFeedVersionSummary } | null;
+  readonly error: {
+    readonly code: "UNAUTHENTICATED" | "GTFS_ACCESS_DENIED" | "GTFS_GENERATION_INVALID" | "GTFS_GENERATION_UNAVAILABLE" | "GTFS_VERSION_NOT_FOUND";
+    readonly message: string;
+  } | null;
+}

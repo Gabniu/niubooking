@@ -1,6 +1,6 @@
 // Ownership: typed tenant GTFS readiness client; no internal IDs are invented in the browser.
 
-import type { GtfsPublicationCommand, GtfsPublicationCommandResponse, GtfsPublicationStatus, GtfsValidationReportResponse } from "@bookingapp/contracts";
+import type { GtfsPublicationCommand, GtfsPublicationCommandResponse, GtfsPublicationGenerationResponse, GtfsPublicationStatus, GtfsValidationReportResponse } from "@bookingapp/contracts";
 import { userFacingMessage } from "./user-messages.js";
 
 type Fetcher = (url: string, init: { credentials: "include"; method?: string; headers?: Record<string, string>; body?: string }) => Promise<{ status: number; json(): Promise<unknown> }>;
@@ -12,6 +12,7 @@ async function read(fetcher: Fetcher, url: string): Promise<{ status: number; bo
   return { status: response.status, body: (await response.json()) as { data?: unknown; error?: { code?: string; message?: string } | null } };
 }
 export type GtfsCommandState = { kind: "ready"; version: NonNullable<GtfsPublicationCommandResponse["data"]>["feedVersion"] } | { kind: "denied" | "error"; message: string };
+export type GtfsGenerationState = { kind: "ready"; version: NonNullable<GtfsPublicationGenerationResponse["data"]>["feedVersion"] } | { kind: "denied" | "error"; message: string };
 
 export async function fetchGtfsPublication(fetcher: Fetcher, baseUrl: string, tenantId: string): Promise<GtfsPublicationState> {
   const { status, body } = await read(fetcher, `${baseUrl}/v1/tenants/${encodeURIComponent(tenantId)}/gtfs/publication`);
@@ -33,4 +34,12 @@ export async function executeGtfsCommand(fetcher: Fetcher, baseUrl: string, tena
   if (result.data) return { kind: "ready", version: result.data.feedVersion };
   const denied = result.error?.code === "GTFS_ACCESS_DENIED" || result.error?.code === "UNAUTHENTICATED";
   return { kind: denied ? "denied" : "error", message: userFacingMessage(response.status, result.error, "That Schedule action could not be completed.") };
+}
+
+export async function generateGtfsArtifact(fetcher: Fetcher, baseUrl: string, tenantId: string, feedVersionId: string): Promise<GtfsGenerationState> {
+  const response = await fetcher(`${baseUrl}/v1/tenants/${encodeURIComponent(tenantId)}/gtfs/versions/${encodeURIComponent(feedVersionId)}/generate`, { credentials: "include", method: "POST", headers: { "content-type": "application/json" } });
+  const result = (await response.json()) as GtfsPublicationGenerationResponse;
+  if (result.error) { const denied = result.error.code === "GTFS_ACCESS_DENIED" || result.error.code === "UNAUTHENTICATED"; return { kind: denied ? "denied" : "error", message: userFacingMessage(response.status, result.error, "Schedule generation could not be completed.") }; }
+  if (result.data) return { kind: "ready", version: result.data.feedVersion };
+  return { kind: "error", message: userFacingMessage(response.status, result.error, "Schedule generation could not be completed.") };
 }

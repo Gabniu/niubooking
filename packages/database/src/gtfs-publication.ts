@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import type { Pool } from "pg";
 import { appendAuditEvent } from "./audit-events.js";
 import { executeGtfsPublicationCommand } from "./gtfs-commands.js";
+import { readGtfsScheduleFiles } from "./gtfs-source.js";
 import { withPublicTransaction, withTenantTransaction } from "./pg-executor.js";
 import type { SqlExecutor } from "./tenant-membership.js";
 
@@ -181,7 +182,7 @@ export async function createGtfsFeedVersion(executor: SqlExecutor, input: {
 
 export async function recordGtfsValidation(executor: SqlExecutor, input: {
   tenantId: string; feedVersionId: string; issues: readonly GtfsValidationIssueDraft[];
-  scheduleSha256?: string; scheduleObjectKey?: string;
+  scheduleSha256?: string; scheduleObjectKey?: string; actorId?: string | null;
 }): Promise<GtfsFeedVersion> {
   if (input.scheduleSha256 && !/^[0-9a-f]{64}$/u.test(input.scheduleSha256)) throw new Error("Schedule digest is invalid");
   await executor.query("DELETE FROM gtfs_validation_issues WHERE tenant_id = $1 AND feed_version_id = $2", [input.tenantId, input.feedVersionId]);
@@ -197,6 +198,7 @@ export async function recordGtfsValidation(executor: SqlExecutor, input: {
     [input.tenantId, input.feedVersionId, status, input.scheduleSha256 ?? null, input.scheduleObjectKey ?? null],
   );
   if (!rows[0]) throw new Error("GTFS feed version is unavailable for validation");
+  await appendAuditEvent(executor, { tenantId: input.tenantId, actorType: input.actorId ? "user" : "system", actorId: input.actorId ?? null, action: "gtfs.feed_generated", entityType: "gtfs_feed_version", entityId: input.feedVersionId, metadata: { issue_count: input.issues.length, blocking_issue_count: input.issues.filter((issue) => issue.severity === "error").length, artifact_written: Boolean(input.scheduleObjectKey && input.scheduleSha256) } });
   return mapVersion(rows[0]);
 }
 
@@ -220,6 +222,8 @@ export function createDatabaseGtfsPublication(pool: Pool) {
     readSettings: (tenantId: string) => withTenantTransaction(pool, tenantId, (executor) => readGtfsFeedSettings(executor, tenantId)),
     readStatus: (tenantId: string) => withTenantTransaction(pool, tenantId, (executor) => readGtfsFeedPublicationStatus(executor, tenantId)),
     readValidation: (input: { tenantId: string; feedVersionId: string }) => withTenantTransaction(pool, input.tenantId, (executor) => readGtfsValidationIssues(executor, input)),
+    readScheduleFiles: (input: { tenantId: string; feedVersionId: string }) => withTenantTransaction(pool, input.tenantId, (executor) => readGtfsScheduleFiles(executor, input)),
+    recordValidation: (input: { tenantId: string; feedVersionId: string; issues: readonly GtfsValidationIssueDraft[]; scheduleSha256?: string; scheduleObjectKey?: string; actorId?: string | null }) => withTenantTransaction(pool, input.tenantId, (executor) => recordGtfsValidation(executor, input)),
     readPublicSchedule: (publicSlug: string) => withPublicTransaction(pool, (executor) => readGtfsPublicSchedule(executor, publicSlug)),
     publish: (input: { tenantId: string; feedVersionId: string; actorId: string | null }) => withTenantTransaction(pool, input.tenantId, (executor) => publishGtfsFeedVersion(executor, input)),
     command: (input: { tenantId: string; feedVersionId: string; action: import("./gtfs-commands.js").GtfsPublicationAction; idempotencyKey: string; actorId: string | null }) => withTenantTransaction(pool, input.tenantId, (executor) => executeGtfsPublicationCommand(executor, input)),

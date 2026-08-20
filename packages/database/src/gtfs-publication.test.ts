@@ -35,6 +35,7 @@ test("failed validation cannot become ready", async () => {
       valid_from: "2026-08-19", valid_until: "2026-12-31", schedule_sha256: null,
       schedule_object_key: null, generated_at: new Date(), validated_at: new Date(), published_at: null,
     }] as T[];
+    if (sql.startsWith("INSERT INTO audit_events")) return [{ id: "audit-1" }] as T[];
     return [] as T[];
   } };
   const version = await recordGtfsValidation(executor, {

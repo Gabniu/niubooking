@@ -70,6 +70,8 @@ const known: Record<string, string> = {
   GTFS_COMMAND_UNAVAILABLE: "Transit publication commands are temporarily unavailable. Please try again.",
   GTFS_VALIDATION_REQUIRED: "Validate a complete Schedule artifact before publishing it.",
   GTFS_VERSION_CONFLICT: "That Schedule change conflicts with the current publication state. Refresh and try again.",
+  GTFS_GENERATION_INVALID: "The Schedule needs attention before it can be generated.",
+  GTFS_GENERATION_UNAVAILABLE: "Schedule generation is temporarily unavailable. Please try again.",
   MANAGE_NOT_FOUND: "This appointment link could not be found.",
   MANAGE_INVALID: "This appointment link is no longer valid.",
 };

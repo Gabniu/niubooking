@@ -50,3 +50,23 @@ test("publication commands require owner/admin scope and preserve idempotency ke
   assert.equal((await denied.inject({ method: "POST", url: "/v1/tenants/tenant-1/gtfs/commands", payload: { feedVersionId: "feed-1", action: "publish", idempotencyKey: "cmd-2" } })).statusCode, 403);
   await app.close(); await denied.close();
 });
+
+test("owner can generate a validated Schedule artifact before publishing", async () => {
+  let savedKey = "";
+  const files = [
+    { fileName: "agency.txt", content: "agency_id,agency_name,agency_url,agency_timezone\na,Agency,https://example.test,Africa/Nairobi\n" },
+    { fileName: "stops.txt", content: "stop_id,stop_name,stop_lat,stop_lon\ns1,One,0,0\ns2,Two,0,1\n" },
+    { fileName: "routes.txt", content: "route_id,agency_id,route_type\nr1,a,3\n" },
+    { fileName: "trips.txt", content: "route_id,service_id,trip_id\nr1,svc,t1\n" },
+    { fileName: "stop_times.txt", content: "trip_id,arrival_time,departure_time,stop_id,stop_sequence\nt1,08:00:00,08:00:00,s1,1\nt1,08:10:00,08:10:00,s2,2\n" },
+    { fileName: "calendar_dates.txt", content: "service_id,date,exception_type\nsvc,20260820,1\n" },
+  ] as const;
+  const app = createApiServer({ resolve: () => ({ ...context(), membership: { ...membership, role: "owner" as const } }), gtfsPublication: {
+    readStatus: async () => null, readValidation: async () => [], readScheduleFiles: async () => files,
+    recordValidation: async ({ scheduleSha256, scheduleObjectKey }) => { savedKey = scheduleObjectKey ?? ""; return { ...version, status: "ready" as const, scheduleSha256: scheduleSha256 ?? null, scheduleObjectKey: scheduleObjectKey ?? null }; },
+    artifactStore: { read: async () => null, write: async (key) => { savedKey = key; } },
+  } });
+  const response = await app.inject({ method: "POST", url: "/v1/tenants/tenant-1/gtfs/versions/feed-1/generate" });
+  assert.equal(response.statusCode, 200); assert.equal(response.json().data.feedVersion.lifecycle, "ready"); assert.match(savedKey, /^gtfs\/[a-f0-9]{64}\.zip$/u);
+  await app.close();
+});
