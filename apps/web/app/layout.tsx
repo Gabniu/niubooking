@@ -1,6 +1,7 @@
 // Ownership: shared Next document metadata and global Booking styles.
 import type { Metadata } from "next";
 import "./globals.css";
+import "maplibre-gl/dist/maplibre-gl.css";
 import "./pack-catalog.css";
 import "./schedule.css";
 import "./customers.css";

@@ -70,6 +70,13 @@ The connected Next workspace uses same-origin `/v1` calls by default. Only set
 inlines `NEXT_PUBLIC_*` values at build time, so that value belongs in the
 image-build environment rather than only the server runtime `.env`.
 
+Rider tickets support an optional MapLibre map through the build-time
+`NEXT_PUBLIC_MAP_STYLE_URL`. Use an approved HTTPS style (or localhost during
+development) with the provider's required attribution. Do not put private API
+secrets in this URL. If it is omitted, invalid, or the style fails to load,
+the ticket deliberately falls back to the built-in accessible route diagram;
+tracking remains usable and no third-party tile traffic is generated.
+
 CI already provisions an ephemeral PostgreSQL service through
 `scripts/run-database-tests.mjs`; local verification still never starts
 Docker. The approved server remains the environment for production-shaped

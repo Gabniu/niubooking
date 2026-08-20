@@ -25,9 +25,12 @@ system of record.
 The first deployment uses PostgreSQL/PostGIS for current position, partitioned
 history, route geometry, and spatial checks. Driver uploads use HTTPS. Staff and
 customer maps consume a privacy-safe unidirectional realtime stream. MapLibre
-renders maps from a replaceable OSM-derived tile provider; regional PMTiles are
-the preferred bounded-cost production path. Advanced road-network matching is
-behind a provider port, with Valhalla the preferred self-hosted candidate.
+is an optional browser enhancement behind a build-time approved style URL;
+without a valid style the accessible route diagram remains the source of
+truth and no tile requests are made. MapLibre renders maps from a replaceable
+OSM-derived tile provider; regional PMTiles are the preferred bounded-cost
+production path. Advanced road-network matching is behind a provider port,
+with Valhalla the preferred self-hosted candidate.
 
 # Authorization
 

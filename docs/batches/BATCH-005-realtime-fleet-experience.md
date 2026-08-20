@@ -32,9 +32,10 @@ reservation, fleet, identity, or tenant model.
 - [x] First streaming fan-out slice: accepted current telemetry emits a tenant-scoped change signal, authorized staff can subscribe through SSE, and the client refetches the authoritative scoped snapshot. Multi-instance messaging, map, and ETA remain.
 - [x] First rider trip slice: an issued ticket exchanges for a short-lived hashed viewer session, then fetches a privacy-safe live projection and subscribes to SSE updates from the canonical ticket page.
 - [x] Route foundation: versioned routes now accept bounded LineString geometry plus optional named/geocoded stops; public trips and opaque tickets expose only that safe route projection, and the browser renders an accessible SVG route preview without external tile cost.
+- [x] Rider map presentation slice: MapLibre `5.x` is an optional, style-URL-gated enhancement; without `NEXT_PUBLIC_MAP_STYLE_URL` the ticket stays on the accessible SVG route diagram. Trusted samples can interpolate only between captures, reduced motion disables interpolation, and rider cards disclose freshness, accuracy, and provider-supplied ETA/confidence without inventing estimates.
 - [ ] NIU Driver React Native application with physical-device background tests.
-- [ ] MapLibre map or regional tile layer, route-aware smoothing, confidence, stale disclosure, and ETA range
-  range presentation.
+- [ ] Regional tile/PMTiles cost proof, route matching, provider-backed ETA calculation,
+  and the physical rider browser journey remain.
 - [ ] Validated GTFS Schedule publication. Stable ID, service-day time,
   fixed/headway contracts, atomic publication persistence, and tests are built;
   exporter, independent validator, flexible service, fares, accessibility, and
@@ -134,7 +135,9 @@ incident states, permission denial, empty fleet, and degraded stream recovery.
 Exchange a ticket/manage capability for a short-lived viewer session. Add a
 public MapLibre trip tracker with route/stops, smooth vehicle movement,
 confidence, last update, delayed/offline disclosure, ETA range, and accessible
-list fallback. Customer tracking begins and ends according to trip policy.
+list fallback. The first browser slice is now wired with an optional style URL
+and SVG fallback; provider-backed matching, ETA calculation, and journey
+evidence remain. Customer tracking begins and ends according to trip policy.
 
 ### Packet D — Driver mobile reliability
 

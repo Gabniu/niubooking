@@ -45,4 +45,17 @@
 .transport-route-map-unavailable { grid-template-columns: 1fr; justify-items: start; color: var(--public-muted); font-size: 11px; }
 .transport-route-map-unavailable strong { color: var(--public-text); font-size: 12px; font-weight: 500; }
 .transport-route-map-unavailable span { line-height: 1.45; }
+.transport-interactive-map { display: grid; gap: 10px; margin-top: 15px; padding: 10px; border: 1px solid #e2e5f2; border-radius: 11px; background: #fff; }
+.transport-map-canvas { min-height: 220px; overflow: hidden; border-radius: 8px; background: #edf1fa; }
+.transport-map-canvas .maplibregl-map { min-height: 220px; }
+.transport-map-note { margin: 0; color: var(--public-muted); font-size: 11px; line-height: 1.45; }
+.transport-interactive-map > .transport-map-note { padding: 4px 2px 0; }
+.transport-interactive-map-fallback { margin-top: 15px; }
+.transport-interactive-map-fallback .transport-route-map { margin-top: 8px; }
+.transport-interactive-stops { display: flex; gap: 7px; margin: 0; padding: 0 2px 2px; overflow-x: auto; list-style: none; }
+.transport-interactive-stops li { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 5px; color: var(--public-text); font-size: 11px; }
+.transport-interactive-stops span { display: grid; width: 18px; height: 18px; place-items: center; border-radius: 50%; color: #140ba7; background: #e8e8ff; font-size: 9px; }
+.transport-interactive-stops strong { font-weight: 500; }
+.transport-map-vehicle-marker { width: 16px; height: 16px; border: 3px solid #fff; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 2px #064e3b, 0 3px 10px rgb(15 23 42 / 24%); }
+@media (prefers-reduced-motion: reduce) { .transport-map-vehicle-marker { transition: none; } }
 @media (max-width: 520px) { .transport-ticket-shell { width: min(100% - 24px, 620px); padding-top: 28px; } .transport-ticket-card, .transport-ticket-empty { padding: 17px; } .transport-ticket-route { gap: 8px; padding: 13px 10px; } .transport-ticket-route strong { font-size: 13px; } }
