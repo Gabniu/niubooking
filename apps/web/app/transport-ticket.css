@@ -25,4 +25,12 @@
 .transport-ticket-empty h2 { margin: 3px 0 0; color: var(--public-text); font-size: 22px; font-weight: 400; }
 .transport-ticket-empty p { max-width: 390px; margin: 8px 0 17px; color: var(--public-muted); font-size: 13px; line-height: 1.5; }
 .transport-ticket-back { display: inline-flex; margin-top: 14px; }
+.transport-live-trip { margin-top: 14px; padding: 17px 18px; border: 1px solid #cfd8f4; border-radius: 14px; background: #f8f8ff; }
+.transport-live-trip > header { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.transport-live-trip h2 { margin: 6px 0 0; color: var(--public-text); font-size: 19px; font-weight: 500; letter-spacing: -.025em; }
+.transport-live-badge { padding: 4px 8px; border-radius: 999px; color: #3730a3; background: #e7e8ff; font-size: 10px; white-space: nowrap; }
+.transport-live-live { color: #166534; background: #dcfce7; }.transport-live-delayed { color: #92400e; background: #fef3c7; }.transport-live-signal_weak { color: #9a3412; background: #ffedd5; }.transport-live-offline { color: #475569; background: #e2e8f0; }
+.transport-live-details { margin-top: 14px; }.transport-live-details p, .transport-live-message { margin: 0; color: var(--public-muted); font-size: 12px; line-height: 1.5; }
+.transport-live-details dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin: 13px 0 0; }.transport-live-details dl div { padding: 9px 10px; border: 1px solid #e2e5f2; border-radius: 9px; background: #fff; }.transport-live-details dt { color: var(--public-muted); font-size: 10px; }.transport-live-details dd { margin: 4px 0 0; color: var(--public-text); font-size: 12px; font-weight: 500; }
+.transport-live-trip > small { display: block; margin-top: 13px; color: var(--public-muted); font-size: 10px; line-height: 1.45; }.transport-live-retry { min-height: 34px; margin-top: 11px; padding: 0 12px; font-size: 11px; }
 @media (max-width: 520px) { .transport-ticket-shell { width: min(100% - 24px, 620px); padding-top: 28px; } .transport-ticket-card, .transport-ticket-empty { padding: 17px; } .transport-ticket-route { gap: 8px; padding: 13px 10px; } .transport-ticket-route strong { font-size: 13px; } }

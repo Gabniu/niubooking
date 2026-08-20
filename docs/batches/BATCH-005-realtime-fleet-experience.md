@@ -30,7 +30,7 @@ reservation, fleet, identity, or tenant model.
 - [x] Authenticated driver enrollment/start/stop, explicit handover, and credential-bound telemetry ingestion API; API contract tests cover admission and malformed input.
 - [x] Authorized owner/admin/manager/dispatcher current-fleet query and staff list. The tenant/branch/assignment-filtered query is surfaced in `/app/transport` with honest freshness, empty, denied, error, retry, and polling fallback states.
 - [x] First streaming fan-out slice: accepted current telemetry emits a tenant-scoped change signal, authorized staff can subscribe through SSE, and the client refetches the authoritative scoped snapshot. Multi-instance messaging, map, and ETA remain.
-- [ ] Rider trip tracker and organization-configured public route projection.
+- [x] First rider trip slice: an issued ticket can fetch a privacy-safe, ticket-scoped live projection and subscribe to SSE updates from the canonical ticket page. Route geometry, viewer-session exchange, and organization-configured public projection remain.
 - [ ] NIU Driver React Native application with physical-device background tests.
 - [ ] MapLibre map, route-aware smoothing, confidence, stale disclosure, and ETA
   range presentation.

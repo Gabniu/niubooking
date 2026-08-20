@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import test from "node:test";
-import { assignTransportReservationSeats, boardTransportTicket, cancelPublicTransportReservation, createPublicTransportPassengerReservation, createTransportPassengerReservation, createTransportRoute, createTransportTicket, createTransportTrip, listPublicTransportTrips, listTransportManifest, listTransportPassengerReservations, listTransportRoutes, listTransportTrips, setTransportPassengerReservationStatus } from "./transport.js";
+import { assignTransportReservationSeats, boardTransportTicket, cancelPublicTransportReservation, createPublicTransportPassengerReservation, createTransportPassengerReservation, createTransportRoute, createTransportTicket, createTransportTrip, listPublicTransportTrips, listTransportManifest, listTransportPassengerReservations, listTransportRoutes, listTransportTrips, readPublicTransportLiveTrip, setTransportPassengerReservationStatus } from "./transport.js";
 
 const routeRow = { id: "route-1", tenant_id: "tenant-1", version: 1, name: "CBD — Westlands", mode: "matatu" as const, status: "draft" as const };
 const stops = [{ stop_id: "cbd", sequence: 1, boarding_minutes: 10, alighting_minutes: 0 }, { stop_id: "westlands", sequence: 2, boarding_minutes: 10, alighting_minutes: 10 }];
@@ -148,6 +148,26 @@ test("maps assigned seats into a public ticket projection", async () => {
   const { readPublicTransportTicket } = await import("./transport.js");
   const ticket = await readPublicTransportTicket(executor, token, "booking-secret");
   assert.deepEqual(ticket?.seatLabels, ["3"]);
+});
+
+test("reads a ticket-scoped live projection without fleet identities", async () => {
+  const token = createHmac("sha256", "booking-secret").update("tenant-1:ticket-1").digest("base64url");
+  const executor = { query: async <T>() => [{ tenant_id: "tenant-1", trip_id: "trip-1", route_name: "CBD to Westlands", captured_at: new Date(), latitude: -1.2864, longitude: 36.8172, accuracy_metres: 8, heading_degrees: 92 }] as T[] };
+  const result = await readPublicTransportLiveTrip(executor, token, "booking-secret");
+  assert.equal(result?.tenantId, "tenant-1");
+  assert.equal(result?.projection.tripId, "trip-1");
+  assert.equal(result?.projection.routeLabel, "CBD to Westlands");
+  assert.equal(result?.projection.latitude, -1.2864);
+  assert.equal(result?.projection.eta, null);
+});
+
+test("returns an offline projection when a ticket has no recent position", async () => {
+  const token = createHmac("sha256", "booking-secret").update("tenant-1:ticket-1").digest("base64url");
+  const executor = { query: async <T>() => [{ tenant_id: "tenant-1", trip_id: "trip-1", route_name: "CBD to Westlands", captured_at: null, latitude: null, longitude: null, accuracy_metres: null, heading_degrees: null }] as T[] };
+  const result = await readPublicTransportLiveTrip(executor, token, "booking-secret");
+  assert.equal(result?.projection.freshness, "offline");
+  assert.equal(result?.projection.capturedAt, null);
+  assert.equal(result?.projection.latitude, null);
 });
 
 test("discovers only published public transport trips through an active QR destination", async () => {

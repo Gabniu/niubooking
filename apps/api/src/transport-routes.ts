@@ -3,7 +3,9 @@
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { resolveQrDestination, type CapacityMode, type CommunicationChannel, type PublicTransportTicket, type PublicTransportTrip, type QrDestinationReader, type ReservationStatus, type TransportBoarding, type TransportManifestEntry, type TransportMode, type TransportPassengerReservation, type TransportPassengerReservationDraft, type TransportRoute, type TransportRouteDraft, type TransportRouteStatus, type TransportStopRef, type TransportTicket, type TransportTrip, type TransportTripDraft } from "@bookingapp/domain";
+import type { RiderLiveStreamEvent, RiderLiveTripProjection } from "@bookingapp/contracts";
 import type { TenantContextRequest } from "./tenant-context-handler.js";
+import type { FleetLiveStream } from "./fleet-live-stream.js";
 
 export interface TransportAdmin {
   listRoutes(tenantId: string): Promise<readonly TransportRoute[]>;
@@ -18,6 +20,7 @@ export interface TransportAdmin {
   listManifest?(tenantId: string, tripId: string): Promise<readonly TransportManifestEntry[]>;
   createTicket?(draft: Pick<TransportTicket, "id" | "tenantId" | "tripId" | "reservationId" | "fareAmountMinor" | "fareCurrency">): Promise<TransportTicket>;
   readPublicTicket?(token: string): Promise<PublicTransportTicket | null>;
+  readPublicLiveTrip?(token: string): Promise<{ tenantId: string; projection: RiderLiveTripProjection } | null>;
   discoverPublicTrips?(input: { tenantId: string; publicCode: string; from?: Date; to?: Date }): Promise<readonly PublicTransportTrip[]>;
   reservePublic?(input: { tenantId: string; publicCode: string; tripId: string; customerName: string; originStopId: string; destinationStopId: string; quantity: number; idempotencyKey: string; contact?: { channel: CommunicationChannel; destination: string; consentGranted: boolean } }): Promise<TransportPassengerReservation>;
   cancelPublic?(input: { token: string; idempotencyKey: string }): Promise<TransportPassengerReservation | null>;
@@ -27,6 +30,7 @@ export interface TransportRouteDependencies {
   resolve(request: FastifyRequest<{ Params: { tenantId: string } }>): TenantContextRequest | Promise<TenantContextRequest>;
   transportAdmin?: TransportAdmin;
   qrReader?: QrDestinationReader | undefined;
+  liveStream?: FleetLiveStream;
 }
 
 const modes = new Set<TransportMode>(["bus", "matatu", "shuttle", "charter"]);
@@ -67,6 +71,8 @@ function serializeReservation(reservation: TransportPassengerReservation): Recor
 function serializeTicket(ticket: TransportTicket): Record<string, unknown> { return { ...ticket, issuedAt: ticket.issuedAt.toISOString() }; }
 function serializeManifest(entry: TransportManifestEntry): Record<string, unknown> { return { reservation: serializeReservation(entry.reservation), ticket: entry.ticket ? serializeTicket(entry.ticket) : null }; }
 function serializePublicTicket(ticket: PublicTransportTicket): Record<string, unknown> { return { ...ticket, issuedAt: ticket.issuedAt.toISOString(), boardingStartsAt: ticket.boardingStartsAt.toISOString(), boardingEndsAt: ticket.boardingEndsAt.toISOString() }; }
+function riderResponse(value: { tenantId: string; projection: RiderLiveTripProjection } | null) { return value ? { data: value.projection, error: null } : { data: null, error: { code: "LIVE_TRIP_UNAVAILABLE" as const, message: "Live trip location is not available for this ticket." } }; }
+function riderStreamEvent(type: RiderLiveStreamEvent["type"], version: number, response: ReturnType<typeof riderResponse>): RiderLiveStreamEvent { return { type, version, response }; }
 function serializePublicTrip(trip: PublicTransportTrip): Record<string, unknown> { return { ...trip, boardingStartsAt: trip.boardingStartsAt.toISOString(), boardingEndsAt: trip.boardingEndsAt.toISOString(), stops: trip.stops.map((stop) => ({ ...stop })) }; }
 function serializeBoarding(boarding: TransportBoarding): Record<string, unknown> { return { ...boarding, boardedAt: boarding.boardedAt.toISOString() }; }
 
@@ -81,6 +87,27 @@ export function registerTransportRoutes(app: FastifyInstance, dependencies: Tran
     if (!/^[A-Za-z0-9_-]{32,256}$/u.test(request.params.token)) return reply.code(404).send({ data: null, error: { code: "TRANSPORT_TICKET_NOT_FOUND", message: "This ticket link is not available." } });
     const ticket = await dependencies.transportAdmin.readPublicTicket(request.params.token);
     return ticket ? reply.send({ data: serializePublicTicket(ticket), error: null }) : reply.code(404).send({ data: null, error: { code: "TRANSPORT_TICKET_NOT_FOUND", message: "This ticket link is not available." } });
+  });
+
+  app.get<{ Params: { token: string } }>("/v1/public/transport/tickets/:token/live", async (request, reply) => {
+    if (!dependencies.transportAdmin?.readPublicLiveTrip) return reply.code(503).send({ data: null, error: { code: "LIVE_TRIP_UNAVAILABLE", message: "Live trip location is temporarily unavailable." } });
+    if (!/^[A-Za-z0-9_-]{32,256}$/u.test(request.params.token)) return reply.code(404).send({ data: null, error: { code: "TRACKING_LINK_INVALID", message: "This live trip link is not available." } });
+    const value = await dependencies.transportAdmin.readPublicLiveTrip(request.params.token);
+    return value ? reply.send(riderResponse(value)) : reply.code(404).send({ data: null, error: { code: "TRACKING_LINK_INVALID", message: "This live trip link is not available." } });
+  });
+
+  app.get<{ Params: { token: string } }>("/v1/public/transport/tickets/:token/live/stream", async (request, reply) => {
+    if (!dependencies.transportAdmin?.readPublicLiveTrip || !dependencies.liveStream) return reply.code(503).send({ data: null, error: { code: "LIVE_TRIP_UNAVAILABLE", message: "Live trip updates are temporarily unavailable." } });
+    if (!/^[A-Za-z0-9_-]{32,256}$/u.test(request.params.token)) return reply.code(404).send({ data: null, error: { code: "TRACKING_LINK_INVALID", message: "This live trip link is not available." } });
+    const initial = await dependencies.transportAdmin.readPublicLiveTrip(request.params.token);
+    if (!initial) return reply.code(404).send({ data: null, error: { code: "TRACKING_LINK_INVALID", message: "This live trip link is not available." } });
+    const raw = reply.raw; reply.hijack(); raw.writeHead(200, { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-cache, no-transform", connection: "keep-alive", "x-accel-buffering": "no" });
+    let version = 0; let writing = false; let queued = false;
+    const write = (event: RiderLiveStreamEvent) => { if (!raw.destroyed) raw.write(`id: ${event.version}\nevent: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`); };
+    const snapshot = async (type: RiderLiveStreamEvent["type"]): Promise<void> => { if (writing) { queued = true; return; } writing = true; try { const value = await dependencies.transportAdmin!.readPublicLiveTrip!(request.params.token); if (!value) { write(riderStreamEvent("snapshot", ++version, riderResponse(null))); raw.end(); return; } write(riderStreamEvent(type, ++version, riderResponse(value))); } finally { writing = false; if (queued && !raw.destroyed) { queued = false; void snapshot("changed"); } } };
+    const unsubscribe = dependencies.liveStream.subscribe(initial.tenantId, () => void snapshot("changed"));
+    const keepAlive = setInterval(() => { if (!raw.destroyed) raw.write(": keep-alive\n\n"); }, 25_000);
+    request.raw.once("close", () => { clearInterval(keepAlive); unsubscribe(); }); await snapshot("snapshot");
   });
 
   app.get<{ Params: { publicCode: string }; Querystring: { from?: string; to?: string } }>("/v1/public/qr/:publicCode/transport/trips", async (request, reply) => {

@@ -65,8 +65,26 @@ export interface FleetStreamEvent {
   readonly response: StaffLiveFleetResponse;
 }
 
+export interface RiderLiveTripProjection {
+  readonly tripId: string;
+  readonly routeLabel: string;
+  readonly capturedAt: string | null;
+  readonly freshness: PositionFreshness;
+  readonly latitude: number | null;
+  readonly longitude: number | null;
+  readonly accuracyMetres: number | null;
+  readonly headingDegrees: number | null;
+  readonly eta: LiveVehicleProjection["eta"];
+}
+
+export interface RiderLiveStreamEvent {
+  readonly type: "snapshot" | "changed";
+  readonly version: number;
+  readonly response: RiderLiveTripResponse;
+}
+
 export interface RiderLiveTripResponse {
-  readonly data: Omit<LiveVehicleProjection, "branchId"> | null;
+  readonly data: RiderLiveTripProjection | null;
   readonly error: {
     readonly code: "TRACKING_LINK_INVALID" | "TRACKING_LINK_EXPIRED" | "LIVE_TRIP_UNAVAILABLE";
     readonly message: string;

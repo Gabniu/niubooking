@@ -1,10 +1,12 @@
 // Ownership: public transport journey client; only opaque QR and manage tokens cross the browser boundary.
 
-import type { PublicTransportCancellationResponse, PublicTransportReservationResponse, PublicTransportTicketResponse, PublicTransportTripsResponse } from "@bookingapp/contracts";
+import type { PublicTransportCancellationResponse, PublicTransportReservationResponse, PublicTransportTicketResponse, PublicTransportTripsResponse, RiderLiveStreamEvent, RiderLiveTripResponse } from "@bookingapp/contracts";
 import { userFacingMessage } from "./user-messages.js";
 
 export type TransportFetcher = (url: string, init?: { method?: "POST" | "GET"; headers?: Record<string, string>; body?: string }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
 export type TransportState<T> = { kind: "ready"; value: T } | { kind: "unavailable" | "error"; message: string };
+export interface PublicTransportEventSource { addEventListener(type: "snapshot" | "changed", listener: (event: { data: string }) => void): void; close(): void; onerror?: ((event?: unknown) => void) | null; }
+export type PublicTransportEventSourceFactory = (url: string, init: { withCredentials: boolean }) => PublicTransportEventSource;
 
 function message(status: number, error: { code?: string; message?: string } | null | undefined, fallback: string): string {
   return userFacingMessage(status, error, fallback);
@@ -59,4 +61,14 @@ export async function fetchPublicTransportTicket(fetcher: TransportFetcher, base
   } catch {
     return { kind: "error", message: "We could not load this ticket. Check your connection and try again." };
   }
+}
+
+export async function fetchPublicLiveTrip(fetcher: TransportFetcher, baseUrl: string, token: string): Promise<TransportState<NonNullable<RiderLiveTripResponse["data"]>>> {
+  try { const response = await fetcher(`${baseUrl}/v1/public/transport/tickets/${encodeURIComponent(token)}/live`); const body = (await response.json()) as RiderLiveTripResponse; if (body.data) return { kind: "ready", value: body.data }; return { kind: response.status === 404 || response.status === 410 ? "unavailable" : "error", message: message(response.status, body.error, "Live trip location is temporarily unavailable. Please try again.") }; } catch { return { kind: "error", message: "We could not load the live trip. Check your connection and try again." }; }
+}
+
+export function openPublicLiveStream(factory: PublicTransportEventSourceFactory, baseUrl: string, token: string, onSnapshot: (value: NonNullable<RiderLiveTripResponse["data"]>) => void, onChanged: () => void, onError: () => void): () => void {
+  const source = factory(`${baseUrl}/v1/public/transport/tickets/${encodeURIComponent(token)}/live/stream`, { withCredentials: true });
+  const handle = (event: { data: string }) => { try { const value = JSON.parse(event.data) as RiderLiveStreamEvent; if (value.response.data) onSnapshot(value.response.data); else onChanged(); } catch { onError(); } };
+  source.addEventListener("snapshot", handle); source.addEventListener("changed", handle); source.onerror = onError; return () => source.close();
 }

@@ -107,6 +107,26 @@ test("retrieves a public ticket without exposing tenant or customer identity", a
   assert.equal("customerId" in response.json().data, false);
 });
 
+test("retrieves a ticket-scoped live projection without leaking fleet scope", async () => {
+  const projection = { tripId: "trip-1", routeLabel: "CBD - Westlands", capturedAt: "2026-08-20T06:12:00.000Z", freshness: "live" as const, latitude: -1.28, longitude: 36.81, accuracyMetres: 8, headingDegrees: 90, eta: null };
+  const app = createApiServer({ resolve, transportAdmin: { listRoutes: async () => [], createRoute: async (input) => input as typeof route, listTrips: async () => [], createTrip: async (input) => input as typeof trip, readPublicLiveTrip: async () => ({ tenantId: "tenant-transport", projection }) } });
+  const response = await app.inject({ method: "GET", url: `/v1/public/transport/tickets/${"a".repeat(43)}/live` });
+  assert.equal(response.statusCode, 200); assert.deepEqual(response.json().data, projection); assert.equal("tenantId" in response.json().data, false); assert.equal("vehicleLabel" in response.json().data, false);
+});
+
+test("does not accept malformed public live tracking links", async () => {
+  const app = createApiServer({ resolve, transportAdmin: { listRoutes: async () => [], createRoute: async (input) => input as typeof route, listTrips: async () => [], createTrip: async (input) => input as typeof trip, readPublicLiveTrip: async () => null } });
+  const response = await app.inject({ method: "GET", url: "/v1/public/transport/tickets/not-a-ticket/live" });
+  assert.equal(response.statusCode, 404); assert.equal(response.json().error.code, "TRACKING_LINK_INVALID");
+});
+
+test("fails closed when public live streaming is not composed", async () => {
+  const app = createApiServer({ resolve, transportAdmin: { listRoutes: async () => [], createRoute: async (input) => input as typeof route, listTrips: async () => [], createTrip: async (input) => input as typeof trip, readPublicLiveTrip: async () => null } });
+  const response = await app.inject({ method: "GET", url: `/v1/public/transport/tickets/${"a".repeat(43)}/live/stream` });
+  assert.equal(response.statusCode, 503);
+  assert.equal(response.json().error.code, "LIVE_TRIP_UNAVAILABLE");
+});
+
 test("discovers public transport trips through an active QR destination", async () => {
   const publicTrip = { id: "trip-1", routeName: "CBD — Westlands", mode: "matatu" as const, stops: route.stops, capacityMode: "open" as const, capacity: 14, remainingCapacity: 12, boardingStartsAt: trip.boardingStartsAt, boardingEndsAt: trip.boardingEndsAt };
   const app = createApiServer({ resolve, qrReader: { findByPublicCode: async () => publicDestination }, transportAdmin: { listRoutes: async () => [], createRoute: async (input) => input as typeof route, listTrips: async () => [], createTrip: async (input) => input as typeof trip, discoverPublicTrips: async () => [publicTrip] } });
