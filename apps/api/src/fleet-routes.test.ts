@@ -58,11 +58,13 @@ test("branch manager can perform an explicit tracking handover", async () => {
 
 test("branch manager receives only branch-filtered privacy-safe fleet projections", async () => {
   let branches: readonly string[] | undefined; let assignedUser: string | undefined;
-  const app = createApiServer({ resolve: () => context("manager"), fleetTracking: fleet({ listCurrent: async (_tenant, branchIds, assigned) => { branches = branchIds; assignedUser = assigned; return [{ tripId: "trip-1", branchId: "branch-1", vehicleLabel: "Matatu 1", routeLabel: "CBD", capturedAt: new Date(), latitude: -1.28, longitude: 36.81, accuracyMetres: 8, headingDegrees: 90 }]; } }) });
+  const app = createApiServer({ resolve: () => context("manager"), fleetTracking: fleet({ listCurrent: async (_tenant, branchIds, assigned) => { branches = branchIds; assignedUser = assigned; return [{ tripId: "trip-1", branchId: "branch-1", vehicleLabel: "Matatu 1", routeLabel: "CBD", capturedAt: new Date(), latitude: -1.28, longitude: 36.81, accuracyMetres: 8, headingDegrees: 90, geometry: { type: "LineString", coordinates: [[36.81, -1.28], [36.82, -1.27]] }, stops: [{ stopId: "stop-1", label: "Town", sequence: 1, boardingMinutes: 0, alightingMinutes: 2, latitude: -1.28, longitude: 36.81 }] }]; } }) });
   const response = await app.inject({ method: "GET", url: "/v1/tenants/tenant-1/fleet/current" });
   assert.equal(response.statusCode, 200); assert.deepEqual(branches, ["branch-1"]); assert.equal(assignedUser, undefined);
   assert.equal(response.json().data[0].vehicleLabel, "Matatu 1");
   assert.equal(response.json().data[0].eta, null);
+  assert.equal(response.json().data[0].geometry.type, "LineString");
+  assert.equal(response.json().data[0].stops[0].label, "Town");
   assert.equal("deviceId" in response.json().data[0], false);
   assert.equal("sessionId" in response.json().data[0], false);
 });

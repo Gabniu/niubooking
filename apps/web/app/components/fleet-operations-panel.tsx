@@ -1,10 +1,11 @@
-// Ownership: staff-only live fleet list; route map remains separate from the privacy-safe ETA projection.
+// Ownership: staff-only live fleet list and route context; identity fields stay server-side.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
 import type { LiveVehicleProjection } from "@bookingapp/contracts";
 import { fetchFleetCurrent, openFleetStream, type FleetEventSource, type FleetState } from "../../src/fleet-staff-client.js";
 import { apiBase } from "./workspace-admission.js";
+import { FleetOperationsMap } from "./fleet-operations-map.js";
 
 const request = (input: string, init: { credentials: "include" }) => window.fetch(input, init);
 const freshnessLabels: Record<LiveVehicleProjection["freshness"], string> = { live: "Live", delayed: "Delayed", signal_weak: "Weak signal", offline: "Offline" };
@@ -70,5 +71,5 @@ export function FleetOperationsPanel({ tenantId }: { tenantId: string }) {
     return () => { closeStream(); window.clearInterval(interval); window.clearInterval(clock); };
   }, [load, tenantId]);
   const readyVehicles = state.kind === "ready" ? state.value : [];
-  return <section className="fleet-operations-panel" aria-labelledby="fleet-panel-title"><header className="fleet-panel-heading"><div><p className="eyebrow">Live operations</p><h2 id="fleet-panel-title">Vehicles on the move</h2><p>Location updates are scoped to your current workspace.</p></div><div className="fleet-panel-actions"><span className="fleet-refresh-status" role="status">{refreshing ? "Updating" : streaming ? "Live connection" : "Checking every 30s"}</span><button className="fleet-refresh" type="button" onClick={() => void load()} disabled={refreshing}>{refreshing ? "Updating" : "Refresh"}</button></div></header><FleetStateView state={state} onRetry={() => void load()} />{readyVehicles.length > 0 && <div className="fleet-vehicle-list">{readyVehicles.map((vehicle) => <VehicleRow key={`${vehicle.tripId}-${vehicle.vehicleLabel}`} vehicle={vehicle} now={now} />)}</div>}<footer className="fleet-panel-footnote"><span>{streaming ? "Live list" : "Fallback list"}</span><span>Arrival ranges appear when route data supports them; the staff map is next.</span></footer></section>;
+  return <section className="fleet-operations-panel" aria-labelledby="fleet-panel-title"><header className="fleet-panel-heading"><div><p className="eyebrow">Live operations</p><h2 id="fleet-panel-title">Vehicles on the move</h2><p>Location updates are scoped to your current workspace.</p></div><div className="fleet-panel-actions"><span className="fleet-refresh-status" role="status">{refreshing ? "Updating" : streaming ? "Live connection" : "Checking every 30s"}</span><button className="fleet-refresh" type="button" onClick={() => void load()} disabled={refreshing}>{refreshing ? "Updating" : "Refresh"}</button></div></header><FleetStateView state={state} onRetry={() => void load()} />{readyVehicles.length > 0 && <><FleetOperationsMap vehicles={readyVehicles} /><div className="fleet-vehicle-list">{readyVehicles.map((vehicle) => <VehicleRow key={`${vehicle.tripId}-${vehicle.vehicleLabel}`} vehicle={vehicle} now={now} />)}</div></>}<footer className="fleet-panel-footnote"><span>{streaming ? "Live list" : "Fallback list"}</span><span>Route maps use the configured MapLibre style or an accessible SVG fallback; arrival ranges appear when route data supports them.</span></footer></section>;
 }

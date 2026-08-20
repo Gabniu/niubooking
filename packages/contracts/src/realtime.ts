@@ -1,6 +1,7 @@
 // Ownership: versioned driver-ingest and privacy-safe realtime projection contracts.
 
 import type { PositionFreshness } from "@bookingapp/domain";
+import type { PublicTransportRouteGeometry, PublicTransportStopSummary } from "./transport.js";
 
 export interface DriverPositionUpload {
   readonly sessionId: string;
@@ -44,6 +45,9 @@ export interface LiveVehicleProjection {
   readonly longitude: number | null;
   readonly accuracyMetres: number | null;
   readonly headingDegrees: number | null;
+  /** Published route context is safe for staff map rendering and remains optional for older projections. */
+  readonly geometry?: PublicTransportRouteGeometry | null;
+  readonly stops?: readonly PublicTransportStopSummary[];
   readonly eta: {
     readonly earliestArrival: string;
     readonly latestArrival: string;

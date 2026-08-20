@@ -4,9 +4,9 @@ import test from "node:test";
 import { fetchFleetCurrent, openFleetStream } from "./fleet-staff-client.js";
 
 test("loads privacy-safe current fleet projections", async () => {
-  const state = await fetchFleetCurrent(async (url) => { assert.match(url, /fleet\/current$/u); return { status: 200, json: async () => ({ data: [{ tripId: "trip-1", branchId: "branch-1", vehicleLabel: "Vehicle 4", routeLabel: "CBD loop", capturedAt: "2026-08-19T10:00:00.000Z", freshness: "live", latitude: -1.28, longitude: 36.81, accuracyMetres: 8, headingDegrees: 90, eta: null }], error: null }) }; }, "https://booking.test", "tenant-1");
+  const state = await fetchFleetCurrent(async (url) => { assert.match(url, /fleet\/current$/u); return { status: 200, json: async () => ({ data: [{ tripId: "trip-1", branchId: "branch-1", vehicleLabel: "Vehicle 4", routeLabel: "CBD loop", capturedAt: "2026-08-19T10:00:00.000Z", freshness: "live", latitude: -1.28, longitude: 36.81, accuracyMetres: 8, headingDegrees: 90, geometry: { type: "LineString", coordinates: [[36.81, -1.28], [36.82, -1.27]] }, stops: [{ stopId: "stop-1", label: "Town", sequence: 1, boardingMinutes: 0, alightingMinutes: 2, latitude: -1.28, longitude: 36.81 }], eta: null }], error: null }) }; }, "https://booking.test", "tenant-1");
   assert.equal(state.kind, "ready");
-  if (state.kind === "ready") assert.equal(state.value[0]?.vehicleLabel, "Vehicle 4");
+  if (state.kind === "ready") { assert.equal(state.value[0]?.vehicleLabel, "Vehicle 4"); assert.equal(state.value[0]?.stops?.[0]?.label, "Town"); }
 });
 
 test("maps a fleet permission response without exposing API wording", async () => {

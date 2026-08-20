@@ -82,6 +82,20 @@
 .fleet-skeleton span { height: 54px; border-radius: 9px; background: #eef2f7; }
 .fleet-panel-footnote { display: flex; justify-content: space-between; gap: 12px; color: #94a3b8; font-size: 10px; }
 .fleet-panel-footnote span:first-child { color: #64748b; font-weight: 500; }
+.fleet-map-section { display: grid; gap: 10px; padding-top: 13px; border-top: 1px solid #edf0f7; }
+.fleet-map-heading { display: flex; align-items: end; justify-content: space-between; gap: 12px; }
+.fleet-map-heading h3 { margin: 3px 0 0; color: #171717; font-size: 16px; font-weight: 500; }
+.fleet-map-heading p:last-child { margin: 4px 0 0; color: #64748b; font-size: 11px; }
+.fleet-map-legend { display: inline-flex; align-items: center; gap: 5px; color: #64748b; font-size: 10px; white-space: nowrap; }
+.fleet-map-legend i { width: 7px; height: 7px; display: inline-block; border: 2px solid #140ba7; border-radius: 50%; background: #fff; }
+.fleet-map-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 9px; }
+.fleet-map-card { min-width: 0; padding: 9px; border: 1px solid #e5e7eb; border-radius: 9px; background: #fbfcff; }
+.fleet-map-card > header { display: flex; align-items: start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.fleet-map-card > header div { display: grid; min-width: 0; gap: 2px; }
+.fleet-map-card strong { overflow: hidden; color: #17213a; font-size: 11px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.fleet-map-card span, .fleet-map-card small { overflow: hidden; color: #64748b; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.fleet-map-card small { color: #047857; }
+@media (max-width: 560px) { .fleet-map-heading { align-items: start; flex-direction: column; } .fleet-map-grid { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { .fleet-panel-heading { flex-direction: column; } .fleet-panel-actions { justify-content: space-between; width: 100%; } .fleet-vehicle-list { grid-template-columns: 1fr; } .fleet-panel-footnote { align-items: start; flex-direction: column; gap: 3px; } }
 @media (prefers-reduced-motion: reduce) { .fleet-refresh { transition: none; } .fleet-refresh:hover { transform: none; } }
 @media (max-width: 760px) { .transport-staff-metrics, .transport-staff-grid { grid-template-columns: 1fr; } .transport-date-toolbar { align-items: stretch; flex-direction: column; } .transport-date-toolbar .account-button { width: 100%; } }
