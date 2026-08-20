@@ -33,6 +33,7 @@ reservation, fleet, identity, or tenant model.
 - [x] First rider trip slice: an issued ticket exchanges for a short-lived hashed viewer session, then fetches a privacy-safe live projection and subscribes to SSE updates from the canonical ticket page.
 - [x] Route foundation: versioned routes now accept bounded LineString geometry plus optional named/geocoded stops; public trips and opaque tickets expose only that safe route projection, and the browser renders an accessible SVG route preview without external tile cost.
 - [x] Rider map presentation slice: MapLibre `5.x` is an optional, style-URL-gated enhancement; without `NEXT_PUBLIC_MAP_STYLE_URL` the ticket stays on the accessible SVG route diagram. Trusted samples can interpolate only between captures, reduced motion disables interpolation, and rider cards disclose freshness, accuracy, and provider-supplied ETA/confidence without inventing estimates.
+- [x] Conservative ETA foundation: the shared domain estimator projects a trusted position onto a published LineString, advances only toward a geocoded destination stop, includes bounded dwell/uncertainty, and returns a range with confidence. Public tickets and staff fleet projections serialize it only when route context is sufficient; otherwise ETA remains unavailable.
 - [ ] NIU Driver React Native application with physical-device background tests.
 - [ ] Regional tile/PMTiles cost proof, route matching, provider-backed ETA calculation,
   and the physical rider browser journey remain.
@@ -128,7 +129,9 @@ simulator. Prove cross-tenant and wrong-trip rejection before rendering maps.
 Add current-fleet query and stream projections for owners, explicit-scope
 admins, branch managers, dispatchers, assigned drivers, and conductors. Extend
 `/app/transport` with fleet map/list modes, filters, tracking health, last update,
-incident states, permission denial, empty fleet, and degraded stream recovery.
+conservative ETA ranges, incident states, permission denial, empty fleet, and
+degraded stream recovery. The list and ETA slice are now wired; the staff map
+and richer assigned-trip controls remain.
 
 ### Packet C — Rider journey tracking
 

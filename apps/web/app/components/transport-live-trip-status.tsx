@@ -21,8 +21,8 @@ function etaText(eta: RiderLiveTripProjection["eta"]): string {
   const earliest = new Date(eta.earliestArrival);
   const latest = new Date(eta.latestArrival);
   if (Number.isNaN(earliest.getTime()) || Number.isNaN(latest.getTime())) return "Not available yet";
-  const format = (value: Date) => value.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  return `${format(earliest)}–${format(latest)}`;
+  const format = (value: Date, direction: "floor" | "ceil") => { const interval = 5 * 60_000; const rounded = new Date(direction === "floor" ? Math.floor(value.getTime() / interval) * interval : Math.ceil(value.getTime() / interval) * interval); return rounded.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); };
+  return `${format(earliest, "floor")}–${format(latest, "ceil")}`;
 }
 
 function accuracyText(value: number | null): string { return value === null ? "Not available yet" : `±${Math.round(value)} m`; }

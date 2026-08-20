@@ -1,4 +1,4 @@
-// Ownership: staff-only live fleet list; map and ETA stay deferred until their contracts are ready.
+// Ownership: staff-only live fleet list; route map remains separate from the privacy-safe ETA projection.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -23,11 +23,19 @@ function ageLabel(value: string | null, now: number): string {
   return `${minutes}m ago`;
 }
 
+function etaLabel(value: LiveVehicleProjection["eta"]): string {
+  if (!value) return "Arrival estimate unavailable";
+  const earliest = new Date(value.earliestArrival); const latest = new Date(value.latestArrival);
+  if (Number.isNaN(earliest.getTime()) || Number.isNaN(latest.getTime())) return "Arrival estimate unavailable";
+  const format = (date: Date, direction: "floor" | "ceil") => { const interval = 5 * 60_000; const rounded = new Date(direction === "floor" ? Math.floor(date.getTime() / interval) * interval : Math.ceil(date.getTime() / interval) * interval); return rounded.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); };
+  return `ETA ${format(earliest, "floor")}–${format(latest, "ceil")} · ${value.confidence} confidence`;
+}
+
 function VehicleRow({ vehicle, now }: { vehicle: LiveVehicleProjection; now: number }) {
   const freshness = freshnessLabels[vehicle.freshness];
   return <article className={`fleet-vehicle-row fleet-freshness-${vehicle.freshness}`}>
     <div className="fleet-vehicle-icon"><VehicleMark /></div>
-    <div className="fleet-vehicle-main"><strong>{vehicle.vehicleLabel}</strong><span>{vehicle.routeLabel}</span><small>Trip {vehicle.tripId}</small></div>
+    <div className="fleet-vehicle-main"><strong>{vehicle.vehicleLabel}</strong><span>{vehicle.routeLabel}</span><small>Trip {vehicle.tripId} · {etaLabel(vehicle.eta)}</small></div>
     <div className="fleet-vehicle-meta"><span className="fleet-freshness"><i aria-hidden="true" />{freshness}</span><time dateTime={vehicle.capturedAt ?? undefined}>{ageLabel(vehicle.capturedAt, now)}</time></div>
   </article>;
 }
@@ -62,5 +70,5 @@ export function FleetOperationsPanel({ tenantId }: { tenantId: string }) {
     return () => { closeStream(); window.clearInterval(interval); window.clearInterval(clock); };
   }, [load, tenantId]);
   const readyVehicles = state.kind === "ready" ? state.value : [];
-  return <section className="fleet-operations-panel" aria-labelledby="fleet-panel-title"><header className="fleet-panel-heading"><div><p className="eyebrow">Live operations</p><h2 id="fleet-panel-title">Vehicles on the move</h2><p>Location updates are scoped to your current workspace.</p></div><div className="fleet-panel-actions"><span className="fleet-refresh-status" role="status">{refreshing ? "Updating" : streaming ? "Live connection" : "Checking every 30s"}</span><button className="fleet-refresh" type="button" onClick={() => void load()} disabled={refreshing}>{refreshing ? "Updating" : "Refresh"}</button></div></header><FleetStateView state={state} onRetry={() => void load()} />{readyVehicles.length > 0 && <div className="fleet-vehicle-list">{readyVehicles.map((vehicle) => <VehicleRow key={`${vehicle.tripId}-${vehicle.vehicleLabel}`} vehicle={vehicle} now={now} />)}</div>}<footer className="fleet-panel-footnote"><span>{streaming ? "Live list" : "Fallback list"}</span><span>Map and ETA will appear when route geometry and prediction are enabled.</span></footer></section>;
+  return <section className="fleet-operations-panel" aria-labelledby="fleet-panel-title"><header className="fleet-panel-heading"><div><p className="eyebrow">Live operations</p><h2 id="fleet-panel-title">Vehicles on the move</h2><p>Location updates are scoped to your current workspace.</p></div><div className="fleet-panel-actions"><span className="fleet-refresh-status" role="status">{refreshing ? "Updating" : streaming ? "Live connection" : "Checking every 30s"}</span><button className="fleet-refresh" type="button" onClick={() => void load()} disabled={refreshing}>{refreshing ? "Updating" : "Refresh"}</button></div></header><FleetStateView state={state} onRetry={() => void load()} />{readyVehicles.length > 0 && <div className="fleet-vehicle-list">{readyVehicles.map((vehicle) => <VehicleRow key={`${vehicle.tripId}-${vehicle.vehicleLabel}`} vehicle={vehicle} now={now} />)}</div>}<footer className="fleet-panel-footnote"><span>{streaming ? "Live list" : "Fallback list"}</span><span>Arrival ranges appear when route data supports them; the staff map is next.</span></footer></section>;
 }

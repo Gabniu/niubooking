@@ -79,6 +79,12 @@ must stop extrapolating when freshness expires and disclose the last update.
 ETA is a range with confidence and may be unavailable; the system never invents
 false precision.
 
+The first ETA estimator is deliberately local and conservative: it projects a
+trusted position onto the published route geometry, advances only toward the
+requested geocoded stop, bounds speed and dwell uncertainty, and returns no
+estimate when route context is missing or stale. Traffic-aware matching and
+historical dwell models remain provider seams rather than hidden guesses.
+
 # Privacy and retention
 
 - Driver tracking starts through an explicit assigned-trip action and stops at

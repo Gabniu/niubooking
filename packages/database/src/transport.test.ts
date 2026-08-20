@@ -171,6 +171,17 @@ test("reads a live projection only through an active viewer session", async () =
   assert.match(statements[0] ?? "", /revoked_at IS NULL/iu);
 });
 
+test("adds a conservative ETA when the public route has geometry and a geocoded destination", async () => {
+  const capturedAt = new Date();
+  const executor = { query: async <T>(sql: string) => {
+    assert.match(sql, /route_geometry/iu);
+    return [{ tenant_id: "tenant-1", trip_id: "trip-1", route_name: "CBD to Westlands", route_geometry: { type: "LineString", coordinates: [[0, 0], [0.01, 0]] }, route_stops: [{ sequence: 1, latitude: 0, longitude: 0, boardingMinutes: 0, alightingMinutes: 0 }, { sequence: 2, latitude: 0, longitude: 0.01, boardingMinutes: 0, alightingMinutes: 0 }], destination_stop_sequence: 2, captured_at: capturedAt, latitude: 0, longitude: 0, accuracy_metres: 8, speed_metres_per_second: 10, heading_degrees: 90 }] as T[];
+  } };
+  const result = await readPublicTransportLiveViewer(executor, "viewer-token");
+  assert.equal(result?.projection.eta?.confidence, "high");
+  assert.ok(result?.projection.eta?.latestArrival);
+});
+
 test("discovers only published public transport trips through an active QR destination", async () => {
   const destination = { public_code: "transport-public-code-1", tenant_id: "tenant-1", branch_id: null, pack_id: null, service_id: null, campaign: null, status: "active" as const, expires_at: null };
   const publicTrip = { id: "trip-1", route_name: "CBD — Westlands", mode: "matatu" as const, capacity_mode: "open" as const, capacity: 33, reserved_quantity: 4, boarding_starts_at: tripRow.boarding_starts_at, boarding_ends_at: tripRow.boarding_ends_at, stops };
