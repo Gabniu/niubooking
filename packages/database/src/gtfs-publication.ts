@@ -60,6 +60,7 @@ export interface GtfsFeedPublicationStatus {
   latestVersion: GtfsFeedVersion | null;
   versions: readonly GtfsFeedVersion[];
   issueCounts: Readonly<Record<string, Readonly<Record<"error" | "warning" | "info", number>>>>;
+  lastRealtimeObservationAt: Date | null;
 }
 export interface GtfsPublicScheduleArtifact {
   tenantId: string;
@@ -111,11 +112,12 @@ export async function readGtfsFeedPublicationStatus(executor: SqlExecutor, tenan
   if (!settings) return null;
   const versions = await executor.query<VersionRow>("SELECT id, tenant_id, version, status, valid_from, valid_until, schedule_sha256, schedule_object_key, generated_at, validated_at, published_at, created_at FROM gtfs_feed_versions WHERE tenant_id = $1 ORDER BY created_at DESC, id DESC", [tenantId]);
   const counts = await executor.query<{ feed_version_id: string; severity: "error" | "warning" | "info"; count: string }>("SELECT feed_version_id, severity, count(*)::text AS count FROM gtfs_validation_issues WHERE tenant_id = $1 GROUP BY feed_version_id, severity", [tenantId]);
+  const realtime = await executor.query<{ last_observed_at: Date | null }>("SELECT max(current.captured_at) AS last_observed_at FROM fleet_current_positions current JOIN fleet_tracking_sessions session ON session.tenant_id = current.tenant_id AND session.id = current.session_id WHERE current.tenant_id = $1 AND session.status = 'active' AND session.expires_at > now()", [tenantId]);
   const issueCounts: Record<string, { error: number; warning: number; info: number }> = {};
   for (const version of versions) issueCounts[version.id] = emptyIssueCounts();
   for (const issue of counts) { const target = issueCounts[issue.feed_version_id] ?? emptyIssueCounts(); target[issue.severity] = Number(issue.count); issueCounts[issue.feed_version_id] = target; }
   const activeVersion = versions.find((version) => version.id === settings.activeVersionId) ?? null;
-  return { settings, activeVersion: activeVersion ? mapVersion(activeVersion) : null, latestVersion: versions[0] ? mapVersion(versions[0]) : null, versions: versions.map(mapVersion), issueCounts };
+  return { settings, activeVersion: activeVersion ? mapVersion(activeVersion) : null, latestVersion: versions[0] ? mapVersion(versions[0]) : null, versions: versions.map(mapVersion), issueCounts, lastRealtimeObservationAt: realtime[0]?.last_observed_at ? new Date(realtime[0].last_observed_at) : null };
 }
 
 export async function readGtfsValidationIssues(executor: SqlExecutor, input: { tenantId: string; feedVersionId: string }): Promise<readonly GtfsValidationIssue[] | null> {

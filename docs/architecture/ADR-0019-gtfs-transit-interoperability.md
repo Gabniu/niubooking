@@ -101,7 +101,9 @@ tracking session, a current position, and stable vehicle/trip/route mappings.
 It uses a dependency-free Protocol Buffer encoder, short cache headers, and
 drops stale or unresolved rows. Generated versions snapshot route/trip/stop
 IDs in `gtfs_feed_version_entities`, so later source edits cannot silently
-change what the promoted feed means. Refresh workers, TripUpdates, Alerts,
+change what the promoted feed means. Staff publication status also reports the
+latest active observation and classifies the feed as healthy, delayed, stale,
+or disabled using bounded freshness thresholds. Refresh workers, TripUpdates, Alerts,
 occupancy, and detours remain explicit follow-on work.
 
 # Product and authorization boundary

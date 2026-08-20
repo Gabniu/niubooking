@@ -89,6 +89,16 @@ export interface GtfsRealtimeVehiclePositionCandidate {
   readonly capturedAt: Date;
 }
 
+export type GtfsRealtimeHealthState = "disabled" | "healthy" | "delayed" | "stale";
+
+export function classifyGtfsRealtimeHealth(enabled: boolean, lastObservedAt: Date | null, now: Date, delayedAfterMs = 45_000, staleAfterMs = 90_000): GtfsRealtimeHealthState {
+  if (!enabled) return "disabled";
+  if (!lastObservedAt || !Number.isFinite(lastObservedAt.getTime()) || !Number.isFinite(now.getTime())) return "stale";
+  const age = now.getTime() - lastObservedAt.getTime();
+  if (age < -30_000 || age > staleAfterMs) return "stale";
+  return age > delayedAfterMs ? "delayed" : "healthy";
+}
+
 export function buildGtfsRealtimeVehiclePositions(input: {
   scheduleVersion: string;
   generatedAt: Date;

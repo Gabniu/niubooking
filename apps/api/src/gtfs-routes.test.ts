@@ -10,9 +10,9 @@ const context = () => ({ identity, mappedUserId: "user-1", membership, requested
 const version = { id: "feed-1", tenantId: "tenant-1", version: "2026.08.20.1", status: "ready" as const, createdAt: new Date("2026-08-20T08:00:00Z"), validFrom: "2026-08-20", validUntil: "2026-12-31", scheduleSha256: "a".repeat(64), scheduleObjectKey: "gtfs/feed-1.zip", generatedAt: new Date("2026-08-20T08:01:00Z"), validatedAt: new Date("2026-08-20T08:02:00Z"), publishedAt: null };
 
 test("admitted manager receives a privacy-safe GTFS publication status", async () => {
-  const app = createApiServer({ resolve: context, gtfsPublication: { readStatus: async () => ({ settings: { tenantId: "tenant-1", publicSlug: "city-feed", publisherName: "Niu Transit", publisherUrl: "https://example.com", defaultLanguage: "en", enabledFeatures: ["core", "frequencies"], schedulePublicationEnabled: false, realtimePublicationEnabled: false, activeVersionId: null }, activeVersion: null, latestVersion: version, versions: [version], issueCounts: { "feed-1": { error: 0, warning: 1, info: 0 } } }), readValidation: async () => [] } });
+  const app = createApiServer({ resolve: context, gtfsPublication: { readStatus: async () => ({ settings: { tenantId: "tenant-1", publicSlug: "city-feed", publisherName: "Niu Transit", publisherUrl: "https://example.com", defaultLanguage: "en", enabledFeatures: ["core", "frequencies"], schedulePublicationEnabled: false, realtimePublicationEnabled: false, activeVersionId: null }, activeVersion: null, latestVersion: version, versions: [version], issueCounts: { "feed-1": { error: 0, warning: 1, info: 0 } }, lastRealtimeObservationAt: null }), readValidation: async () => [] } });
   const response = await app.inject({ method: "GET", url: "/v1/tenants/tenant-1/gtfs/publication" });
-  assert.equal(response.statusCode, 200); assert.equal(response.json().data.organizationId, "tenant-1"); assert.equal(response.json().data.latestCandidate.issueCounts.warning, 1); assert.equal(response.json().data.publicScheduleUrl, null);
+  assert.equal(response.statusCode, 200); assert.equal(response.json().data.organizationId, "tenant-1"); assert.equal(response.json().data.latestCandidate.issueCounts.warning, 1); assert.equal(response.json().data.publicScheduleUrl, null); assert.equal(response.json().data.lastRealtimeObservationAt, null); assert.equal(response.json().data.realtimeState, "disabled");
   await app.close();
 });
 
@@ -41,7 +41,7 @@ test("public Schedule delivery is immutable, cacheable, and privacy-safe", async
 test("publication commands require owner/admin scope and preserve idempotency keys", async () => {
   let received: unknown;
   const app = createApiServer({ resolve: () => ({ ...context(), membership: { ...membership, role: "owner" as const } }), gtfsPublication: {
-    readStatus: async () => ({ settings: { tenantId: "tenant-1", publicSlug: "city-feed", publisherName: "Niu Transit", publisherUrl: "https://example.com", defaultLanguage: "en", enabledFeatures: ["core"], schedulePublicationEnabled: true, realtimePublicationEnabled: false, activeVersionId: "feed-1" }, activeVersion: version, latestVersion: version, versions: [version], issueCounts: { "feed-1": { error: 0, warning: 0, info: 0 } } }),
+    readStatus: async () => ({ settings: { tenantId: "tenant-1", publicSlug: "city-feed", publisherName: "Niu Transit", publisherUrl: "https://example.com", defaultLanguage: "en", enabledFeatures: ["core"], schedulePublicationEnabled: true, realtimePublicationEnabled: false, activeVersionId: "feed-1" }, activeVersion: version, latestVersion: version, versions: [version], issueCounts: { "feed-1": { error: 0, warning: 0, info: 0 } }, lastRealtimeObservationAt: null }),
     readValidation: async () => [], command: async (input) => { received = input; return { ...version, status: "published" as const, publishedAt: new Date("2026-08-20T08:02:00Z") }; },
   } });
   const response = await app.inject({ method: "POST", url: "/v1/tenants/tenant-1/gtfs/commands", payload: { feedVersionId: "feed-1", action: "publish", idempotencyKey: "cmd-1" } });

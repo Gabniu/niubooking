@@ -7,6 +7,7 @@ import {
   validateGtfsRealtimeTripUpdate,
   validateGtfsRealtimeVehiclePosition,
   buildGtfsRealtimeVehiclePositions,
+  classifyGtfsRealtimeHealth,
   type GtfsPublishedReferences,
   type GtfsRealtimeVehiclePosition,
 } from "./gtfs-realtime.js";
@@ -39,6 +40,15 @@ const position: GtfsRealtimeVehiclePosition = {
   stopPublicId: "cbd",
   occupancyStatus: "few_seats_available",
 };
+
+test("classifies realtime publication health from the latest observation", () => {
+  const observedAt = new Date("2026-08-20T10:00:00Z");
+  assert.equal(classifyGtfsRealtimeHealth(false, observedAt, observedAt), "disabled");
+  assert.equal(classifyGtfsRealtimeHealth(true, null, observedAt), "stale");
+  assert.equal(classifyGtfsRealtimeHealth(true, new Date("2026-08-20T09:59:30Z"), observedAt), "healthy");
+  assert.equal(classifyGtfsRealtimeHealth(true, new Date("2026-08-20T09:58:30Z"), observedAt), "delayed");
+  assert.equal(classifyGtfsRealtimeHealth(true, new Date("2026-08-20T09:57:00Z"), observedAt), "stale");
+});
 
 test("accepts a fresh headway vehicle whose IDs resolve in the active feed", () => {
   assert.deepEqual(validateGtfsRealtimeVehiclePosition(position, published, now), []);

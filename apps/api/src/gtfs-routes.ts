@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { GtfsFeatureReadiness, GtfsPublicationStatus, GtfsValidationReportResponse } from "@bookingapp/contracts";
 import { GtfsPublicationCommandError, type GtfsFeedPublicationStatus, type GtfsValidationIssue, type GtfsPublicationAction } from "@bookingapp/database";
-import { readGtfsScheduleReferences, serializeGtfsRealtimeVehiclePositions, validateGtfsScheduleFiles, type GtfsScheduleFile } from "@bookingapp/domain";
+import { classifyGtfsRealtimeHealth, readGtfsScheduleReferences, serializeGtfsRealtimeVehiclePositions, validateGtfsScheduleFiles, type GtfsScheduleFile } from "@bookingapp/domain";
 import type { TenantContextRequest } from "./tenant-context-handler.js";
 import type { GtfsArtifactStore } from "./gtfs-artifact-store.js";
 import { persistGtfsScheduleArtifact } from "./gtfs-artifact-publisher.js";
@@ -48,7 +48,7 @@ function statusJson(status: GtfsFeedPublicationStatus): GtfsPublicationStatus {
   const active = status.activeVersion ? versionSummary(status.activeVersion, status.issueCounts) : null;
   const latest = status.latestVersion ? versionSummary(status.latestVersion, status.issueCounts) : null;
   const feedPath = `/v1/public/gtfs/${encodeURIComponent(status.settings.publicSlug)}`;
-  return { organizationId: status.settings.tenantId, publicScheduleUrl: status.settings.schedulePublicationEnabled ? `${feedPath}/schedule.zip` : null, publicVehiclePositionsUrl: status.settings.realtimePublicationEnabled ? `${feedPath}/vehicle-positions.pb` : null, publicTripUpdatesUrl: null, publicAlertsUrl: null, activeSchedule: active, latestCandidate: latest, versions: status.versions.map((version) => versionSummary(version, status.issueCounts)), features: readiness(status), lastRealtimeObservationAt: null, realtimeState: status.settings.realtimePublicationEnabled ? "stale" : "disabled" };
+  return { organizationId: status.settings.tenantId, publicScheduleUrl: status.settings.schedulePublicationEnabled ? `${feedPath}/schedule.zip` : null, publicVehiclePositionsUrl: status.settings.realtimePublicationEnabled ? `${feedPath}/vehicle-positions.pb` : null, publicTripUpdatesUrl: null, publicAlertsUrl: null, activeSchedule: active, latestCandidate: latest, versions: status.versions.map((version) => versionSummary(version, status.issueCounts)), features: readiness(status), lastRealtimeObservationAt: status.lastRealtimeObservationAt?.toISOString() ?? null, realtimeState: classifyGtfsRealtimeHealth(status.settings.realtimePublicationEnabled, status.lastRealtimeObservationAt, new Date()) };
 }
 
 function denied(reply: { code(statusCode: number): { send(payload: unknown): unknown } }) { return reply.code(403).send({ data: null, error: { code: "GTFS_ACCESS_DENIED", message: "You do not have access to transit publication settings." } }); }

@@ -46,6 +46,7 @@ reservation, fleet, identity, or tenant model.
 - [x] GTFS artifact write slice: the configured filesystem store now creates immutable same-byte-replayable ZIP objects atomically through a temporary hard-link promotion, while the publisher boundary validates files and returns the content digest/size needed for database attachment.
 - [x] GTFS source/export slice: published transport routes, patterns, stops, calendars, exceptions, shapes, frequencies, and reserved public IDs now compose the Schedule draft; owner/admin `/app/gtfs` Generate Feed persists the artifact, records validation evidence, and audits the generation before publish.
 - [x] GTFS VehiclePositions slice: the public protobuf endpoint requires realtime opt-in and an active published Schedule, reads expiring current telemetry, validates against immutable route/trip/stop reference snapshots, and drops stale or unresolved entities; `/app/gtfs` shows enabled public endpoint links.
+- [x] GTFS realtime readiness slice: `/app/gtfs` serializes the latest active observation and labels realtime as live, delayed, stale, or disabled using bounded freshness thresholds.
 - [ ] NIU Driver React Native application with physical-device background tests.
 - [ ] Regional tile/PMTiles cost proof, route matching, provider-backed ETA calculation,
   and the physical rider browser journey remain.
