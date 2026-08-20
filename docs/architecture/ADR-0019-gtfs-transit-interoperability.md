@@ -108,7 +108,9 @@ cadence-controlled refresh/readiness task that writes a short-lived,
 tenant-safe VehiclePositions cache keyed to the active Schedule version. The
 public route serves that cache with validators and falls back to the same
 privacy-safe projection when the cache is missing or expired; the cache is
-never a second source of booking or telemetry truth. TripUpdates, Alerts,
+never a second source of booking or telemetry truth. TripUpdates now have a
+validated domain/protobuf contract and guarded endpoint, but remain disabled
+until authoritative stop-time observations are composed. Alerts,
 occupancy, and detours remain explicit follow-on work.
 
 # Product and authorization boundary

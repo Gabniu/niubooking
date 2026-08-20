@@ -98,3 +98,13 @@ test("public VehiclePositions prefers a fresh worker cache and exposes its valid
   assert.equal(response.statusCode, 200); assert.equal(response.headers.etag, `"${"b".repeat(64)}"`); assert.equal(response.headers["last-modified"], "Thu, 20 Aug 2026 08:02:00 GMT"); assert.deepEqual([...response.rawPayload], [1, 2, 3]);
   await app.close();
 });
+
+test("TripUpdates delivery is protobuf, cacheable, and fail-closed when not composed", async () => {
+  const app = createApiServer({ resolve: context, gtfsPublication: {
+    readStatus: async () => null, readValidation: async () => [],
+    readPublicTripUpdates: async (slug) => slug === "city-feed" ? { scheduleVersion: "2026.08.20.1", generatedAt: new Date("2026-08-20T08:02:00Z"), entities: [] } : null,
+  } });
+  const response = await app.inject({ method: "GET", url: "/v1/public/gtfs/city-feed/trip-updates.pb" });
+  assert.equal(response.statusCode, 200); assert.equal(response.headers["content-type"], "application/x-protobuf"); assert.equal(response.headers["x-gtfs-schedule-version"], "2026.08.20.1");
+  assert.equal((await app.inject({ method: "GET", url: "/v1/public/gtfs/missing/trip-updates.pb" })).statusCode, 404); await app.close();
+});

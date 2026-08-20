@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { GtfsFeatureReadiness, GtfsPublicationStatus, GtfsValidationReportResponse } from "@bookingapp/contracts";
 import { GtfsPublicationCommandError, type GtfsFeedPublicationStatus, type GtfsValidationIssue, type GtfsPublicationAction } from "@bookingapp/database";
-import { classifyGtfsRealtimeHealth, readGtfsScheduleReferences, serializeGtfsRealtimeVehiclePositions, validateGtfsScheduleFiles, type GtfsScheduleFile } from "@bookingapp/domain";
+import { classifyGtfsRealtimeHealth, readGtfsScheduleReferences, serializeGtfsRealtimeTripUpdates, serializeGtfsRealtimeVehiclePositions, validateGtfsScheduleFiles, type GtfsScheduleFile } from "@bookingapp/domain";
 import type { TenantContextRequest } from "./tenant-context-handler.js";
 import type { GtfsArtifactStore } from "./gtfs-artifact-store.js";
 import { persistGtfsScheduleArtifact } from "./gtfs-artifact-publisher.js";
@@ -15,6 +15,7 @@ export interface GtfsPublicationAdmin {
   readPublicSchedule?(publicSlug: string): Promise<{ tenantId: string; publicSlug: string; version: string; objectKey: string; sha256: string; publishedAt: Date } | null>;
   readCachedVehiclePositions?(publicSlug: string): Promise<{ scheduleVersion: string; payload: Uint8Array; sha256: string; generatedAt: Date } | null>;
   readPublicVehiclePositions?(publicSlug: string): Promise<import("@bookingapp/domain").GtfsRealtimeVehiclePositionsFeed | null>;
+  readPublicTripUpdates?(publicSlug: string): Promise<import("@bookingapp/domain").GtfsRealtimeTripUpdatesFeed | null>;
   artifactStore?: GtfsArtifactStore;
   readScheduleFiles?(input: { tenantId: string; feedVersionId: string }): Promise<readonly GtfsScheduleFile[] | null>;
   recordValidation?(input: { tenantId: string; feedVersionId: string; issues: readonly { code: string; severity: "error" | "warning" | "info"; fileName?: string; entityPublicId?: string; message: string; suggestedAction?: string }[]; scheduleSha256?: string; scheduleObjectKey?: string; scheduleReferences?: import("@bookingapp/domain").GtfsPublishedReferences; actorId?: string | null }): Promise<NonNullable<GtfsFeedPublicationStatus["activeVersion"]>>;
@@ -82,6 +83,17 @@ export function registerGtfsRoutes(app: FastifyInstance, dependencies: RouteDepe
       if (request.headers["if-none-match"] === etag) return reply.code(304).header("ETag", etag).send();
       return reply.code(200).header("Content-Type", "application/x-protobuf").header("Cache-Control", "public, max-age=15, stale-while-revalidate=15").header("ETag", etag).header("Last-Modified", generatedAt.toUTCString()).header("X-GTFS-Schedule-Version", scheduleVersion).send(payload);
     } catch { return reply.code(503).send({ data: null, error: { code: "GTFS_REALTIME_UNAVAILABLE", message: "Live vehicle positions are temporarily unavailable." } }); }
+  });
+  app.get<{ Params: { publicSlug: string } }>("/v1/public/gtfs/:publicSlug/trip-updates.pb", async (request, reply) => {
+    if (!dependencies.gtfsPublication?.readPublicTripUpdates) return reply.code(503).send({ data: null, error: { code: "GTFS_REALTIME_UNAVAILABLE", message: "Trip updates are not available for this feed yet." } });
+    try {
+      const feed = await dependencies.gtfsPublication.readPublicTripUpdates(request.params.publicSlug);
+      if (!feed) return reply.code(404).send({ data: null, error: { code: "GTFS_REALTIME_NOT_FOUND", message: "Trip updates are not enabled for this feed." } });
+      const payload = Buffer.from(serializeGtfsRealtimeTripUpdates(feed));
+      const etag = `"${createHash("sha256").update(payload).digest("hex")}"`;
+      if (request.headers["if-none-match"] === etag) return reply.code(304).header("ETag", etag).send();
+      return reply.code(200).header("Content-Type", "application/x-protobuf").header("Cache-Control", "public, max-age=15, stale-while-revalidate=15").header("ETag", etag).header("Last-Modified", feed.generatedAt.toUTCString()).header("X-GTFS-Schedule-Version", feed.scheduleVersion).send(payload);
+    } catch { return reply.code(503).send({ data: null, error: { code: "GTFS_REALTIME_UNAVAILABLE", message: "Trip updates are temporarily unavailable." } }); }
   });
   app.post<{ Params: { tenantId: string; feedVersionId: string } }>("/v1/tenants/:tenantId/gtfs/versions/:feedVersionId/generate", async (request, reply) => {
     const context = await dependencies.resolve(request);

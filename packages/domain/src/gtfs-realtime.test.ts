@@ -7,11 +7,12 @@ import {
   validateGtfsRealtimeTripUpdate,
   validateGtfsRealtimeVehiclePosition,
   buildGtfsRealtimeVehiclePositions,
+  buildGtfsRealtimeTripUpdates,
   classifyGtfsRealtimeHealth,
   type GtfsPublishedReferences,
   type GtfsRealtimeVehiclePosition,
 } from "./gtfs-realtime.js";
-import { serializeGtfsRealtimeVehiclePositions } from "./gtfs-realtime-protobuf.js";
+import { serializeGtfsRealtimeTripUpdates, serializeGtfsRealtimeVehiclePositions } from "./gtfs-realtime-protobuf.js";
 import { readGtfsScheduleReferences } from "./gtfs-validation.js";
 
 const now = new Date("2026-08-19T12:00:00Z");
@@ -78,6 +79,14 @@ test("validates ordered trip updates against published stops", () => {
       { stopPublicId: "westlands", stopSequence: 2, arrivalAt: new Date("2026-08-19T12:20:00Z") },
     ],
   }, published, now), []);
+});
+
+test("builds a deterministic privacy-safe TripUpdates feed and drops invalid entities", () => {
+  const generatedAt = new Date("2026-08-19T12:00:00Z");
+  const valid = { entityPublicId: "tu-1", trip: position.trip, vehiclePublicId: "vehicle-11", capturedAt: new Date("2026-08-19T11:59:45Z"), stopUpdates: [{ stopPublicId: "cbd", stopSequence: 1, arrivalAt: new Date("2026-08-19T12:01:00Z") }] };
+  const result = buildGtfsRealtimeTripUpdates({ scheduleVersion: published.scheduleVersion, generatedAt, published, candidates: [valid, { ...valid, entityPublicId: "tu-bad", stopUpdates: [{ stopPublicId: "private-stop", stopSequence: 1 }] }] });
+  assert.deepEqual(result.feed.entities.map((entity) => entity.entityPublicId), ["tu-1"]); assert.equal(result.dropped[0]?.entityPublicId, "tu-bad");
+  const encoded = serializeGtfsRealtimeTripUpdates(result.feed); assert.ok(encoded.length > 20); assert.match(new TextDecoder().decode(encoded), /2\.0/iu);
 });
 
 test("validates alert selectors and active periods", () => {

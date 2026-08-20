@@ -59,6 +59,12 @@ export interface GtfsRealtimeTripUpdate {
   }[];
 }
 
+export interface GtfsRealtimeTripUpdatesFeed {
+  readonly scheduleVersion: string;
+  readonly generatedAt: Date;
+  readonly entities: readonly GtfsRealtimeTripUpdate[];
+}
+
 export interface GtfsRealtimeAlert {
   readonly entityPublicId: string;
   readonly headerText: string;
@@ -120,6 +126,21 @@ export function buildGtfsRealtimeVehiclePositions(input: {
     const reasons = validateGtfsRealtimeVehiclePosition(position, input.published, input.generatedAt);
     if (reasons.length) { dropped.push({ entityPublicId: candidate.entityPublicId, reasons }); return []; }
     return [position];
+  }).sort((left, right) => left.entityPublicId.localeCompare(right.entityPublicId));
+  return { feed: { scheduleVersion: input.scheduleVersion, generatedAt: input.generatedAt, entities }, dropped };
+}
+
+export function buildGtfsRealtimeTripUpdates(input: {
+  scheduleVersion: string;
+  generatedAt: Date;
+  published: GtfsPublishedReferences;
+  candidates: readonly GtfsRealtimeTripUpdate[];
+}): { feed: GtfsRealtimeTripUpdatesFeed; dropped: readonly { entityPublicId: string; reasons: readonly string[] }[] } {
+  const dropped: { entityPublicId: string; reasons: readonly string[] }[] = [];
+  const entities = input.candidates.flatMap((candidate) => {
+    const reasons = validateGtfsRealtimeTripUpdate(candidate, input.published, input.generatedAt);
+    if (reasons.length) { dropped.push({ entityPublicId: candidate.entityPublicId, reasons }); return []; }
+    return [candidate];
   }).sort((left, right) => left.entityPublicId.localeCompare(right.entityPublicId));
   return { feed: { scheduleVersion: input.scheduleVersion, generatedAt: input.generatedAt, entities }, dropped };
 }

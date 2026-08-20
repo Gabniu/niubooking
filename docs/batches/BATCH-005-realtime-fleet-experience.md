@@ -48,6 +48,7 @@ reservation, fleet, identity, or tenant model.
 - [x] GTFS VehiclePositions slice: the public protobuf endpoint requires realtime opt-in and an active published Schedule, reads expiring current telemetry, validates against immutable route/trip/stop reference snapshots, and drops stale or unresolved entities; `/app/gtfs` shows enabled public endpoint links.
 - [x] GTFS realtime readiness slice: `/app/gtfs` serializes the latest active observation and labels realtime as live, delayed, stale, or disabled using bounded freshness thresholds.
 - [x] GTFS worker refresh slice: the existing worker runs a bounded, cadence-controlled refresh for enabled public feeds, writes a short-lived tenant-safe VehiclePositions cache, reports target and failure counts through redacted health, and keeps request-time projection fallback available.
+- [x] GTFS TripUpdates contract slice: validated privacy-safe TripUpdates now have deterministic domain ordering, dependency-free protobuf encoding, and a guarded public route; it stays unavailable until stop-time observations are sourced authoritatively.
 - [ ] NIU Driver React Native application with physical-device background tests.
 - [ ] Regional tile/PMTiles cost proof, route matching, provider-backed ETA calculation,
   and the physical rider browser journey remain.
