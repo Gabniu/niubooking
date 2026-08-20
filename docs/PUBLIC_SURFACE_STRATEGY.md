@@ -8,11 +8,13 @@ staff/customer route is migrated to real Next components and typed data states.
 
 ## Why the surfaces must be separate
 
-Niu Booking serves three different audiences with different jobs:
+Niu products serve several different audiences with different jobs:
 
 1. A prospective organization deciding whether to buy the platform.
 2. An organization member operating schedules, resources, customers, and communications.
-3. A customer of that organization trying to book, manage, attend, or give feedback.
+3. A guest customer trying to book, manage, attend, or give feedback without an account.
+4. An authenticated customer who wants history, preferences, faster repeat booking, and cross-channel continuity.
+5. A transport rider who needs a ticket and live journey view on a mobile device.
 
 They should share the same design language, but they should not share the same navigation, density, or information architecture.
 
@@ -24,11 +26,13 @@ They should share the same design language, but they should not share the same n
 | Existing client | `/login` or an app link | Authenticate and enter an organization | NOVA Auth flow |
 | Organization staff | `/app` | Operate the business | Authenticated operations shell |
 | Organization customer | `/book/:destination` or QR code | Discover availability and reserve | Tenant-branded public booking |
+| Authenticated customer | `/customer` or customer app/PWA | View history, manage bookings, preferences, feedback | Optional account experience; never required for booking |
 | Class/trip passenger | `/reserve/:destination` or QR code | Choose a published occurrence and reserve capacity | Focused public reservation flow |
 | Booking recipient | `/manage/:capability` | Reschedule, cancel, or view details | Focused manage-booking flow |
 | Feedback recipient | `/feedback/:capability` | Answer a survey conversationally | Focused feedback flow |
 | Contact recipient | `/verify-contact/:challenge` | Confirm a reminder or feedback contact method | Single-purpose security confirmation |
 | Transport passenger | `/trip/:destination` | Find a run, reserve capacity, and track it | Transport pack public flow |
+| Transport rider app | Rider mobile app or `/trip/:ticket` | Keep ticket, receive updates, and view scoped live vehicle position | Specialized mobile surface when enabled |
 
 ## 1. Unauthenticated platform homepage
 
@@ -74,6 +78,25 @@ The customer must not see the staff rail, internal IDs, tenant membership langua
 
 The reference header is therefore best treated as a public/customer pattern, not as the staff operations shell. Its categories must be supplied by the active industry pack; travel labels must not appear for a dental clinic.
 
+## 3A. Optional authenticated customer app
+
+Public booking remains the lowest-friction path and is appropriate for many
+Booking Essentials clients. A customer app/PWA is an additional layer, not a
+replacement. After explicit sign-in or verified account claim, customers may:
+
+- see upcoming and past bookings, reservations, tickets, and outcomes that the organization permits;
+- reschedule or cancel through the same capability and policy checks as public flows;
+- repeat a booking without re-entering known details;
+- manage communication preferences and consent;
+- complete feedback and view organization-provided follow-up;
+- switch between supported product contexts without seeing another tenant.
+
+The customer app uses customer-friendly density and navigation. It must never
+inherit the staff rail, expose tenant membership, or silently require an app
+installation. A responsive web/PWA is the first implementation; native apps
+are justified by a measured need for background location, push, offline access,
+or device capabilities.
+
 ## 4. Industry-specific public adaptations
 
 The universal public shell stays stable while the active pack changes vocabulary and modules:
@@ -118,7 +141,9 @@ The authenticated operations shell can use the same navy foundation with denser 
 - `/` is public marketing and never loads tenant data.
 - `/login` delegates to NOVA Auth.
 - `/app/*` requires an opaque local session and active tenant membership.
+- `/customer/*` requires an optional customer session and only linked, permitted customer records.
 - `/book/*`, `/trip/*`, `/manage/*`, and `/feedback/*` expose only publishable or capability-authorized data.
+- Rider mobile sessions use scoped ticket/customer capabilities and never inherit staff permissions.
 - Public pages never reveal internal customer IDs, staff membership, resource identifiers, or cross-tenant details.
 - Every public flow has loading, unavailable, expired, permission, conflict, and retry states.
 
@@ -129,7 +154,8 @@ The authenticated operations shell can use the same navy foundation with denser 
 3. Create a reusable public booking header and focused booking layout.
 4. Apply it first to the Next manage-booking, appointment/QR booking, feedback, and occurrence reservation flows.
 5. Add pack-driven public vocabulary and modules.
-6. Add transport run selection and live tracking as a separate capability batch.
-7. Verify every surface at desktop, mobile, keyboard, empty, error, and stale-data states.
+6. Add the optional customer account app/PWA over the same public and manage contracts.
+7. Add transport run selection and live tracking as a separate capability batch, then extract a rider app if native requirements are proven.
+8. Verify every surface at desktop, mobile, keyboard, empty, error, offline, and stale-data states.
 
 This keeps the public theme ambitious without making the staff dashboard or every industry behave like a travel website.

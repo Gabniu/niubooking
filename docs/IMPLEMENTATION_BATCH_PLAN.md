@@ -24,9 +24,9 @@ Exit: real PostgreSQL proves exclusivity and capacity under concurrency; staff a
 
 ## BATCH-002 — Complete customer lifecycle
 
-Complete QR destination lifecycle and styled print exports, reminders and customer change links, general and post-service feedback, opt-out, delivery/provider composition, and staff-side booking changes.
+Complete QR destination lifecycle and styled print exports, reminders and customer change links, general and post-service feedback, opt-out, delivery/provider composition, and staff-side booking changes. Add the optional authenticated customer account/PWA as a separate surface over the same public booking, manage, feedback, and communication contracts; guest booking remains fully usable without an account or app installation.
 
-Exit: an organization can acquire, remind, change, serve, survey, and report on a customer using real journeys; provider retries and stale work are observable and idempotent.
+Exit: an organization can acquire, remind, change, serve, survey, and report on a customer using both guest and authenticated journeys; provider retries and stale work are observable and idempotent; account claim/linking is explicit and tenant-safe.
 
 ## BATCH-003 — Industry pack runtime and first acceptance packs
 
@@ -58,6 +58,10 @@ projection with stable IDs before publishing GTFS-Realtime. Plan core feeds,
 fixed/headway/flexible services, accessibility, transfers, translations, Fares
 v2, occupancy, and isolated experimental extensions now; activate each only
 when trustworthy source data and its validator suite are complete.
+
+Add the transport rider app only after the public ticket/trip contracts prove
+scoped live access, push/update policy, offline-safe ticket behavior, and honest
+stale states; the web ticket/trip fallback remains mandatory.
 
 Exit: real phones plus a simulator prove smooth staff/customer-visible movement,
 role and branch isolation, reconnect correctness, bounded cost, privacy

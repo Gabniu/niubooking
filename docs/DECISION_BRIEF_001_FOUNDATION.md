@@ -28,7 +28,7 @@ This is a working architecture decision, not a promise that every library remain
 | Area | Working decision | Why now | Reversal boundary |
 |---|---|---|---|
 | Repository and runtime | pnpm workspace, Node 24 LTS, strict TypeScript | Aligns with current NOVA applications and local tooling | Package boundaries and OpenAPI isolate runtime changes |
-| Web | Next.js with route groups for staff and customer flows | SSR/public pages, server integration, one initial deployment | Split customer portal when scale or ownership requires it |
+| Web | Next.js with route groups for staff, public, and authenticated customer flows | SSR/public pages, server integration, one initial deployment | Extract customer-web or product shells when scale, native capability, or ownership requires it |
 | API | Fastify modular monolith | JSON Schema/OpenAPI, low overhead, explicit composition | Domain packages do not depend on Fastify |
 | Persistence | PostgreSQL, `pg`, typed repositories, reviewed SQL migrations | Range/exclusion constraints and explicit tenant controls | Kysely remains a measured future option, not an unimplemented dependency |
 | Tenancy | Shared schema, explicit `tenant_id`, composite tenant keys, RLS defense | Affordable operations with strong isolation | Large tenants can later move to dedicated databases |
@@ -55,7 +55,10 @@ Node 24 is an LTS line through April 2028. Pin the major line in the repository 
 
 ```text
 apps/
-  web/             Next.js staff and public route groups
+  web/             Next.js product-aware staff and public route groups (current)
+  customer-web/    authenticated customer account app/PWA (planned extraction)
+  rider-mobile/    transport customer app (planned specialized surface)
+  driver-mobile/   driver telemetry app (planned native surface)
   api/             Fastify HTTP composition root
   worker/          outbox, notifications, expiry and reconciliation
 packages/
@@ -98,7 +101,7 @@ The first live payment adapter remains a business decision. If Kenya is the firs
 
 ### Public customer identity
 
-Permit guest booking after contact verification appropriate to the configured channel. Issue a narrow, expiring manage-booking capability. An authenticated customer may later claim/link matching records through verified contact and explicit conflict handling. Email or phone similarity alone never silently merges customer records.
+Permit guest booking after contact verification appropriate to the configured channel. Issue a narrow, expiring manage-booking capability. An authenticated customer app is optional: a customer may later claim/link matching records through verified contact and explicit conflict handling, then see history, upcoming work, feedback, and communication preferences. Email or phone similarity alone never silently merges customer records. No client is required to force an account or install an app to use public booking.
 
 ### Events and Voice
 

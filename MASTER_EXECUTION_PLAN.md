@@ -145,9 +145,12 @@ Start as a modular monolith with explicit bounded modules and a durable outbox. 
 
 ```text
 apps/
-  web/                 staff and admin workspace
-  portal/              public/customer booking experience
+  web/                 current Next.js product-aware shell (staff + public during migration)
+  customer-web/        authenticated customer account app/PWA (planned extraction)
+  rider-mobile/        transport customer app (planned specialized surface)
+  driver-mobile/       driver telemetry and assigned-trip app (planned)
   api/                 composition root and transport
+  worker/              outbox, notifications, expiry and reconciliation
 packages/
   contracts/           API, event, error, ID and idempotency schemas
   domain/              deterministic domain policies and types
@@ -168,6 +171,31 @@ modules/
   notifications/
   integrations/
 ```
+
+The application directory distinguishes deployable experiences from shared
+platform services. It does not imply a separate backend or database per app.
+The current `apps/web` remains one Next.js deployment while product and
+customer boundaries are extracted behind shared packages. Public booking pages
+remain a deliberate no-account path for affordable clients; the customer app
+is an optional, authenticated layer over the same customer, booking, ticket,
+feedback, and communication contracts. Native customer apps are introduced
+only when they provide capabilities a browser cannot reliably provide, such as
+transport push notifications, offline tickets, or background journey tracking.
+
+The target product surface model is:
+
+```text
+Niu Booking / Care / Transport product shell
+  ├── Staff workspace (authenticated operations)
+  ├── Public booking pages (guest, QR, no install required)
+  ├── Customer account app/PWA (optional sign-in and history)
+  ├── Transport rider app (specialized mobile surface)
+  └── Driver app (native telemetry and assigned work)
+```
+
+Product shells select navigation, terminology, dashboards, and pack modules;
+they never duplicate domain invariants. Owner, manager, admin, dispatcher,
+staff, and driver are roles or assignments, not automatically separate apps.
 
 Final framework choices should be recorded by ADR after inspecting current repo constraints. Do not select technology solely to match Voice; integration occurs at contracts, identity, and events.
 
@@ -276,9 +304,33 @@ Exit when both reuse the same scheduling kernel and shell, and pack validation c
 
 ### Phase 5 — Customer portal and operations depth
 
-Deliver public booking, QR destinations and Print Studio, configurable reminders and feedback, forms/consent, check-in, fulfillment, outcomes, packages, deposits/payment boundary, analytics, and dark mode.
+Deliver public booking, QR destinations and Print Studio, configurable reminders
+and feedback, forms/consent, check-in, fulfillment, outcomes, packages,
+deposits/payment boundary, analytics, and the authenticated customer web
+app/PWA. The customer app must support optional account claim/linking, upcoming
+and past bookings, manage/reschedule/cancel links, confirmations, feedback,
+communication preferences, and product-aware terminology. It must not replace
+guest booking pages: organizations may offer public booking only, customer
+accounts only, or both.
 
-Exit when staff and customers can complete end-to-end journeys with accessibility and responsive verification.
+Exit when staff, guest customers, and signed-in customers can complete their
+respective end-to-end journeys with accessibility and responsive verification,
+without exposing staff navigation or tenant internals to customers.
+
+### Phase 5A - Product showcases and specialized customer apps
+
+Create thin product shells for investor/client demonstrations from shared
+packages: Niu Booking, Niu Care, and Niu Transport. Keep one web deployment
+until independent release cadence or ownership requires extraction. Start a
+transport rider app only after the transport ticket/tracking contracts support
+push, offline-safe ticket access, scoped live tracking, and honest stale-state
+disclosure. Continue treating NIU Driver as a separate native app because
+background telemetry and driver permissions are fundamentally different from a
+customer browser flow.
+
+Exit when each showcase surface has a real product context, representative
+seed/demo tenant, linked navigation, authorization boundary, and browser/mobile
+smoke journey; no showcase page may use disconnected mock production data.
 
 ### Phase 6 — Voice premium integration
 
@@ -304,6 +356,7 @@ V1 should include:
 - availability, holds, atomic booking, reschedule, cancel, and no-show;
 - staff calendar and operations dashboard;
 - mobile-first public booking;
+- optional authenticated customer account app/PWA without forcing account creation;
 - secure QR booking destinations with attribution and print-safe assets;
 - notifications and audit trail;
 - configurable appointment reminders and general/post-appointment feedback;
