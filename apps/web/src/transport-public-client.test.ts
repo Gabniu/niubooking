@@ -22,7 +22,7 @@ test("cancels a reservation with its one-time manage capability", async () => {
 });
 
 test("loads a privacy-safe public ticket by opaque token", async () => {
-  const state = await fetchPublicTransportTicket(async (url) => { assert.match(url, /transport\/tickets\/ticket-token/u); return { ok: true, status: 200, json: async () => ({ data: { routeName: "Town to Airport", mode: "bus", originStopId: "Town", destinationStopId: "Airport", quantity: 1, reservationStatus: "confirmed", status: "issued", fareAmountMinor: 25000, fareCurrency: "KES", issuedAt: "2026-09-01T07:00:00.000Z", boardingStartsAt: "2026-09-01T08:00:00.000Z", boardingEndsAt: "2026-09-01T08:20:00.000Z" }, error: null }) }; }, "https://booking.test", "ticket-token");
+  const state = await fetchPublicTransportTicket(async (url) => { assert.match(url, /transport\/tickets\/ticket-token/u); return { ok: true, status: 200, json: async () => ({ data: { routeName: "Town to Airport", mode: "bus", stops: [{ stopId: "Town", sequence: 1, boardingMinutes: 5, alightingMinutes: 0 }, { stopId: "Airport", sequence: 2, boardingMinutes: 0, alightingMinutes: 5 }], originStopId: "Town", destinationStopId: "Airport", quantity: 1, reservationStatus: "confirmed", status: "issued", fareAmountMinor: 25000, fareCurrency: "KES", issuedAt: "2026-09-01T07:00:00.000Z", boardingStartsAt: "2026-09-01T08:00:00.000Z", boardingEndsAt: "2026-09-01T08:20:00.000Z" }, error: null }) }; }, "https://booking.test", "ticket-token");
   assert.equal(state.kind, "ready");
   if (state.kind === "ready") assert.equal(state.value.routeName, "Town to Airport");
 });

@@ -6,11 +6,21 @@ export type TransportMode = "bus" | "matatu" | "shuttle" | "charter";
 export type CapacityMode = "seat" | "open";
 export type TransportRouteStatus = "draft" | "published" | "archived";
 
+export type TransportCoordinate = readonly [longitude: number, latitude: number];
+
+export interface TransportRouteGeometry {
+  type: "LineString";
+  coordinates: readonly TransportCoordinate[];
+}
+
 export interface TransportStopRef {
   stopId: string;
+  label?: string;
   sequence: number;
   boardingMinutes: number;
   alightingMinutes: number;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface TransportRoute {
@@ -21,6 +31,7 @@ export interface TransportRoute {
   mode: TransportMode;
   status: TransportRouteStatus;
   stops: readonly TransportStopRef[];
+  geometry?: TransportRouteGeometry | null;
 }
 
 export type TransportRouteDraft = Omit<TransportRoute, "status"> & { status?: TransportRouteStatus };
@@ -83,6 +94,8 @@ export interface TransportManifestEntry {
 export interface PublicTransportTicket {
   routeName: string;
   mode: TransportMode;
+  stops: readonly TransportStopRef[];
+  geometry?: TransportRouteGeometry | null;
   originStopId: string;
   destinationStopId: string;
   quantity: number;
@@ -101,6 +114,7 @@ export interface PublicTransportTrip {
   routeName: string;
   mode: TransportMode;
   stops: readonly TransportStopRef[];
+  geometry?: TransportRouteGeometry | null;
   capacityMode: CapacityMode;
   capacity: number;
   remainingCapacity: number;
@@ -133,8 +147,20 @@ export function validateTransportRouteDraft(draft: TransportRouteDraft): string[
   const stopIds = draft.stops.map((stop) => stop.stopId);
   if (new Set(stopIds).size !== stopIds.length) errors.push("A route cannot repeat a stop");
   if (new Set(sequences).size !== sequences.length || sequences.some((sequence, index) => sequence !== index + 1)) errors.push("Route stops must use consecutive sequence numbers");
-  if (draft.stops.some((stop) => !stop.stopId || !Number.isInteger(stop.boardingMinutes) || stop.boardingMinutes < 0 || !Number.isInteger(stop.alightingMinutes) || stop.alightingMinutes < 0)) errors.push("Stop boarding and alighting times must be non-negative whole minutes");
+  if (draft.stops.some((stop) => !stop.stopId || (stop.label !== undefined && (!stop.label.trim() || stop.label.trim().length > 200)) || !Number.isInteger(stop.boardingMinutes) || stop.boardingMinutes < 0 || !Number.isInteger(stop.alightingMinutes) || stop.alightingMinutes < 0 || !validStopCoordinate(stop))) errors.push("Stops need valid labels, times, and paired coordinates");
+  if (draft.geometry !== undefined && draft.geometry !== null && !validRouteGeometry(draft.geometry)) errors.push("Route geometry must be a bounded LineString with valid coordinates");
   return errors;
+}
+
+function validStopCoordinate(stop: Pick<TransportStopRef, "latitude" | "longitude">): boolean {
+  const hasLatitude = stop.latitude !== undefined;
+  const hasLongitude = stop.longitude !== undefined;
+  if (!hasLatitude && !hasLongitude) return true;
+  return hasLatitude && hasLongitude && Number.isFinite(stop.latitude) && Number.isFinite(stop.longitude) && stop.latitude! >= -90 && stop.latitude! <= 90 && stop.longitude! >= -180 && stop.longitude! <= 180;
+}
+
+export function validRouteGeometry(geometry: TransportRouteGeometry): boolean {
+  return geometry.type === "LineString" && geometry.coordinates.length >= 2 && geometry.coordinates.length <= 10_000 && geometry.coordinates.every(([longitude, latitude]) => Number.isFinite(longitude) && Number.isFinite(latitude) && longitude >= -180 && longitude <= 180 && latitude >= -90 && latitude <= 90);
 }
 
 export function validateTransportTripDraft(draft: TransportTripDraft, route: Pick<TransportRoute, "id" | "tenantId" | "version">, occurrence: Pick<ServiceOccurrence, "id" | "tenantId" | "startsAt" | "endsAt">): string[] {

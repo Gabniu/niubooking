@@ -25,9 +25,11 @@ test("lists transport routes and trips with tenant authorization and date serial
 test("creates a route and trip through the real HTTP contracts", async () => {
   const seen: { route?: unknown; trip?: unknown } = {};
   const app = createApiServer({ resolve, transportAdmin: { listRoutes: async () => [], createRoute: async (input) => { seen.route = input; return { ...route, ...input }; }, listTrips: async () => [], createTrip: async (input) => { seen.trip = input; return { ...trip, ...input }; } } });
-  const routeResponse = await app.inject({ method: "POST", url: "/v1/tenants/tenant-transport/transport/routes", payload: { name: "CBD to Westlands", mode: "matatu", status: "published", stops: route.stops } });
+  const geometry = { type: "LineString", coordinates: [[36.8219, -1.2921], [36.8044, -1.2676]] };
+  const routeResponse = await app.inject({ method: "POST", url: "/v1/tenants/tenant-transport/transport/routes", payload: { name: "CBD to Westlands", mode: "matatu", status: "published", stops: route.stops, geometry } });
   assert.equal(routeResponse.statusCode, 201);
   assert.equal((seen.route as { tenantId: string }).tenantId, "tenant-transport");
+  assert.deepEqual((seen.route as { geometry: unknown }).geometry, geometry);
   const tripResponse = await app.inject({ method: "POST", url: "/v1/tenants/tenant-transport/transport/trips", payload: { branchId: "branch-1", routeId: "route-1", routeVersion: 1, occurrenceId: "occ-1", capacityMode: "open", capacity: 14, boardingStartsAt: "2026-08-20T06:00:00Z", boardingEndsAt: "2026-08-20T06:30:00Z", vehicleResourceId: "vehicle-1" } });
   assert.equal(tripResponse.statusCode, 201);
   assert.equal((seen.trip as { capacity: number }).capacity, 14);
@@ -38,6 +40,7 @@ test("rejects invalid transport filters and cross-tenant access", async () => {
   assert.equal((await app.inject({ method: "GET", url: "/v1/tenants/tenant-transport/transport/trips?from=bad" })).statusCode, 400);
   assert.equal((await app.inject({ method: "GET", url: "/v1/tenants/other/transport/routes" })).statusCode, 403);
   assert.equal((await app.inject({ method: "POST", url: "/v1/tenants/tenant-transport/transport/routes", payload: { name: "Broken", mode: "bus", stops: [{ stopId: "only", sequence: 1, boardingMinutes: 0, alightingMinutes: 0 }] } })).statusCode, 400);
+  assert.equal((await app.inject({ method: "POST", url: "/v1/tenants/tenant-transport/transport/routes", payload: { name: "Broken geometry", mode: "bus", stops: route.stops, geometry: { type: "LineString", coordinates: [[181, -1], [36, -1]] } } })).statusCode, 400);
 });
 
 test("reports a clear unavailable response when transport persistence is not composed", async () => {
@@ -96,7 +99,7 @@ test("issues tickets and exposes a staff manifest without leaking token dates", 
 });
 
 test("retrieves a public ticket without exposing tenant or customer identity", async () => {
-  const publicTicket = { routeName: "CBD — Westlands", mode: "matatu" as const, originStopId: "cbd", destinationStopId: "westlands", quantity: 2, reservationStatus: "confirmed" as const, status: "issued" as const, fareAmountMinor: 2500, fareCurrency: "KES", issuedAt: new Date("2026-08-19T10:00:00Z"), boardingStartsAt: new Date("2026-08-20T06:00:00Z"), boardingEndsAt: new Date("2026-08-20T06:30:00Z") };
+  const publicTicket = { routeName: "CBD — Westlands", mode: "matatu" as const, stops: route.stops, originStopId: "cbd", destinationStopId: "westlands", quantity: 2, reservationStatus: "confirmed" as const, status: "issued" as const, fareAmountMinor: 2500, fareCurrency: "KES", issuedAt: new Date("2026-08-19T10:00:00Z"), boardingStartsAt: new Date("2026-08-20T06:00:00Z"), boardingEndsAt: new Date("2026-08-20T06:30:00Z") };
   const app = createApiServer({ resolve, transportAdmin: { listRoutes: async () => [], createRoute: async (input) => input as typeof route, listTrips: async () => [], createTrip: async (input) => input as typeof trip, readPublicTicket: async () => publicTicket } });
   const token = "a".repeat(43);
   const response = await app.inject({ method: "GET", url: `/v1/public/transport/tickets/${token}` });

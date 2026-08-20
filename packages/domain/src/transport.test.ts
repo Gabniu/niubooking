@@ -10,6 +10,15 @@ test("accepts an ordered transport route with versioned stops", () => {
   assert.deepEqual(validateTransportRouteDraft(route), []);
 });
 
+test("accepts named geocoded stops and bounded route geometry", () => {
+  assert.deepEqual(validateTransportRouteDraft({ ...route, stops: [{ ...route.stops[0]!, label: "CBD station", longitude: 36.8219, latitude: -1.2921 }, { ...route.stops[1]!, label: "Westlands", longitude: 36.8044, latitude: -1.2676 }], geometry: { type: "LineString", coordinates: [[36.8219, -1.2921], [36.8044, -1.2676]] } }), []);
+});
+
+test("rejects unpaired stop coordinates and invalid route geometry", () => {
+  const errors = validateTransportRouteDraft({ ...route, stops: [{ ...route.stops[0]!, latitude: -1.2 }, route.stops[1]!], geometry: { type: "LineString", coordinates: [[36.8, -1.2], [181, -1.1]] } });
+  assert.match(errors.join("; "), /coordinates|geometry/iu);
+});
+
 test("rejects repeated or gapped route stops", () => {
   const errors = validateTransportRouteDraft({ ...route, stops: [{ ...route.stops[0]!, sequence: 1 }, { ...route.stops[1]!, stopId: "cbd", sequence: 3 }] });
   assert.match(errors.join(";"), /repeat|consecutive/iu);

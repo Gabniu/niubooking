@@ -4,9 +4,17 @@ import type { CapacityMode, ReservationStatus, TransportMode } from "@bookingapp
 
 export interface PublicTransportStopSummary {
   stopId: string;
+  label?: string;
   sequence: number;
   boardingMinutes: number;
   alightingMinutes: number;
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface PublicTransportRouteGeometry {
+  type: "LineString";
+  coordinates: readonly (readonly [longitude: number, latitude: number])[];
 }
 
 export interface PublicTransportTripSummary {
@@ -14,6 +22,7 @@ export interface PublicTransportTripSummary {
   routeName: string;
   mode: TransportMode;
   stops: readonly PublicTransportStopSummary[];
+  geometry?: PublicTransportRouteGeometry | null;
   capacityMode: CapacityMode;
   capacity: number;
   remainingCapacity: number;
@@ -39,6 +48,8 @@ export interface PublicTransportCancellationResponse {
 export interface PublicTransportTicketSummary {
   routeName: string;
   mode: TransportMode;
+  stops: readonly PublicTransportStopSummary[];
+  geometry?: PublicTransportRouteGeometry | null;
   originStopId: string;
   destinationStopId: string;
   quantity: number;
@@ -65,6 +76,7 @@ export interface TransportRouteSummary {
   mode: TransportMode;
   status: "draft" | "published" | "archived";
   stops: readonly PublicTransportStopSummary[];
+  geometry?: PublicTransportRouteGeometry | null;
 }
 
 export interface TransportTripSummary {

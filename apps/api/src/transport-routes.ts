@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { resolveQrDestination, type CapacityMode, type CommunicationChannel, type PublicTransportTicket, type PublicTransportTrip, type QrDestinationReader, type ReservationStatus, type TransportBoarding, type TransportManifestEntry, type TransportMode, type TransportPassengerReservation, type TransportPassengerReservationDraft, type TransportRoute, type TransportRouteDraft, type TransportRouteStatus, type TransportStopRef, type TransportTicket, type TransportTrip, type TransportTripDraft } from "@bookingapp/domain";
+import { resolveQrDestination, validRouteGeometry, type CapacityMode, type CommunicationChannel, type PublicTransportTicket, type PublicTransportTrip, type QrDestinationReader, type ReservationStatus, type TransportBoarding, type TransportManifestEntry, type TransportMode, type TransportPassengerReservation, type TransportPassengerReservationDraft, type TransportRoute, type TransportRouteDraft, type TransportRouteGeometry, type TransportRouteStatus, type TransportStopRef, type TransportTicket, type TransportTrip, type TransportTripDraft } from "@bookingapp/domain";
 import type { RiderLiveStreamEvent, RiderLiveTripProjection } from "@bookingapp/contracts";
 import type { TenantContextRequest } from "./tenant-context-handler.js";
 import type { FleetLiveStream } from "./fleet-live-stream.js";
@@ -55,9 +55,21 @@ function dates(query: { from?: string; to?: string }): { from?: Date; to?: Date 
 
 function routeStops(value: unknown): TransportStopRef[] | null {
   if (!Array.isArray(value) || value.length < 2 || value.length > 256) return null;
-  const stops = value.map((stop) => ({ stopId: typeof stop?.stopId === "string" ? stop.stopId.trim() : "", sequence: stop?.sequence, boardingMinutes: stop?.boardingMinutes, alightingMinutes: stop?.alightingMinutes }));
+  const stops = value.map((stop) => ({ stopId: typeof stop?.stopId === "string" ? stop.stopId.trim() : "", ...(typeof stop?.label === "string" && stop.label.trim() ? { label: stop.label.trim() } : {}), sequence: stop?.sequence, boardingMinutes: stop?.boardingMinutes, alightingMinutes: stop?.alightingMinutes, ...(typeof stop?.latitude === "number" ? { latitude: stop.latitude } : {}), ...(typeof stop?.longitude === "number" ? { longitude: stop.longitude } : {}) }));
   const ordered = stops.every((stop, index) => stop.sequence === index + 1);
-  return ordered && stops.every((stop) => stop.stopId.length > 0 && stop.stopId.length <= 120 && Number.isInteger(stop.sequence) && Number.isInteger(stop.boardingMinutes) && Number.isInteger(stop.alightingMinutes) && stop.boardingMinutes >= 0 && stop.alightingMinutes >= 0) ? stops as TransportStopRef[] : null;
+  return ordered && stops.every((stop) => stop.stopId.length > 0 && stop.stopId.length <= 120 && (!stop.label || stop.label.length <= 200) && Number.isInteger(stop.sequence) && Number.isInteger(stop.boardingMinutes) && Number.isInteger(stop.alightingMinutes) && stop.boardingMinutes >= 0 && stop.alightingMinutes >= 0) ? stops as TransportStopRef[] : null;
+}
+
+function routeGeometry(value: unknown): TransportRouteGeometry | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || typeof value !== "object" || (value as { type?: unknown }).type !== "LineString" || !Array.isArray((value as { coordinates?: unknown }).coordinates)) return null;
+  const coordinates: [number, number][] = [];
+  for (const coordinate of (value as { coordinates: unknown[] }).coordinates) {
+    if (!Array.isArray(coordinate) || coordinate.length !== 2 || typeof coordinate[0] !== "number" || typeof coordinate[1] !== "number") return null;
+    coordinates.push([coordinate[0], coordinate[1]]);
+  }
+  const geometry: TransportRouteGeometry = { type: "LineString", coordinates };
+  return validRouteGeometry(geometry) ? geometry : null;
 }
 
 function seatLabels(value: unknown): string[] | null {
@@ -164,14 +176,15 @@ export function registerTransportRoutes(app: FastifyInstance, dependencies: Tran
     return reply.send({ data: (await dependencies.transportAdmin.listRoutes(request.params.tenantId)).map(serializeRoute), error: null });
   });
 
-  app.post<{ Params: { tenantId: string }; Body: { name: string; mode: TransportMode; version?: number; status?: TransportRouteStatus; stops: unknown } }>("/v1/tenants/:tenantId/transport/routes", async (request, reply) => {
+  app.post<{ Params: { tenantId: string }; Body: { name: string; mode: TransportMode; version?: number; status?: TransportRouteStatus; stops: unknown; geometry?: unknown } }>("/v1/tenants/:tenantId/transport/routes", async (request, reply) => {
     const context = await dependencies.resolve(request);
     if (!allowed(context, request.params.tenantId, ["owner", "admin"])) return reply.code(403).send({ data: null, error: { code: "TENANT_ACCESS_DENIED", message: "You do not have access to this workspace." } });
     if (!dependencies.transportAdmin) return reply.code(503).send({ data: null, error: { code: "TRANSPORT_UNAVAILABLE", message: "Transport routes are temporarily unavailable." } });
     const body = request.body;
     const stops = routeStops(body?.stops);
-    if (!body?.name?.trim() || body.name.trim().length > 200 || !modes.has(body.mode) || (body.version !== undefined && (!Number.isInteger(body.version) || body.version < 1)) || (body.status !== undefined && !statuses.has(body.status)) || !stops) return reply.code(400).send({ data: null, error: { code: "TRANSPORT_ROUTE_INVALID", message: "Route name, mode, version, and ordered stops are required." } });
-    const draft: TransportRouteDraft = { id: randomUUID(), tenantId: request.params.tenantId, version: body.version ?? 1, name: body.name.trim(), mode: body.mode, stops, ...(body.status ? { status: body.status } : {}) };
+    const geometry = routeGeometry(body?.geometry);
+    if (!body?.name?.trim() || body.name.trim().length > 200 || !modes.has(body.mode) || (body.version !== undefined && (!Number.isInteger(body.version) || body.version < 1)) || (body.status !== undefined && !statuses.has(body.status)) || !stops || (body.geometry !== undefined && geometry === null)) return reply.code(400).send({ data: null, error: { code: "TRANSPORT_ROUTE_INVALID", message: "Route name, mode, version, ordered stops, and valid geometry are required." } });
+    const draft: TransportRouteDraft = { id: randomUUID(), tenantId: request.params.tenantId, version: body.version ?? 1, name: body.name.trim(), mode: body.mode, stops, ...(body.status ? { status: body.status } : {}), ...(geometry ? { geometry } : {}) };
     try { return reply.code(201).send({ data: serializeRoute(await dependencies.transportAdmin.createRoute(draft)), error: null }); }
     catch (error) { return reply.code(400).send({ data: null, error: { code: "TRANSPORT_ROUTE_INVALID", message: error instanceof Error ? error.message : "Route could not be created." } }); }
   });

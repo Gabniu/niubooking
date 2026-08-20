@@ -50,6 +50,7 @@
 .transport-route-rail li { position: relative; display: grid; grid-template-columns: 18px 1fr; min-height: 31px; align-items: center; column-gap: 9px; color: var(--public-text); font-size: 12px; }
 .transport-route-node { z-index: 1; width: 11px; height: 11px; border: 2px solid var(--public-navy); border-radius: 50%; background: #fff; }
 .transport-route-line { position: absolute; top: 18px; left: 5px; width: 1px; height: 31px; background: #aba7e8; }
+.transport-selection .transport-route-map { margin: 0 0 18px; }
 .transport-form { display: grid; gap: 13px; padding-top: 17px; border-top: 1px solid var(--public-border); }
 .transport-form-heading p:last-child { margin: 6px 0 0; color: var(--public-muted); font-size: 12px; }
 .transport-stop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }

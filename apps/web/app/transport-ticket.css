@@ -33,4 +33,16 @@
 .transport-live-details { margin-top: 14px; }.transport-live-details p, .transport-live-message { margin: 0; color: var(--public-muted); font-size: 12px; line-height: 1.5; }
 .transport-live-details dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin: 13px 0 0; }.transport-live-details dl div { padding: 9px 10px; border: 1px solid #e2e5f2; border-radius: 9px; background: #fff; }.transport-live-details dt { color: var(--public-muted); font-size: 10px; }.transport-live-details dd { margin: 4px 0 0; color: var(--public-text); font-size: 12px; font-weight: 500; }
 .transport-live-trip > small { display: block; margin-top: 13px; color: var(--public-muted); font-size: 10px; line-height: 1.45; }.transport-live-retry { min-height: 34px; margin-top: 11px; padding: 0 12px; font-size: 11px; }
+.transport-route-map { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 14px; align-items: center; margin-top: 15px; padding: 12px; border: 1px solid #e2e5f2; border-radius: 11px; background: #fff; }
+.transport-route-map svg { width: 100%; min-height: 150px; overflow: visible; border-radius: 8px; background: #f8f9ff; }
+.transport-route-map-line { fill: none; stroke: #140ba7; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.transport-route-map-stop { fill: #fff; stroke: #140ba7; stroke-width: 1.4; }
+.transport-route-map-vehicle { fill: #10b981; stroke: #064e3b; stroke-width: 1.2; }
+.transport-route-map-stops { display: grid; gap: 7px; max-height: 160px; margin: 0; padding: 0; overflow: auto; list-style: none; }
+.transport-route-map-stops li { display: grid; grid-template-columns: 19px minmax(0, 1fr); gap: 6px; align-items: center; color: var(--public-text); font-size: 11px; }
+.transport-route-map-stops span { display: grid; width: 19px; height: 19px; place-items: center; border-radius: 50%; color: #140ba7; background: #e8e8ff; font-size: 10px; }
+.transport-route-map-stops strong { overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.transport-route-map-unavailable { grid-template-columns: 1fr; justify-items: start; color: var(--public-muted); font-size: 11px; }
+.transport-route-map-unavailable strong { color: var(--public-text); font-size: 12px; font-weight: 500; }
+.transport-route-map-unavailable span { line-height: 1.45; }
 @media (max-width: 520px) { .transport-ticket-shell { width: min(100% - 24px, 620px); padding-top: 28px; } .transport-ticket-card, .transport-ticket-empty { padding: 17px; } .transport-ticket-route { gap: 8px; padding: 13px 10px; } .transport-ticket-route strong { font-size: 13px; } }

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { PublicTransportTripsResponse } from "@bookingapp/contracts";
 import { cancelPublicTransportReservation, createPublicTransportReservation, fetchPublicTransportTrips } from "../../src/transport-public-client.js";
 import { BookingIllustration } from "./booking-illustration.js";
+import { TransportRouteMap } from "./transport-route-map.js";
 
 type Trip = NonNullable<PublicTransportTripsResponse["data"]>[number];
 type Reservation = { tripId: string; originStopId: string; destinationStopId: string; quantity: number; manageToken?: string };
@@ -18,7 +19,7 @@ function modeText(mode: Trip["mode"]): string { return mode.charAt(0).toUpperCas
 function placesText(trip: Trip): string { return trip.capacityMode === "seat" ? `${trip.remainingCapacity} seat${trip.remainingCapacity === 1 ? "" : "s"} left` : `${trip.remainingCapacity} place${trip.remainingCapacity === 1 ? "" : "s"} left`; }
 
 function RouteRail({ trip }: { trip: Trip }) {
-  return <ol className="transport-route-rail" aria-label={`${trip.routeName} stops`}>{trip.stops.map((stop, index) => <li key={stop.stopId}><span className="transport-route-node" aria-hidden="true" /><span>{stop.stopId}</span>{index < trip.stops.length - 1 && <span className="transport-route-line" aria-hidden="true" />}</li>)}</ol>;
+  return <><TransportRouteMap geometry={trip.geometry} stops={trip.stops} label={`${trip.routeName} route`} /><ol className="transport-route-rail" aria-label={`${trip.routeName} stops`}>{trip.stops.map((stop, index) => <li key={stop.stopId}><span className="transport-route-node" aria-hidden="true" /><span>{stop.label ?? stop.stopId}</span>{index < trip.stops.length - 1 && <span className="transport-route-line" aria-hidden="true" />}</li>)}</ol></>;
 }
 
 function TripCard({ trip, selected, onSelect }: { trip: Trip; selected: boolean; onSelect: () => void }) {
