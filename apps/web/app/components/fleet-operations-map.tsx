@@ -3,6 +3,7 @@
 
 import type { LiveVehicleProjection } from "@bookingapp/contracts";
 import { TransportInteractiveMap } from "./transport-interactive-map.js";
+import { FleetAggregateMap } from "./fleet-aggregate-map.js";
 
 const mapStyleUrl = process.env.NEXT_PUBLIC_MAP_STYLE_URL ?? "";
 
@@ -20,6 +21,7 @@ function RouteMapCard({ vehicle }: { vehicle: LiveVehicleProjection }) {
 export function FleetOperationsMap({ vehicles }: { vehicles: readonly LiveVehicleProjection[] }) {
   return <section className="fleet-map-section" aria-labelledby="fleet-map-title">
     <header className="fleet-map-heading"><div><p className="eyebrow">Route context</p><h3 id="fleet-map-title">Live vehicle map</h3><p>Each map stays scoped to the vehicles visible in this workspace.</p></div><span className="fleet-map-legend"><i aria-hidden="true" /> vehicle position</span></header>
+    <FleetAggregateMap vehicles={vehicles} />
     <div className="fleet-map-grid">{vehicles.map((vehicle) => <RouteMapCard key={`${vehicle.tripId}-${vehicle.vehicleLabel}`} vehicle={vehicle} />)}</div>
   </section>;
 }
