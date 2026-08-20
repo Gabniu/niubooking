@@ -36,6 +36,7 @@ reservation, fleet, identity, or tenant model.
 - [x] Conservative ETA foundation: the shared domain estimator projects a trusted position onto a published LineString, advances only toward a geocoded destination stop, includes bounded dwell/uncertainty, and returns a range with confidence. Public tickets and staff fleet projections serialize it only when route context is sufficient; otherwise ETA remains unavailable.
 - [x] Staff route context slice: scoped fleet projections now carry published geometry and named stops, and `/app/transport` renders compact per-vehicle maps through the optional MapLibre/SVG component with freshness-aware vehicle markers.
 - [x] Aggregate staff overview: the filtered fleet view now includes one accessible SVG overview with grouped routes, approximate live markers, freshness colors, and a no-geometry state without requiring external map tiles.
+- [x] Tracking-health slice: the staff view now summarizes live, delayed, weak, and offline signals and labels driver/conductor views as assigned-scope without exposing internal session identifiers.
 - [ ] NIU Driver React Native application with physical-device background tests.
 - [ ] Regional tile/PMTiles cost proof, route matching, provider-backed ETA calculation,
   and the physical rider browser journey remain.
@@ -133,8 +134,8 @@ admins, branch managers, dispatchers, assigned drivers, and conductors. Extend
 `/app/transport` with fleet map/list modes, filters, tracking health, last update,
 conservative ETA ranges, incident states, permission denial, empty fleet, and
 degraded stream recovery. The list, route context, per-vehicle maps, ETA, and
-route/signal/search filters and the aggregate all-vehicles overview are now
-wired; richer assigned-trip controls remain.
+route/signal/search filters, aggregate overview, and tracking-health summary are
+now wired; session start/stop and richer assigned-trip controls remain.
 
 ### Packet C — Rider journey tracking
 

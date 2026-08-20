@@ -124,8 +124,29 @@
 .fleet-aggregate-routes small { margin-left: auto; color: #94a3b8; font-size: 9px; white-space: nowrap; }
 .fleet-aggregate-empty { min-height: 90px; }
 .fleet-aggregate-empty > p { margin: 0; color: #64748b; font-size: 11px; }
+.fleet-health { display: grid; gap: 9px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 9px; background: #fff; }
+.fleet-health > header { display: flex; align-items: end; justify-content: space-between; gap: 10px; }
+.fleet-health h3 { margin: 3px 0 0; color: #17213a; font-size: 14px; font-weight: 500; }
+.fleet-health header p:last-child { margin: 3px 0 0; color: #64748b; font-size: 10px; }
+.fleet-health-status { display: inline-flex; align-items: center; gap: 5px; color: #047857; font-size: 10px; font-weight: 600; white-space: nowrap; }
+.fleet-health-status i { width: 7px; height: 7px; display: inline-block; border-radius: 50%; background: currentColor; }
+.fleet-health-status-attention { color: #b45309; }
+.fleet-health-status-offline { color: #64748b; }
+.fleet-health-summary { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; gap: 7px; padding: 8px; border-radius: 8px; background: #f8f9fd; }
+.fleet-health-summary strong { color: #140ba7; font-size: 20px; font-weight: 600; }
+.fleet-health-summary span, .fleet-health-summary small { color: #475569; font-size: 10px; }
+.fleet-health-summary small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fleet-health-counts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.fleet-health-count { display: grid; gap: 2px; padding: 6px 7px; border: 1px solid #eef0f6; border-radius: 7px; background: #fbfcff; }
+.fleet-health-count strong { color: #17213a; font-size: 14px; font-weight: 600; }
+.fleet-health-count span { color: #64748b; font-size: 9px; }
+.fleet-health-count-live strong { color: #047857; }
+.fleet-health-count-delayed strong { color: #b45309; }
+.fleet-health-count-weak strong { color: #0369a1; }
+.fleet-health-count-offline strong { color: #64748b; }
+.fleet-health-note { margin: 0; color: #94a3b8; font-size: 10px; }
 @media (max-width: 560px) { .fleet-map-heading { align-items: start; flex-direction: column; } .fleet-map-grid { grid-template-columns: 1fr; } }
-@media (max-width: 560px) { .fleet-panel-heading { flex-direction: column; } .fleet-panel-actions { justify-content: space-between; width: 100%; } .fleet-vehicle-list { grid-template-columns: 1fr; } .fleet-panel-footnote { align-items: start; flex-direction: column; gap: 3px; } }
+@media (max-width: 560px) { .fleet-panel-heading, .fleet-health > header { flex-direction: column; align-items: start; } .fleet-panel-actions { justify-content: space-between; width: 100%; } .fleet-vehicle-list { grid-template-columns: 1fr; } .fleet-panel-footnote { align-items: start; flex-direction: column; gap: 3px; } .fleet-health-status { margin-top: 2px; } }
 @media (prefers-reduced-motion: reduce) { .fleet-refresh { transition: none; } .fleet-refresh:hover { transform: none; } }
 @media (max-width: 760px) { .transport-staff-metrics, .transport-staff-grid { grid-template-columns: 1fr; } .transport-date-toolbar { align-items: stretch; flex-direction: column; } .transport-date-toolbar .account-button { width: 100%; } }
 @media (max-width: 480px) { .transport-form-grid { grid-template-columns: 1fr; } .transport-route-row, .transport-trip-staff-row { align-items: start; flex-direction: column; } .transport-row-arrow { display: none; } }
