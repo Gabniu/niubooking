@@ -29,7 +29,7 @@ test("public Schedule delivery is immutable, cacheable, and privacy-safe", async
   const app = createApiServer({ resolve: context, gtfsPublication: {
     readStatus: async () => null, readValidation: async () => [],
     readPublicSchedule: async (publicSlug) => publicSlug === "city-feed" ? { tenantId: "tenant-1", publicSlug, version: "2026.08.20.1", objectKey: "gtfs/feed-1.zip", sha256: "a".repeat(64), publishedAt: new Date("2026-08-20T08:02:00Z") } : null,
-    artifactStore: { read: async (objectKey) => objectKey === "gtfs/feed-1.zip" ? Uint8Array.from([80, 75, 3, 4, 1]) : null },
+    artifactStore: { read: async (objectKey) => objectKey === "gtfs/feed-1.zip" ? Uint8Array.from([80, 75, 3, 4, 1]) : null, write: async () => undefined },
   } });
   const response = await app.inject({ method: "GET", url: "/v1/public/gtfs/city-feed/schedule.zip" });
   assert.equal(response.statusCode, 200); assert.equal(response.headers.etag, `"${"a".repeat(64)}"`); assert.equal(response.headers["cache-control"], "public, max-age=300, stale-while-revalidate=60"); assert.equal(response.headers["x-powered-by"], undefined); assert.deepEqual([...response.rawPayload], [80, 75, 3, 4, 1]);

@@ -43,13 +43,14 @@ reservation, fleet, identity, or tenant model.
 - [x] GTFS artifact foundation: an independent file-level validator checks required files, headers, duplicate IDs, and cross-file references; a dependency-free deterministic ZIP builder rejects unsafe names and invalid candidates before storage.
 - [x] GTFS public delivery slice: the active published version is resolved through a transaction-local public RLS policy and served only from the configured immutable artifact store with ETag, Last-Modified, conditional 304 responses, and cache headers; absent storage fails closed.
 - [x] GTFS lifecycle command slice: owner/admin publish, withdraw, and explicit historical rollback are audited, idempotent, role-gated, and reflected in `/app/gtfs`; the command API refuses to validate without recorded independent evidence and refuses incomplete artifacts.
+- [x] GTFS artifact write slice: the configured filesystem store now creates immutable same-byte-replayable ZIP objects atomically through a temporary hard-link promotion, while the publisher boundary validates files and returns the content digest/size needed for database attachment.
 - [ ] NIU Driver React Native application with physical-device background tests.
 - [ ] Regional tile/PMTiles cost proof, route matching, provider-backed ETA calculation,
   and the physical rider browser journey remain.
 - [ ] Validated GTFS Schedule publication. Stable ID, service-day time,
   fixed/headway contracts, atomic publication persistence, and audited lifecycle
-  commands are built; exporter, durable artifact writes, independent validator
-  integration, flexible service, fares, accessibility, and rider-quality
+  commands are built; database-coordinated artifact promotion, full exporter,
+  independent validator integration, flexible service, fares, accessibility, and rider-quality
   extensions remain.
   exporter, independent validator, flexible service, fares, accessibility, and
   rider-quality extensions remain.
