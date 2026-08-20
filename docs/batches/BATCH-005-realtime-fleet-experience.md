@@ -37,6 +37,7 @@ reservation, fleet, identity, or tenant model.
 - [x] Staff route context slice: scoped fleet projections now carry published geometry and named stops, and `/app/transport` renders compact per-vehicle maps through the optional MapLibre/SVG component with freshness-aware vehicle markers.
 - [x] Aggregate staff overview: the filtered fleet view now includes one accessible SVG overview with grouped routes, approximate live markers, freshness colors, and a no-geometry state without requiring external map tiles.
 - [x] Tracking-health slice: the staff view now summarizes live, delayed, weak, and offline signals and labels driver/conductor views as assigned-scope without exposing internal session identifiers.
+- [x] Manager stop-trip slice: owner/admin/manager/dispatcher staff can end a branch-scoped active trip from the staff list; the API returns only trip status and end time, and the row action is wired through the typed client.
 - [ ] NIU Driver React Native application with physical-device background tests.
 - [ ] Regional tile/PMTiles cost proof, route matching, provider-backed ETA calculation,
   and the physical rider browser journey remain.
@@ -134,8 +135,9 @@ admins, branch managers, dispatchers, assigned drivers, and conductors. Extend
 `/app/transport` with fleet map/list modes, filters, tracking health, last update,
 conservative ETA ranges, incident states, permission denial, empty fleet, and
 degraded stream recovery. The list, route context, per-vehicle maps, ETA, and
-route/signal/search filters, aggregate overview, and tracking-health summary are
-now wired; session start/stop and richer assigned-trip controls remain.
+route/signal/search filters, aggregate overview, tracking-health summary, and the
+manager/dispatcher stop-active-trip action are now wired; driver mobile
+session start/stop/handover and richer conductor controls remain.
 
 ### Packet C — Rider journey tracking
 

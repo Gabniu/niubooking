@@ -65,6 +65,9 @@
 .fleet-vehicle-main span, .fleet-vehicle-main small, .fleet-vehicle-meta time { overflow: hidden; color: #64748b; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .fleet-vehicle-main small { color: #94a3b8; }
 .fleet-vehicle-meta { justify-items: end; }
+.fleet-stop { min-height: 24px; padding: 0 7px; color: #991b1b; border: 1px solid #fecaca; border-radius: 6px; background: #fff; cursor: pointer; font-size: 9px; }
+.fleet-stop:hover, .fleet-stop:focus-visible { border-color: #ef4444; background: #fff7f7; outline: 2px solid #fee2e2; }
+.fleet-stop:disabled { cursor: wait; opacity: .65; }
 .fleet-filters { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 9px; background: #fbfcff; }
 .fleet-filters label { display: grid; gap: 4px; min-width: 128px; }
 .fleet-filters label span { color: #64748b; font-size: 10px; font-weight: 600; }
@@ -85,6 +88,7 @@
 .fleet-state small { max-width: 58ch; color: #64748b; font-size: 11px; line-height: 1.45; }
 .fleet-state-error { border-style: solid; border-color: #fecaca; background: #fff7f7; }
 .fleet-state-error p { color: #991b1b; }
+.fleet-action-message { margin: 0; padding: 7px 9px; color: #047857; border: 1px solid #bbf7d0; border-radius: 7px; background: #f0fdf4; font-size: 10px; }
 .fleet-retry { min-height: 32px; margin-top: 3px; padding: 0 10px; color: #991b1b; border: 1px solid #fca5a5; border-radius: 7px; background: #fff; cursor: pointer; font-size: 11px; }
 .fleet-empty-icon { width: 30px; height: 30px; display: grid; place-items: center; color: #140ba7; border-radius: 8px; background: #e9e8fb; }
 .fleet-skeleton { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }

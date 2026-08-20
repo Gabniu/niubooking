@@ -15,6 +15,7 @@ function fleet(overrides: Partial<FleetTrackingAdmin> = {}): FleetTrackingAdmin 
     start: async () => session,
     handover: async () => session,
     end: async () => ({ ...session, status: "ended", endedAt: new Date("2030-01-01T09:00:00Z") }),
+    endTrip: async () => ({ ...session, status: "ended", endedAt: new Date("2030-01-01T09:00:00Z") }),
     listCurrent: async () => [],
     readTripBranch: async () => "branch-1",
     readSessionScope: async () => ({ branchId: "branch-1", driverUserId: "driver-1" }),
@@ -54,6 +55,18 @@ test("branch manager can perform an explicit tracking handover", async () => {
   const response = await app.inject({ method: "POST", url: "/v1/tenants/tenant-1/fleet/tracking-sessions/session-1/handover", payload: { tripId: "trip-1", deviceId: "device-2", driverUserId: "driver-2", durationMinutes: 30 } });
   assert.equal(response.statusCode, 201);
   assert.equal(handedTo, "driver-2");
+});
+
+test("branch manager can stop an active trip without receiving a session identifier", async () => {
+  let tripId = ""; let branches: readonly string[] | undefined;
+  const app = createApiServer({ resolve: () => context("manager"), fleetTracking: fleet({ endTrip: async (input) => { tripId = input.tripId; branches = input.branchIds; return { ...session, status: "ended", endedAt: new Date("2030-01-01T09:00:00Z") }; } }) });
+  const response = await app.inject({ method: "POST", url: "/v1/tenants/tenant-1/fleet/tracking-sessions/end-trip", payload: { tripId: "trip-1" } });
+  assert.equal(response.statusCode, 200); assert.equal(tripId, "trip-1"); assert.deepEqual(branches, ["branch-1"]); assert.equal("deviceId" in response.json().data, false);
+});
+
+test("driver cannot use the manager stop-trip command", async () => {
+  const app = createApiServer({ resolve: () => context("driver"), fleetTracking: fleet() });
+  assert.equal((await app.inject({ method: "POST", url: "/v1/tenants/tenant-1/fleet/tracking-sessions/end-trip", payload: { tripId: "trip-1" } })).statusCode, 403);
 });
 
 test("branch manager receives only branch-filtered privacy-safe fleet projections", async () => {

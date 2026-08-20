@@ -90,6 +90,13 @@ export async function endFleetTrackingSession(executor: SqlExecutor, input: { te
   return mapSession(rows[0]);
 }
 
+export async function endFleetTrackingTrip(executor: SqlExecutor, input: { tenantId: string; tripId: string; branchIds?: readonly string[]; actorId?: string; reason: string }): Promise<FleetTrackingSession | null> {
+  if (input.branchIds?.length === 0) return null;
+  const rows = await executor.query<SessionRow>(`SELECT ${sessionColumns} FROM fleet_tracking_sessions WHERE tenant_id = $1 AND trip_id = $2 AND status = 'active' AND expires_at > now() AND ($3::text[] IS NULL OR branch_id = ANY($3)) ORDER BY started_at DESC LIMIT 1 FOR UPDATE`, [input.tenantId, input.tripId, input.branchIds ?? null]);
+  if (!rows[0]) return null;
+  return endFleetTrackingSession(executor, { tenantId: input.tenantId, sessionId: rows[0].id, ...(input.actorId ? { actorId: input.actorId } : {}), allowManage: true, reason: input.reason });
+}
+
 export async function ingestFleetPosition(executor: SqlExecutor, input: { tenantId: string; position: VehiclePosition }): Promise<TelemetryReceipt> {
   const prior = await executor.query<ReceiptRow>("SELECT tenant_id, event_id, session_id, device_id, decision, reason_code FROM fleet_telemetry_receipts WHERE tenant_id = $1 AND event_id = $2 LIMIT 1", [input.tenantId, input.position.eventId]);
   if (prior[0]) return mapReceipt(prior[0], true);
@@ -167,6 +174,7 @@ export function createDatabaseFleetTrackingAdmin(pool: Pool) {
     start: (input: Parameters<typeof startFleetTrackingSession>[1]) => withTenantTransaction(pool, input.tenantId, (executor) => startFleetTrackingSession(executor, input)),
     handover: (input: Parameters<typeof handoverFleetTrackingSession>[1]) => withTenantTransaction(pool, input.tenantId, (executor) => handoverFleetTrackingSession(executor, input)),
     end: (input: Parameters<typeof endFleetTrackingSession>[1]) => withTenantTransaction(pool, input.tenantId, (executor) => endFleetTrackingSession(executor, input)),
+    endTrip: (input: Parameters<typeof endFleetTrackingTrip>[1]) => withTenantTransaction(pool, input.tenantId, (executor) => endFleetTrackingTrip(executor, input)),
     listCurrent: (tenantId: string, branchIds?: readonly string[], assignedUserId?: string) => withTenantTransaction(pool, tenantId, (executor) => listCurrentFleetPositions(executor, tenantId, branchIds, assignedUserId)),
     readTripBranch: (tenantId: string, tripId: string) => withTenantTransaction(pool, tenantId, (executor) => readFleetTripBranch(executor, tenantId, tripId)),
     readSessionScope: (tenantId: string, sessionId: string) => withTenantTransaction(pool, tenantId, (executor) => readFleetSessionScope(executor, tenantId, sessionId)),

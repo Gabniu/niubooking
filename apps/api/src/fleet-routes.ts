@@ -14,6 +14,7 @@ export interface FleetTrackingAdmin {
   start(input: { id: string; tenantId: string; tripId: string; deviceId: string; driverUserId: string; expiresAt: Date; actorId?: string }): Promise<FleetTrackingSession>;
   handover(input: { previousSessionId: string; id: string; tenantId: string; tripId: string; deviceId: string; driverUserId: string; expiresAt: Date; actorId?: string }): Promise<FleetTrackingSession>;
   end(input: { tenantId: string; sessionId: string; actorId?: string; reason: string; driverUserId?: string; allowManage?: boolean }): Promise<FleetTrackingSession>;
+  endTrip(input: { tenantId: string; tripId: string; branchIds?: readonly string[]; actorId?: string; reason: string }): Promise<FleetTrackingSession | null>;
   listCurrent(tenantId: string, branchIds?: readonly string[], assignedUserId?: string): Promise<readonly FleetCurrentProjection[]>;
   readTripBranch(tenantId: string, tripId: string): Promise<string | null>;
   readSessionScope(tenantId: string, sessionId: string): Promise<{ branchId: string; driverUserId: string } | null>;
@@ -33,6 +34,7 @@ function branchAllowed(context: TenantContextRequest, branchId: string): boolean
 function bearer(request: FastifyRequest): string | null { const value = request.headers.authorization; return value?.startsWith("Bearer ") && value.length <= 1024 ? value.slice(7).trim() || null : null; }
 function text(value: unknown, max = 200): string | null { if (typeof value !== "string") return null; const result = value.trim(); return result.length > 0 && result.length <= max ? result : null; }
 function sessionJson(session: FleetTrackingSession) { return { ...session, startedAt: session.startedAt.toISOString(), expiresAt: session.expiresAt.toISOString(), endedAt: session.endedAt?.toISOString() ?? null }; }
+function endedTripJson(session: FleetTrackingSession) { return { tripId: session.tripId, status: session.status, endedAt: session.endedAt?.toISOString() ?? null }; }
 function fleetResponse(positions: readonly FleetCurrentProjection[]): StaffLiveFleetResponse { return { data: positions.map((item) => ({ ...item, capturedAt: item.capturedAt?.toISOString() ?? null, freshness: item.capturedAt ? classifyPositionFreshness(item.capturedAt, new Date()) : "offline", eta: item.eta ? { earliestArrival: item.eta.earliestArrival.toISOString(), latestArrival: item.eta.latestArrival.toISOString(), confidence: item.eta.confidence } : null })), error: null }; }
 function streamEvent(type: FleetStreamEvent["type"], version: number, response: StaffLiveFleetResponse): FleetStreamEvent { return { type, version, response }; }
 
@@ -73,6 +75,16 @@ export function registerFleetRoutes(app: FastifyInstance, dependencies: FleetRou
     const scope = await dependencies.fleetTracking.readSessionScope(request.params.tenantId, request.params.sessionId); const canManage = managerRoles.includes(context.membership!.role);
     if (!scope || (!canManage && scope.driverUserId !== context.mappedUserId) || (canManage && !branchAllowed(context, scope.branchId))) return reply.code(403).send({ data: null, error: { code: "FLEET_ACCESS_DENIED", message: "You cannot end this tracking session." } });
     try { return reply.send({ data: sessionJson(await dependencies.fleetTracking.end({ tenantId: request.params.tenantId, sessionId: request.params.sessionId, actorId: context.mappedUserId!, driverUserId: context.mappedUserId!, allowManage: canManage, reason: text(request.body?.reason, 200) ?? "stopped" })), error: null }); }
+    catch { return reply.code(409).send({ data: null, error: { code: "TRACKING_SESSION_INACTIVE", message: "That tracking session has already ended." } }); }
+  });
+
+  app.post<{ Params: { tenantId: string }; Body: { tripId: string; reason?: string } }>("/v1/tenants/:tenantId/fleet/tracking-sessions/end-trip", async (request, reply) => {
+    const context = await dependencies.resolve(request); const tripId = text(request.body?.tripId); const canManage = admitted(context, request.params.tenantId, managerRoles);
+    if (!canManage) return reply.code(403).send({ data: null, error: { code: "FLEET_ACCESS_DENIED", message: "You do not have access to stop tracking for this trip." } });
+    if (!dependencies.fleetTracking) return reply.code(503).send({ data: null, error: { code: "LIVE_FLEET_UNAVAILABLE", message: "Fleet tracking is temporarily unavailable." } });
+    if (!tripId) return reply.code(400).send({ data: null, error: { code: "TRACKING_SESSION_INVALID", message: "Choose a trip before stopping tracking." } });
+    const branchIds = context.membership?.role === "owner" ? undefined : context.membership?.branchIds ?? [];
+    try { const session = await dependencies.fleetTracking.endTrip({ tenantId: request.params.tenantId, tripId, ...(branchIds ? { branchIds } : {}), actorId: context.mappedUserId!, reason: text(request.body?.reason, 200) ?? "stopped by workspace staff" }); if (!session) return reply.code(404).send({ data: null, error: { code: "TRACKING_SESSION_INACTIVE", message: "No active tracking session was found for this trip." } }); return reply.send({ data: endedTripJson(session), error: null }); }
     catch { return reply.code(409).send({ data: null, error: { code: "TRACKING_SESSION_INACTIVE", message: "That tracking session has already ended." } }); }
   });
 

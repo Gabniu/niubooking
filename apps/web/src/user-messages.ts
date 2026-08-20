@@ -60,6 +60,7 @@ const known: Record<string, string> = {
   TRANSPORT_SEAT_CONFLICT: "One of those seats was just taken. Please choose different seats.",
   FLEET_ACCESS_DENIED: "You do not have access to these live vehicle locations.",
   LIVE_FLEET_UNAVAILABLE: "Live vehicle locations are temporarily unavailable. Please try again.",
+  TRACKING_SESSION_INACTIVE: "No active tracking session was found for this trip.",
   MANAGE_NOT_FOUND: "This appointment link could not be found.",
   MANAGE_INVALID: "This appointment link is no longer valid.",
 };

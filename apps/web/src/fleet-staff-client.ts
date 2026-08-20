@@ -4,6 +4,7 @@ import type { FleetStreamEvent, StaffLiveFleetResponse } from "@bookingapp/contr
 import { userFacingMessage } from "./user-messages.js";
 
 export type FleetStaffFetcher = (url: string, init: { credentials: "include" }) => Promise<{ status: number; json(): Promise<unknown> }>;
+export type FleetCommandFetcher = (url: string, init: { credentials: "include"; method: "POST"; headers: { "content-type": "application/json" }; body: string }) => Promise<{ status: number; json(): Promise<unknown> }>;
 export type FleetState =
   | { kind: "loading" }
   | { kind: "ready"; value: NonNullable<StaffLiveFleetResponse["data"]> }
@@ -17,6 +18,16 @@ export async function fetchFleetCurrent(fetcher: FleetStaffFetcher, baseUrl: str
   if (body.data) return { kind: "ready", value: body.data };
   const denied = body.error?.code === "FLEET_ACCESS_DENIED" || body.error?.code === "UNAUTHENTICATED";
   return { kind: denied ? "denied" : "error", message: userFacingMessage(response.status, body.error, "Live fleet locations could not be loaded.") };
+}
+
+export type FleetCommandState = { kind: "success"; endedAt: string } | { kind: "denied" | "error"; message: string };
+
+export async function endFleetTrip(fetcher: FleetCommandFetcher, baseUrl: string, tenantId: string, tripId: string): Promise<FleetCommandState> {
+  const response = await fetcher(`${baseUrl}/v1/tenants/${encodeURIComponent(tenantId)}/fleet/tracking-sessions/end-trip`, { credentials: "include", method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tripId }) });
+  const body = (await response.json()) as { data?: { endedAt?: string | null } | null; error?: { code?: string; message?: string } | null };
+  if (body.data?.endedAt) return { kind: "success", endedAt: body.data.endedAt };
+  const denied = body.error?.code === "FLEET_ACCESS_DENIED" || body.error?.code === "UNAUTHENTICATED";
+  return { kind: denied ? "denied" : "error", message: userFacingMessage(response.status, body.error, "Tracking could not be stopped.") };
 }
 
 export function openFleetStream(factory: FleetEventSourceFactory, baseUrl: string, tenantId: string, onSnapshot: (value: NonNullable<StaffLiveFleetResponse["data"]>) => void, onChanged: () => void, onError: () => void): () => void {

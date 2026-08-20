@@ -3,13 +3,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { LiveVehicleProjection } from "@bookingapp/contracts";
-import { fetchFleetCurrent, openFleetStream, type FleetEventSource, type FleetState } from "../../src/fleet-staff-client.js";
+import { endFleetTrip, fetchFleetCurrent, openFleetStream, type FleetEventSource, type FleetState } from "../../src/fleet-staff-client.js";
 import { apiBase, useWorkspaceAdmission } from "./workspace-admission.js";
 import { FleetOperationsMap } from "./fleet-operations-map.js";
 import { filterFleetVehicles, FleetOperationsFilters, type FleetFilters } from "./fleet-operations-filters.js";
 import { FleetTrackingHealth } from "./fleet-tracking-health.js";
 
 const request = (input: string, init: { credentials: "include" }) => window.fetch(input, init);
+const commandRequest = (input: string, init: { credentials: "include"; method: "POST"; headers: { "content-type": "application/json" }; body: string }) => window.fetch(input, init);
 const freshnessLabels: Record<LiveVehicleProjection["freshness"], string> = { live: "Live", delayed: "Delayed", signal_weak: "Weak signal", offline: "Offline" };
 
 function VehicleMark() {
@@ -34,12 +35,12 @@ function etaLabel(value: LiveVehicleProjection["eta"]): string {
   return `ETA ${format(earliest, "floor")}–${format(latest, "ceil")} · ${value.confidence} confidence`;
 }
 
-function VehicleRow({ vehicle, now }: { vehicle: LiveVehicleProjection; now: number }) {
+function VehicleRow({ vehicle, now, canStop, stopping, onStop }: { vehicle: LiveVehicleProjection; now: number; canStop: boolean; stopping: boolean; onStop: (tripId: string) => void }) {
   const freshness = freshnessLabels[vehicle.freshness];
   return <article className={`fleet-vehicle-row fleet-freshness-${vehicle.freshness}`}>
     <div className="fleet-vehicle-icon"><VehicleMark /></div>
     <div className="fleet-vehicle-main"><strong>{vehicle.vehicleLabel}</strong><span>{vehicle.routeLabel}</span><small>Trip {vehicle.tripId} · {etaLabel(vehicle.eta)}</small></div>
-    <div className="fleet-vehicle-meta"><span className="fleet-freshness"><i aria-hidden="true" />{freshness}</span><time dateTime={vehicle.capturedAt ?? undefined}>{ageLabel(vehicle.capturedAt, now)}</time></div>
+    <div className="fleet-vehicle-meta"><span className="fleet-freshness"><i aria-hidden="true" />{freshness}</span><time dateTime={vehicle.capturedAt ?? undefined}>{ageLabel(vehicle.capturedAt, now)}</time>{canStop && <button className="fleet-stop" type="button" onClick={() => onStop(vehicle.tripId)} disabled={stopping}>{stopping ? "Stopping…" : "Stop sharing"}</button>}</div>
   </article>;
 }
 
@@ -65,6 +66,8 @@ export function FleetOperationsPanel({ tenantId, role = "manager" }: { tenantId:
   const [streaming, setStreaming] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [filters, setFilters] = useState<FleetFilters>({ query: "", route: "all", freshness: "all" });
+  const [stoppingTripId, setStoppingTripId] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const load = useCallback(async () => { setRefreshing(true); try { setState(await fetchFleetCurrent(request, apiBase, tenantId)); } catch { setState({ kind: "error", message: "Live vehicle locations could not be loaded. Please try again." }); } finally { setRefreshing(false); setNow(Date.now()); } }, [tenantId]);
   useEffect(() => {
     void load();
@@ -81,5 +84,7 @@ export function FleetOperationsPanel({ tenantId, role = "manager" }: { tenantId:
   const readyVehicles = state.kind === "ready" ? state.value : [];
   const visibleVehicles = useMemo(() => filterFleetVehicles(readyVehicles, filters), [filters, readyVehicles]);
   const effectiveRole = admission.kind === "ready" && admission.tenantId === tenantId ? admission.role : role;
-  return <section className="fleet-operations-panel" aria-labelledby="fleet-panel-title"><header className="fleet-panel-heading"><div><p className="eyebrow">Live operations</p><h2 id="fleet-panel-title">Vehicles on the move</h2><p>Location updates are scoped to your current workspace.</p></div><div className="fleet-panel-actions"><span className="fleet-refresh-status" role="status">{refreshing ? "Updating" : streaming ? "Live connection" : "Checking every 30s"}</span><button className="fleet-refresh" type="button" onClick={() => void load()} disabled={refreshing}>{refreshing ? "Updating" : "Refresh"}</button></div></header><FleetStateView state={state} onRetry={() => void load()} />{readyVehicles.length > 0 && <><FleetOperationsFilters vehicles={readyVehicles} filters={filters} onChange={setFilters} onReset={() => setFilters({ query: "", route: "all", freshness: "all" })} resultCount={visibleVehicles.length} />{visibleVehicles.length > 0 ? <><FleetTrackingHealth vehicles={visibleVehicles} role={effectiveRole} /><FleetOperationsMap vehicles={visibleVehicles} /><div className="fleet-vehicle-list">{visibleVehicles.map((vehicle) => <VehicleRow key={`${vehicle.tripId}-${vehicle.vehicleLabel}`} vehicle={vehicle} now={now} />)}</div></> : <FleetFilterEmpty onReset={() => setFilters({ query: "", route: "all", freshness: "all" })} />}</>}<footer className="fleet-panel-footnote"><span>{streaming ? "Live list" : "Fallback list"}</span><span>Route maps and list share the same workspace-scoped filters; arrival ranges appear when route data supports them.</span></footer></section>;
+  const canStop = ["owner", "admin", "manager", "dispatcher"].includes(effectiveRole);
+  const stopTrip = useCallback(async (tripId: string) => { setStoppingTripId(tripId); setActionMessage(null); try { const result = await endFleetTrip(commandRequest, apiBase, tenantId, tripId); if (result.kind === "success") { setActionMessage("Tracking stopped for this trip."); await load(); } else setActionMessage(result.message); } catch { setActionMessage("Tracking could not be stopped. Please try again."); } finally { setStoppingTripId(null); } }, [load, tenantId]);
+  return <section className="fleet-operations-panel" aria-labelledby="fleet-panel-title"><header className="fleet-panel-heading"><div><p className="eyebrow">Live operations</p><h2 id="fleet-panel-title">Vehicles on the move</h2><p>Location updates are scoped to your current workspace.</p></div><div className="fleet-panel-actions"><span className="fleet-refresh-status" role="status">{refreshing ? "Updating" : streaming ? "Live connection" : "Checking every 30s"}</span><button className="fleet-refresh" type="button" onClick={() => void load()} disabled={refreshing}>{refreshing ? "Updating" : "Refresh"}</button></div></header><FleetStateView state={state} onRetry={() => void load()} />{actionMessage && <p className="fleet-action-message" role="status">{actionMessage}</p>}{readyVehicles.length > 0 && <><FleetOperationsFilters vehicles={readyVehicles} filters={filters} onChange={setFilters} onReset={() => setFilters({ query: "", route: "all", freshness: "all" })} resultCount={visibleVehicles.length} />{visibleVehicles.length > 0 ? <><FleetTrackingHealth vehicles={visibleVehicles} role={effectiveRole} /><FleetOperationsMap vehicles={visibleVehicles} /><div className="fleet-vehicle-list">{visibleVehicles.map((vehicle) => <VehicleRow key={`${vehicle.tripId}-${vehicle.vehicleLabel}`} vehicle={vehicle} now={now} canStop={canStop} stopping={stoppingTripId === vehicle.tripId} onStop={(tripId) => void stopTrip(tripId)} />)}</div></> : <FleetFilterEmpty onReset={() => setFilters({ query: "", route: "all", freshness: "all" })} />}</>}<footer className="fleet-panel-footnote"><span>{streaming ? "Live list" : "Fallback list"}</span><span>Route maps and list share the same workspace-scoped filters; arrival ranges appear when route data supports them.</span></footer></section>;
 }
