@@ -4,7 +4,7 @@ import { isValidGtfsPublicId, type GtfsScheduleFeature } from "@bookingapp/domai
 import { randomUUID } from "node:crypto";
 import type { Pool } from "pg";
 import { appendAuditEvent } from "./audit-events.js";
-import { withTenantTransaction } from "./pg-executor.js";
+import { withPublicTransaction, withTenantTransaction } from "./pg-executor.js";
 import type { SqlExecutor } from "./tenant-membership.js";
 
 export type GtfsEntityKind = "agency" | "stop" | "route" | "service" | "trip" | "shape" | "vehicle" | "fare" | "area" | "pathway";
@@ -56,6 +56,14 @@ export interface GtfsFeedPublicationStatus {
   activeVersion: GtfsFeedVersion | null;
   latestVersion: GtfsFeedVersion | null;
   issueCounts: Readonly<Record<string, Readonly<Record<"error" | "warning" | "info", number>>>>;
+}
+export interface GtfsPublicScheduleArtifact {
+  tenantId: string;
+  publicSlug: string;
+  version: string;
+  objectKey: string;
+  sha256: string;
+  publishedAt: Date;
 }
 
 interface SettingsRow {
@@ -110,6 +118,15 @@ export async function readGtfsValidationIssues(executor: SqlExecutor, input: { t
   const version = await executor.query<{ id: string }>("SELECT id FROM gtfs_feed_versions WHERE tenant_id = $1 AND id = $2", [input.tenantId, input.feedVersionId]);
   if (!version[0]) return null;
   return executor.query<GtfsValidationIssue>("SELECT code, severity, file_name, entity_public_id, message, suggested_action FROM gtfs_validation_issues WHERE tenant_id = $1 AND feed_version_id = $2 ORDER BY issue_index", [input.tenantId, input.feedVersionId]);
+}
+
+export async function readGtfsPublicSchedule(executor: SqlExecutor, publicSlug: string): Promise<GtfsPublicScheduleArtifact | null> {
+  const rows = await executor.query<{ tenant_id: string; public_slug: string; version: string; schedule_object_key: string; schedule_sha256: string; published_at: Date }>(
+    "SELECT settings.tenant_id, settings.public_slug, version.version, version.schedule_object_key, version.schedule_sha256, version.published_at FROM gtfs_feed_settings settings JOIN gtfs_feed_versions version ON version.tenant_id = settings.tenant_id AND version.id = settings.active_version_id WHERE settings.public_slug = $1 AND settings.schedule_publication_enabled = true AND version.status = 'published' AND version.schedule_object_key IS NOT NULL AND version.schedule_sha256 IS NOT NULL AND version.published_at IS NOT NULL",
+    [publicSlug],
+  );
+  const row = rows[0];
+  return row ? { tenantId: row.tenant_id, publicSlug: row.public_slug, version: row.version, objectKey: row.schedule_object_key, sha256: row.schedule_sha256, publishedAt: new Date(row.published_at) } : null;
 }
 
 export async function reserveGtfsPublicId(executor: SqlExecutor, input: {
@@ -201,6 +218,7 @@ export function createDatabaseGtfsPublication(pool: Pool) {
     readSettings: (tenantId: string) => withTenantTransaction(pool, tenantId, (executor) => readGtfsFeedSettings(executor, tenantId)),
     readStatus: (tenantId: string) => withTenantTransaction(pool, tenantId, (executor) => readGtfsFeedPublicationStatus(executor, tenantId)),
     readValidation: (input: { tenantId: string; feedVersionId: string }) => withTenantTransaction(pool, input.tenantId, (executor) => readGtfsValidationIssues(executor, input)),
+    readPublicSchedule: (publicSlug: string) => withPublicTransaction(pool, (executor) => readGtfsPublicSchedule(executor, publicSlug)),
     publish: (input: { tenantId: string; feedVersionId: string; actorId: string | null }) => withTenantTransaction(pool, input.tenantId, (executor) => publishGtfsFeedVersion(executor, input)),
   };
 }

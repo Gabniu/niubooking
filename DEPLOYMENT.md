@@ -104,6 +104,12 @@ also requires `AUTH_ISSUER`, `AUTH_CLIENT_ID`, and the exact
 `AUTH_REDIRECT_URI` registered in NOVA Auth. Do not put those values in GitHub
 source, workflow YAML, or the transferred bundle.
 
+To serve a published GTFS Schedule, configure `GTFS_ARTIFACT_DIR` to a private
+read-only directory containing immutable ZIP objects whose keys are recorded in
+the database (for example `gtfs/feed-version.zip`). If it is absent, the public
+feed route fails closed with a temporary-unavailable response; the application
+never creates a placeholder feed.
+
 ## The blocking question is not technical
 
 **Booking and the Voice Platform both implement appointments, and both implement

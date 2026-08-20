@@ -45,3 +45,17 @@ export async function withTenantTransaction<T>(
     client.release();
   }
 }
+
+export async function withPublicTransaction<T>(pool: Pool, work: (executor: SqlExecutor) => Promise<T>): Promise<T> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT set_config('booking.public_feed', 'true', true)");
+    const result = await work(createSqlExecutor(client));
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally { client.release(); }
+}

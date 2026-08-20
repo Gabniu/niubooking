@@ -41,6 +41,7 @@ reservation, fleet, identity, or tenant model.
 - [x] GTFS core serialization slice: a validated Schedule draft now produces byte-stable `agency`, `stops`, `routes`, `trips`, `stop_times`, calendar/exception, shape, and frequency files with service-day times above `24:00:00` preserved.
 - [x] GTFS readiness slice: admitted transit staff can review publication state, candidate issue counts, feature readiness, and validation details through `/app/gtfs`; drivers remain denied and no public URL is advertised before a real artifact endpoint exists.
 - [x] GTFS artifact foundation: an independent file-level validator checks required files, headers, duplicate IDs, and cross-file references; a dependency-free deterministic ZIP builder rejects unsafe names and invalid candidates before storage.
+- [x] GTFS public delivery slice: the active published version is resolved through a transaction-local public RLS policy and served only from the configured immutable artifact store with ETag, Last-Modified, conditional 304 responses, and cache headers; absent storage fails closed.
 - [ ] NIU Driver React Native application with physical-device background tests.
 - [ ] Regional tile/PMTiles cost proof, route matching, provider-backed ETA calculation,
   and the physical rider browser journey remain.

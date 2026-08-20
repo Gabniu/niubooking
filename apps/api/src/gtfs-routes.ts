@@ -4,13 +4,16 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { GtfsFeatureReadiness, GtfsPublicationStatus, GtfsValidationReportResponse } from "@bookingapp/contracts";
 import type { GtfsFeedPublicationStatus, GtfsValidationIssue } from "@bookingapp/database";
 import type { TenantContextRequest } from "./tenant-context-handler.js";
+import type { GtfsArtifactStore } from "./gtfs-artifact-store.js";
 
 export interface GtfsPublicationAdmin {
   readStatus(tenantId: string): Promise<GtfsFeedPublicationStatus | null>;
   readValidation(input: { tenantId: string; feedVersionId: string }): Promise<readonly GtfsValidationIssue[] | null>;
+  readPublicSchedule?(publicSlug: string): Promise<{ tenantId: string; publicSlug: string; version: string; objectKey: string; sha256: string; publishedAt: Date } | null>;
+  artifactStore?: GtfsArtifactStore;
 }
 
-interface RouteDependencies { resolve(request: FastifyRequest<{ Params: { tenantId: string } }>): TenantContextRequest | Promise<TenantContextRequest>; gtfsPublication?: GtfsPublicationAdmin; }
+interface RouteDependencies { resolve(request: FastifyRequest<{ Params: { tenantId: string } }>): TenantContextRequest | Promise<TenantContextRequest>; gtfsPublication?: GtfsPublicationAdmin; gtfsArtifactStore?: GtfsArtifactStore; }
 const previewRoles = ["owner", "admin", "manager", "dispatcher"] as const;
 
 function admitted(context: TenantContextRequest, tenantId: string): boolean {
@@ -41,6 +44,19 @@ function statusJson(status: GtfsFeedPublicationStatus): GtfsPublicationStatus {
 function denied(reply: { code(statusCode: number): { send(payload: unknown): unknown } }) { return reply.code(403).send({ data: null, error: { code: "GTFS_ACCESS_DENIED", message: "You do not have access to transit publication settings." } }); }
 
 export function registerGtfsRoutes(app: FastifyInstance, dependencies: RouteDependencies): void {
+  app.get<{ Params: { publicSlug: string } }>("/v1/public/gtfs/:publicSlug/schedule.zip", async (request, reply) => {
+    const artifactStore = dependencies.gtfsArtifactStore ?? dependencies.gtfsPublication?.artifactStore;
+    if (!dependencies.gtfsPublication?.readPublicSchedule || !artifactStore) return reply.code(503).send({ data: null, error: { code: "GTFS_UNAVAILABLE", message: "This transit feed is temporarily unavailable." } });
+    try {
+      const metadata = await dependencies.gtfsPublication.readPublicSchedule(request.params.publicSlug);
+      if (!metadata) return reply.code(404).send({ data: null, error: { code: "GTFS_NOT_FOUND", message: "This transit feed is not available." } });
+      const etag = `"${metadata.sha256}"`; if (request.headers["if-none-match"] === etag) return reply.code(304).header("ETag", etag).send();
+      const artifact = await artifactStore.read(metadata.objectKey);
+      if (!artifact) return reply.code(503).send({ data: null, error: { code: "GTFS_UNAVAILABLE", message: "This transit feed is temporarily unavailable." } });
+      const filename = metadata.version.replace(/[^A-Za-z0-9._-]/gu, "-").slice(0, 80) || "schedule";
+      return reply.code(200).header("Content-Type", "application/zip").header("Content-Disposition", `attachment; filename="schedule-${filename}.zip"`).header("Cache-Control", "public, max-age=300, stale-while-revalidate=60").header("ETag", etag).header("Last-Modified", metadata.publishedAt.toUTCString()).send(Buffer.from(artifact));
+    } catch { return reply.code(503).send({ data: null, error: { code: "GTFS_UNAVAILABLE", message: "This transit feed is temporarily unavailable." } }); }
+  });
   app.get<{ Params: { tenantId: string } }>("/v1/tenants/:tenantId/gtfs/publication", async (request, reply) => {
     const context = await dependencies.resolve(request);
     if (!admitted(context, request.params.tenantId)) return denied(reply);

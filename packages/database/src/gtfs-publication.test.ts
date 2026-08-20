@@ -7,6 +7,7 @@ import {
   recordGtfsValidation,
   reserveGtfsPublicId,
   saveGtfsFeedSettings,
+  readGtfsPublicSchedule,
 } from "./gtfs-publication.js";
 
 test("returns the first reserved public ID on later non-identity edits", async () => {
@@ -60,4 +61,10 @@ test("publishes only a validated artifact and records the previous version", asy
   assert.equal(published.status, "published");
   assert.ok(statements.some((sql) => sql.startsWith("UPDATE gtfs_feed_settings SET active_version_id")));
   assert.ok(statements.some((sql) => sql.startsWith("INSERT INTO audit_events")));
+});
+
+test("public schedule lookup returns only the active published artifact metadata", async () => {
+  const executor = { query: async <T>(sql: string) => sql.startsWith("SELECT settings") ? [{ tenant_id: "tenant-1", public_slug: "city-feed", version: "v2", schedule_object_key: "gtfs/v2.zip", schedule_sha256: "b".repeat(64), published_at: new Date("2026-08-20T08:00:00Z") }] as T[] : [] as T[] };
+  const result = await readGtfsPublicSchedule(executor, "city-feed");
+  assert.deepEqual(result, { tenantId: "tenant-1", publicSlug: "city-feed", version: "v2", objectKey: "gtfs/v2.zip", sha256: "b".repeat(64), publishedAt: new Date("2026-08-20T08:00:00Z") });
 });
