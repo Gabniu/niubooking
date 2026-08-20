@@ -38,6 +38,7 @@ reservation, fleet, identity, or tenant model.
 - [x] Aggregate staff overview: the filtered fleet view now includes one accessible SVG overview with grouped routes, approximate live markers, freshness colors, and a no-geometry state without requiring external map tiles.
 - [x] Tracking-health slice: the staff view now summarizes live, delayed, weak, and offline signals and labels driver/conductor views as assigned-scope without exposing internal session identifiers.
 - [x] Manager stop-trip slice: owner/admin/manager/dispatcher staff can end a branch-scoped active trip from the staff list; the API returns only trip status and end time, and the row action is wired through the typed client.
+- [x] GTFS core serialization slice: a validated Schedule draft now produces byte-stable `agency`, `stops`, `routes`, `trips`, `stop_times`, calendar/exception, shape, and frequency files with service-day times above `24:00:00` preserved.
 - [ ] NIU Driver React Native application with physical-device background tests.
 - [ ] Regional tile/PMTiles cost proof, route matching, provider-backed ETA calculation,
   and the physical rider browser journey remain.
@@ -165,10 +166,12 @@ messaging only when load evidence requires it.
 ### Packet F — GTFS Schedule and Realtime publication
 
 Add stable public IDs, operator profiles, named/geocoded stops, calendars and
-exceptions, route/trip metadata, stop-times, shapes, and frequency windows.
-Generate immutable Schedule candidates, validate independently, and atomically
-promote only valid versions. Then publish cacheable protobuf VehiclePositions,
-TripUpdates, and Alerts whose references resolve against the active static feed.
+exceptions, route/trip metadata, stop-times, shapes, and frequency windows. The
+domain now serializes the core Schedule text files deterministically, including
+after-midnight and headway service. Generate immutable Schedule candidates,
+validate independently, and atomically promote only valid versions. Then publish
+cacheable protobuf VehiclePositions, TripUpdates, and Alerts whose references
+resolve against the active static feed.
 
 Plan and isolate extensions for transfers, blocks, accessibility, translations,
 pathways, Fares v2, demand-responsive booking rules/zones, occupancy, and

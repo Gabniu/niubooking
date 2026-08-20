@@ -10,6 +10,7 @@ export * from "./realtime-telemetry.js";
 export * from "./realtime-eta.js";
 export * from "./realtime-tracking.js";
 export * from "./gtfs-schedule.js";
+export * from "./gtfs-export.js";
 export * from "./gtfs-realtime.js";
 export * from "./resources.js";
 export * from "./services.js";
