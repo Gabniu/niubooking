@@ -131,8 +131,9 @@ Add current-fleet query and stream projections for owners, explicit-scope
 admins, branch managers, dispatchers, assigned drivers, and conductors. Extend
 `/app/transport` with fleet map/list modes, filters, tracking health, last update,
 conservative ETA ranges, incident states, permission denial, empty fleet, and
-degraded stream recovery. The list, route context, per-vehicle maps, and ETA
-slice are now wired; aggregate map/filter and richer assigned-trip controls remain.
+degraded stream recovery. The list, route context, per-vehicle maps, ETA, and
+route/signal/search filters are now wired; an aggregate all-vehicles map and
+richer assigned-trip controls remain.
 
 ### Packet C — Rider journey tracking
 

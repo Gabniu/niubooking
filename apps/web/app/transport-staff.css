@@ -65,6 +65,15 @@
 .fleet-vehicle-main span, .fleet-vehicle-main small, .fleet-vehicle-meta time { overflow: hidden; color: #64748b; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .fleet-vehicle-main small { color: #94a3b8; }
 .fleet-vehicle-meta { justify-items: end; }
+.fleet-filters { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 9px; background: #fbfcff; }
+.fleet-filters label { display: grid; gap: 4px; min-width: 128px; }
+.fleet-filters label span { color: #64748b; font-size: 10px; font-weight: 600; }
+.fleet-filters input, .fleet-filters select { min-height: 31px; padding: 5px 8px; border: 1px solid #d8deea; border-radius: 7px; color: #17213a; background: #fff; font: inherit; font-size: 11px; }
+.fleet-filters input { width: 150px; }
+.fleet-filters input:focus-visible, .fleet-filters select:focus-visible { outline: 2px solid #b9b6ff; outline-offset: 1px; }
+.fleet-filter-count { margin-left: auto; color: #64748b; font-size: 10px; white-space: nowrap; }
+.fleet-filter-reset { min-height: 31px; padding: 0 9px; color: #140ba7; border: 1px solid #c8c6f3; border-radius: 7px; background: #fff; cursor: pointer; font-size: 10px; }
+.fleet-filter-reset:hover, .fleet-filter-reset:focus-visible { border-color: #140ba7; background: #f5f4ff; outline: 3px solid #e9e8fb; }
 .fleet-freshness { display: inline-flex; align-items: center; gap: 5px; color: #64748b; font-size: 10px; font-weight: 500; white-space: nowrap; }
 .fleet-freshness i { width: 6px; height: 6px; display: inline-block; border-radius: 50%; background: currentColor; }
 .fleet-freshness-live .fleet-freshness { color: #047857; }
