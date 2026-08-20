@@ -20,10 +20,14 @@ test("allows a not-ready worker with no providers for health reporting", () => {
   assert.deepEqual(config.providers, []);
   assert.equal(config.intervalMs, 15_000);
   assert.equal(config.batchLimit, 25);
+  assert.equal(config.gtfsRefreshIntervalMs, 30_000);
+  assert.equal(config.gtfsRefreshLimit, 50);
   assert.equal(config.healthPort, 3200);
 });
 
 test("bounds worker cadence and batch settings", () => {
   assert.throws(() => readWorkerRuntimeConfig({ DATABASE_URL: "postgres://booking", PUBLIC_BASE_URL: "https://booking.test", WORKER_INTERVAL_MS: "500" }), /WORKER_INTERVAL_MS/);
   assert.throws(() => readWorkerRuntimeConfig({ DATABASE_URL: "postgres://booking", PUBLIC_BASE_URL: "https://booking.test", WORKER_BATCH_LIMIT: "101" }), /WORKER_BATCH_LIMIT/);
+  assert.throws(() => readWorkerRuntimeConfig({ DATABASE_URL: "postgres://booking", PUBLIC_BASE_URL: "https://booking.test", GTFS_REFRESH_INTERVAL_MS: "1000" }), /GTFS_REFRESH_INTERVAL_MS/);
+  assert.throws(() => readWorkerRuntimeConfig({ DATABASE_URL: "postgres://booking", PUBLIC_BASE_URL: "https://booking.test", GTFS_REFRESH_LIMIT: "101" }), /GTFS_REFRESH_LIMIT/);
 });

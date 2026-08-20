@@ -54,6 +54,11 @@ the compose network, and uses a 256 MB memory limit. Set
 the server when real email, SMS, or voice delivery is enabled. With no
 provider configured it remains liveness-healthy but readiness reports that
 delivery is not ready; this avoids pretending that messages were delivered.
+The same worker performs a bounded GTFS-Realtime projection refresh every 30
+seconds by default, limited to 50 enabled public feeds per cycle. Override
+`BOOKING_GTFS_REFRESH_INTERVAL_MS` or `BOOKING_GTFS_REFRESH_LIMIT` only after
+measuring database and projection cost; the local machine does not need to run
+Docker for this contract to be tested.
 The API starts in a fail-closed staging mode: public routes and health probes
 can be exercised, while staff routes now resolve an opaque HttpOnly session
 through `booking_sessions` and a transaction-local active tenant membership.

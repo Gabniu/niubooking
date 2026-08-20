@@ -9,6 +9,8 @@ export interface WorkerRuntimeConfig {
   providers: readonly ProviderConfig[];
   intervalMs: number;
   batchLimit: number;
+  gtfsRefreshIntervalMs: number;
+  gtfsRefreshLimit: number;
   healthHost: string;
   healthPort: number;
 }
@@ -28,8 +30,10 @@ export function readWorkerRuntimeConfig(env: Record<string, string | undefined>)
   });
   const intervalMs = boundedInteger(env.WORKER_INTERVAL_MS, 15_000, 1_000, 300_000, "WORKER_INTERVAL_MS");
   const batchLimit = boundedInteger(env.WORKER_BATCH_LIMIT, 25, 1, 100, "WORKER_BATCH_LIMIT");
+  const gtfsRefreshIntervalMs = boundedInteger(env.GTFS_REFRESH_INTERVAL_MS, 30_000, 15_000, 300_000, "GTFS_REFRESH_INTERVAL_MS");
+  const gtfsRefreshLimit = boundedInteger(env.GTFS_REFRESH_LIMIT, 50, 1, 100, "GTFS_REFRESH_LIMIT");
   const healthPort = boundedInteger(env.WORKER_HEALTH_PORT, 3200, 1, 65535, "WORKER_HEALTH_PORT");
-  return { databaseUrl, publicBaseUrl: parsed.toString(), providers, intervalMs, batchLimit, healthHost: env.WORKER_HEALTH_HOST?.trim() || "127.0.0.1", healthPort };
+  return { databaseUrl, publicBaseUrl: parsed.toString(), providers, intervalMs, batchLimit, gtfsRefreshIntervalMs, gtfsRefreshLimit, healthHost: env.WORKER_HEALTH_HOST?.trim() || "127.0.0.1", healthPort };
 }
 
 function boundedInteger(raw: string | undefined, fallback: number, min: number, max: number, name: string): number {

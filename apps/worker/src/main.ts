@@ -1,11 +1,12 @@
 // Ownership: worker process entrypoint. It composes providers once, then runs bounded outbox ticks.
 
-import { createPool, createPoolExecutor } from "@bookingapp/database";
+import { createPool, createPoolExecutor, readPublicGtfsVehiclePositions, withPublicTransaction } from "@bookingapp/database";
 import { createHttpChannelProvider } from "./http-channel-provider.js";
 import { createWorkerHealthServer } from "./health-server.js";
 import { createProviderRouter, type ChannelProviders } from "./provider-router.js";
 import { readWorkerRuntimeConfig } from "./runtime-config.js";
 import { createDatabaseRecipientResolver, createWorkerRuntime } from "./worker-runtime.js";
+import { createGtfsRefreshTask } from "./gtfs-refresh.js";
 
 const config = readWorkerRuntimeConfig(process.env);
 const pool = createPool(config.databaseUrl);
@@ -17,7 +18,16 @@ const request = async (url: string, init: { method: "POST"; headers: Record<stri
 };
 for (const provider of config.providers) providers[provider.channel] = createHttpChannelProvider(provider, request);
 const router = createProviderRouter(providers, { feedback: { executor, publicBaseUrl: config.publicBaseUrl } });
-const runtime = createWorkerRuntime(executor, router, config.providers.map((provider) => provider.channel), config.batchLimit, { resolveRecipient: createDatabaseRecipientResolver(executor) });
+const gtfsRealtimeRefresh = createGtfsRefreshTask({
+  intervalMs: config.gtfsRefreshIntervalMs,
+  maxTargets: config.gtfsRefreshLimit,
+  listTargets: async (limit) => withPublicTransaction(pool, async (publicExecutor) => (await publicExecutor.query<{ public_slug: string }>("SELECT public_slug FROM gtfs_feed_settings WHERE schedule_publication_enabled = true AND realtime_publication_enabled = true ORDER BY public_slug LIMIT $1", [limit])).map((row) => ({ publicSlug: row.public_slug }))),
+  refreshTarget: async (target, now) => {
+    const feed = await readPublicGtfsVehiclePositions(pool, target.publicSlug, now);
+    return feed ? { entityCount: feed.entities.length } : null;
+  },
+});
+const runtime = createWorkerRuntime(executor, router, config.providers.map((provider) => provider.channel), config.batchLimit, { resolveRecipient: createDatabaseRecipientResolver(executor), gtfsRealtimeRefresh });
 const health = createWorkerHealthServer(runtime);
 const timer = setInterval(() => { void runtime.tick().catch(() => undefined); }, config.intervalMs);
 timer.unref();

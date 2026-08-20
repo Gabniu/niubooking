@@ -103,7 +103,10 @@ drops stale or unresolved rows. Generated versions snapshot route/trip/stop
 IDs in `gtfs_feed_version_entities`, so later source edits cannot silently
 change what the promoted feed means. Staff publication status also reports the
 latest active observation and classifies the feed as healthy, delayed, stale,
-or disabled using bounded freshness thresholds. Refresh workers, TripUpdates, Alerts,
+or disabled using bounded freshness thresholds. The worker has a bounded,
+cadence-controlled refresh/readiness seam that probes enabled public
+projections without persisting a second source of truth. Persistent feed
+caching, TripUpdates, Alerts,
 occupancy, and detours remain explicit follow-on work.
 
 # Product and authorization boundary

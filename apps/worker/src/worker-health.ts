@@ -12,6 +12,16 @@ export interface WorkerHealth {
   status: "ready" | "degraded" | "not_ready";
   configuredChannels: readonly string[];
   counters: WorkerCounters;
+  gtfsRealtime?: GtfsRealtimeRefreshHealth;
+  reason: string | null;
+}
+
+export interface GtfsRealtimeRefreshHealth {
+  status: "healthy" | "degraded" | "not_ready";
+  targetCount: number;
+  refreshedCount: number;
+  failedCount: number;
+  lastRunAt: Date | null;
   reason: string | null;
 }
 
@@ -28,8 +38,8 @@ export function recordBatch(counters: WorkerCounters, result: { claimed: number;
   return counters;
 }
 
-export function workerHealth(configuredChannels: readonly string[], counters: WorkerCounters, now = new Date(), staleAfterMs = 5 * 60_000): WorkerHealth {
-  if (configuredChannels.length === 0) return { status: "not_ready", configuredChannels: [], counters, reason: "No communication provider is configured." };
-  if (counters.lastBatchAt && now.getTime() - counters.lastBatchAt.getTime() > staleAfterMs) return { status: "degraded", configuredChannels, counters, reason: "No worker batch has completed recently." };
-  return { status: "ready", configuredChannels, counters, reason: null };
+export function workerHealth(configuredChannels: readonly string[], counters: WorkerCounters, now = new Date(), staleAfterMs = 5 * 60_000, gtfsRealtime?: GtfsRealtimeRefreshHealth): WorkerHealth {
+  const reason = configuredChannels.length === 0 ? "No communication provider is configured." : counters.lastBatchAt && now.getTime() - counters.lastBatchAt.getTime() > staleAfterMs ? "No worker batch has completed recently." : gtfsRealtime?.reason ?? null;
+  const status = configuredChannels.length === 0 ? "not_ready" : counters.lastBatchAt && now.getTime() - counters.lastBatchAt.getTime() > staleAfterMs || gtfsRealtime?.status === "degraded" || gtfsRealtime?.status === "not_ready" ? "degraded" : "ready";
+  return { status, configuredChannels: configuredChannels.length ? configuredChannels : [], counters, ...(gtfsRealtime ? { gtfsRealtime } : {}), reason };
 }
