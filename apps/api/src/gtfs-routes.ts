@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { GtfsFeatureReadiness, GtfsPublicationStatus, GtfsValidationReportResponse } from "@bookingapp/contracts";
 import { GtfsPublicationCommandError, type GtfsFeedPublicationStatus, type GtfsValidationIssue, type GtfsPublicationAction } from "@bookingapp/database";
-import { validateGtfsScheduleFiles, type GtfsScheduleFile } from "@bookingapp/domain";
+import { serializeGtfsRealtimeVehiclePositions, validateGtfsScheduleFiles, type GtfsScheduleFile } from "@bookingapp/domain";
 import type { TenantContextRequest } from "./tenant-context-handler.js";
 import type { GtfsArtifactStore } from "./gtfs-artifact-store.js";
 import { persistGtfsScheduleArtifact } from "./gtfs-artifact-publisher.js";
@@ -13,6 +13,7 @@ export interface GtfsPublicationAdmin {
   readStatus(tenantId: string): Promise<GtfsFeedPublicationStatus | null>;
   readValidation(input: { tenantId: string; feedVersionId: string }): Promise<readonly GtfsValidationIssue[] | null>;
   readPublicSchedule?(publicSlug: string): Promise<{ tenantId: string; publicSlug: string; version: string; objectKey: string; sha256: string; publishedAt: Date } | null>;
+  readPublicVehiclePositions?(publicSlug: string): Promise<import("@bookingapp/domain").GtfsRealtimeVehiclePositionsFeed | null>;
   artifactStore?: GtfsArtifactStore;
   readScheduleFiles?(input: { tenantId: string; feedVersionId: string }): Promise<readonly GtfsScheduleFile[] | null>;
   recordValidation?(input: { tenantId: string; feedVersionId: string; issues: readonly { code: string; severity: "error" | "warning" | "info"; fileName?: string; entityPublicId?: string; message: string; suggestedAction?: string }[]; scheduleSha256?: string; scheduleObjectKey?: string; actorId?: string | null }): Promise<NonNullable<GtfsFeedPublicationStatus["activeVersion"]>>;
@@ -46,7 +47,8 @@ function readiness(status: GtfsFeedPublicationStatus): readonly GtfsFeatureReadi
 function statusJson(status: GtfsFeedPublicationStatus): GtfsPublicationStatus {
   const active = status.activeVersion ? versionSummary(status.activeVersion, status.issueCounts) : null;
   const latest = status.latestVersion ? versionSummary(status.latestVersion, status.issueCounts) : null;
-  return { organizationId: status.settings.tenantId, publicScheduleUrl: null, publicVehiclePositionsUrl: null, publicTripUpdatesUrl: null, publicAlertsUrl: null, activeSchedule: active, latestCandidate: latest, versions: status.versions.map((version) => versionSummary(version, status.issueCounts)), features: readiness(status), lastRealtimeObservationAt: null, realtimeState: status.settings.realtimePublicationEnabled ? "stale" : "disabled" };
+  const feedPath = `/v1/public/gtfs/${encodeURIComponent(status.settings.publicSlug)}`;
+  return { organizationId: status.settings.tenantId, publicScheduleUrl: status.settings.schedulePublicationEnabled ? `${feedPath}/schedule.zip` : null, publicVehiclePositionsUrl: status.settings.realtimePublicationEnabled ? `${feedPath}/vehicle-positions.pb` : null, publicTripUpdatesUrl: null, publicAlertsUrl: null, activeSchedule: active, latestCandidate: latest, versions: status.versions.map((version) => versionSummary(version, status.issueCounts)), features: readiness(status), lastRealtimeObservationAt: null, realtimeState: status.settings.realtimePublicationEnabled ? "stale" : "disabled" };
 }
 
 function denied(reply: { code(statusCode: number): { send(payload: unknown): unknown } }) { return reply.code(403).send({ data: null, error: { code: "GTFS_ACCESS_DENIED", message: "You do not have access to transit publication settings." } }); }
@@ -65,6 +67,17 @@ export function registerGtfsRoutes(app: FastifyInstance, dependencies: RouteDepe
       const filename = metadata.version.replace(/[^A-Za-z0-9._-]/gu, "-").slice(0, 80) || "schedule";
       return reply.code(200).header("Content-Type", "application/zip").header("Content-Disposition", `attachment; filename="schedule-${filename}.zip"`).header("Cache-Control", "public, max-age=300, stale-while-revalidate=60").header("ETag", etag).header("Last-Modified", metadata.publishedAt.toUTCString()).send(Buffer.from(artifact));
     } catch { return reply.code(503).send({ data: null, error: { code: "GTFS_UNAVAILABLE", message: "This transit feed is temporarily unavailable." } }); }
+  });
+  app.get<{ Params: { publicSlug: string } }>("/v1/public/gtfs/:publicSlug/vehicle-positions.pb", async (request, reply) => {
+    if (!dependencies.gtfsPublication?.readPublicVehiclePositions) return reply.code(503).send({ data: null, error: { code: "GTFS_REALTIME_UNAVAILABLE", message: "Live vehicle positions are temporarily unavailable." } });
+    try {
+      const feed = await dependencies.gtfsPublication.readPublicVehiclePositions(request.params.publicSlug);
+      if (!feed) return reply.code(404).send({ data: null, error: { code: "GTFS_REALTIME_NOT_FOUND", message: "Live vehicle positions are not enabled for this feed." } });
+      const payload = Buffer.from(serializeGtfsRealtimeVehiclePositions(feed));
+      const etag = `"${createHash("sha256").update(payload).digest("hex")}"`;
+      if (request.headers["if-none-match"] === etag) return reply.code(304).header("ETag", etag).send();
+      return reply.code(200).header("Content-Type", "application/x-protobuf").header("Cache-Control", "public, max-age=15, stale-while-revalidate=15").header("ETag", etag).header("X-GTFS-Schedule-Version", feed.scheduleVersion).send(payload);
+    } catch { return reply.code(503).send({ data: null, error: { code: "GTFS_REALTIME_UNAVAILABLE", message: "Live vehicle positions are temporarily unavailable." } }); }
   });
   app.post<{ Params: { tenantId: string; feedVersionId: string } }>("/v1/tenants/:tenantId/gtfs/versions/:feedVersionId/generate", async (request, reply) => {
     const context = await dependencies.resolve(request);

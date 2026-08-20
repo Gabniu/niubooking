@@ -6,9 +6,11 @@ import {
   validateGtfsRealtimeAlert,
   validateGtfsRealtimeTripUpdate,
   validateGtfsRealtimeVehiclePosition,
+  buildGtfsRealtimeVehiclePositions,
   type GtfsPublishedReferences,
   type GtfsRealtimeVehiclePosition,
 } from "./gtfs-realtime.js";
+import { serializeGtfsRealtimeVehiclePositions } from "./gtfs-realtime-protobuf.js";
 
 const now = new Date("2026-08-19T12:00:00Z");
 const published: GtfsPublishedReferences = {
@@ -80,4 +82,20 @@ test("validates alert selectors and active periods", () => {
     headerText: "Changed stop",
     stopPublicIds: ["missing"],
   }, published).join("; "), /unknown stop/iu);
+});
+
+test("builds a deterministic privacy-safe VehiclePositions feed and drops stale candidates", () => {
+  const generatedAt = new Date("2026-08-19T12:00:00Z");
+  const result = buildGtfsRealtimeVehiclePositions({
+    scheduleVersion: "2026-08-19.1", generatedAt, published,
+    candidates: [
+      { entityPublicId: "vp-b", vehiclePublicId: "vehicle-b", tripPublicId: "route-23-pattern-a", routePublicId: "route-23", startDate: "20260819", latitude: -1.2, longitude: 36.8, capturedAt: new Date("2026-08-19T11:59:45Z") },
+      { entityPublicId: "vp-a", vehiclePublicId: "vehicle-a", tripPublicId: "missing-trip", routePublicId: "route-23", startDate: "20260819", latitude: -1.2, longitude: 36.8, capturedAt: new Date("2026-08-19T11:59:45Z") },
+    ],
+  });
+  assert.deepEqual(result.feed.entities.map((entity) => entity.entityPublicId), ["vp-b"]);
+  assert.equal(result.dropped[0]?.entityPublicId, "vp-a");
+  const encoded = serializeGtfsRealtimeVehiclePositions(result.feed);
+  assert.ok(encoded.length > 20);
+  assert.match(new TextDecoder().decode(encoded), /2\.0/iu);
 });

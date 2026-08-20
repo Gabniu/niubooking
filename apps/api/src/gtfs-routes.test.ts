@@ -70,3 +70,20 @@ test("owner can generate a validated Schedule artifact before publishing", async
   assert.equal(response.statusCode, 200); assert.equal(response.json().data.feedVersion.lifecycle, "ready"); assert.match(savedKey, /^gtfs\/[a-f0-9]{64}\.zip$/u);
   await app.close();
 });
+
+test("public VehiclePositions delivery uses protobuf and omits private telemetry identifiers", async () => {
+  const app = createApiServer({ resolve: context, gtfsPublication: {
+    readStatus: async () => null, readValidation: async () => [],
+    readPublicVehiclePositions: async (slug) => slug === "city-feed" ? {
+      scheduleVersion: "2026.08.20.1", generatedAt: new Date("2026-08-20T08:02:00Z"),
+      entities: [{ entityPublicId: "vp-vehicle-1", vehiclePublicId: "vehicle-1", trip: { tripPublicId: "trip-1", routePublicId: "route-1", startDate: "20260820", scheduleRelationship: "scheduled" as const }, latitude: -1.28, longitude: 36.82, capturedAt: new Date("2026-08-20T08:01:45Z") }],
+    } : null,
+  } });
+  const response = await app.inject({ method: "GET", url: "/v1/public/gtfs/city-feed/vehicle-positions.pb" });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers["content-type"], "application/x-protobuf");
+  assert.equal(response.headers["x-gtfs-schedule-version"], "2026.08.20.1");
+  assert.equal(response.rawPayload.includes(Buffer.from("driver-1")), false);
+  assert.equal((await app.inject({ method: "GET", url: "/v1/public/gtfs/missing/vehicle-positions.pb" })).statusCode, 404);
+  await app.close();
+});

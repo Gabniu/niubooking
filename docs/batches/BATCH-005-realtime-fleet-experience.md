@@ -174,6 +174,13 @@ messaging only when load evidence requires it.
 
 ### Packet F — GTFS Schedule and Realtime publication
 
+VehiclePositions now has a safe first slice: the public protobuf endpoint only
+reads an active published Schedule with realtime opt-in, joins expiring current
+positions to stable vehicle/trip/route mappings, rejects stale or unresolved
+rows, and never exposes driver, device, tenant, or session identifiers. The
+remaining work is the refresh worker, immutable Schedule-reference snapshots,
+staff controls, TripUpdates, Alerts, occupancy, and detours.
+
 Add stable public IDs, operator profiles, named/geocoded stops, calendars and
 exceptions, route/trip metadata, stop-times, shapes, and frequency windows. The
 domain now serializes the core Schedule text files deterministically, including

@@ -95,6 +95,14 @@ and omit vehicle/trip observations older than 90 seconds. The private staff and
 rider streams remain faster and richer; the GTFS feed is coarser, cacheable,
 anonymous, and independently rate limited.
 
+The first delivered realtime slice is the public `vehicle-positions.pb`
+projection. It requires a published Schedule, realtime opt-in, an unexpired
+tracking session, a current position, and stable vehicle/trip/route mappings.
+It uses a dependency-free Protocol Buffer encoder, short cache headers, and
+drops stale or unresolved rows. Refresh workers, immutable per-version
+reference snapshots, TripUpdates, Alerts, occupancy, and detours remain
+explicit follow-on work.
+
 # Product and authorization boundary
 
 GTFS publication is a separate organization capability from private realtime
@@ -110,11 +118,13 @@ from GTFS.
 
 # Current schema gaps
 
-The transport foundation does not yet persist agency profiles, stable GTFS IDs,
-named/geocoded stops, service calendars, shapes, exact stop-times, frequency
-windows, feed versions, rider-quality extensions, or publication policy. These
-are explicit BATCH-005 prerequisites; array order and internal UUIDs are not an
-acceptable substitute.
+The core Schedule and realtime foundations now persist agency profiles,
+stable GTFS IDs, named/geocoded stops, service calendars, shapes, stop-times,
+frequency windows, feed versions, publication policy, tracking sessions, and
+current positions. Immutable per-feed reference snapshots, worker refresh
+orchestration, rider-quality extensions, TripUpdates, Alerts, occupancy,
+detours, and richer source settings remain explicit BATCH-005 work; array order
+and internal UUIDs are not an acceptable substitute.
 
 # Acceptance
 

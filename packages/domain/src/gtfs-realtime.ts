@@ -70,6 +70,50 @@ export interface GtfsRealtimeAlert {
   readonly tripPublicIds?: readonly string[];
 }
 
+export interface GtfsRealtimeVehiclePositionsFeed {
+  readonly scheduleVersion: string;
+  readonly generatedAt: Date;
+  readonly entities: readonly GtfsRealtimeVehiclePosition[];
+}
+
+export interface GtfsRealtimeVehiclePositionCandidate {
+  readonly entityPublicId: string;
+  readonly vehiclePublicId: string;
+  readonly tripPublicId: string;
+  readonly routePublicId: string;
+  readonly startDate: string;
+  readonly latitude: number;
+  readonly longitude: number;
+  readonly bearing?: number;
+  readonly speedMetresPerSecond?: number;
+  readonly capturedAt: Date;
+}
+
+export function buildGtfsRealtimeVehiclePositions(input: {
+  scheduleVersion: string;
+  generatedAt: Date;
+  published: GtfsPublishedReferences;
+  candidates: readonly GtfsRealtimeVehiclePositionCandidate[];
+}): { feed: GtfsRealtimeVehiclePositionsFeed; dropped: readonly { entityPublicId: string; reasons: readonly string[] }[] } {
+  const dropped: { entityPublicId: string; reasons: readonly string[] }[] = [];
+  const entities = input.candidates.flatMap((candidate) => {
+    const position: GtfsRealtimeVehiclePosition = {
+      entityPublicId: candidate.entityPublicId,
+      vehiclePublicId: candidate.vehiclePublicId,
+      trip: { tripPublicId: candidate.tripPublicId, routePublicId: candidate.routePublicId, startDate: candidate.startDate, scheduleRelationship: "scheduled" },
+      latitude: candidate.latitude,
+      longitude: candidate.longitude,
+      ...(candidate.bearing === undefined ? {} : { bearing: candidate.bearing }),
+      ...(candidate.speedMetresPerSecond === undefined ? {} : { speedMetresPerSecond: candidate.speedMetresPerSecond }),
+      capturedAt: candidate.capturedAt,
+    };
+    const reasons = validateGtfsRealtimeVehiclePosition(position, input.published, input.generatedAt);
+    if (reasons.length) { dropped.push({ entityPublicId: candidate.entityPublicId, reasons }); return []; }
+    return [position];
+  }).sort((left, right) => left.entityPublicId.localeCompare(right.entityPublicId));
+  return { feed: { scheduleVersion: input.scheduleVersion, generatedAt: input.generatedAt, entities }, dropped };
+}
+
 function validDate(value: Date): boolean {
   return Number.isFinite(value.getTime());
 }

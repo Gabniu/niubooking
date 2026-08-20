@@ -14,6 +14,7 @@ export * from "./gtfs-export.js";
 export * from "./gtfs-validation.js";
 export * from "./gtfs-archive.js";
 export * from "./gtfs-realtime.js";
+export * from "./gtfs-realtime-protobuf.js";
 export * from "./resources.js";
 export * from "./services.js";
 export * from "./service-variants.js";

@@ -3,6 +3,12 @@
 .gtfs-page .page-intro { align-items: end; }
 .gtfs-summary-card, .gtfs-version-card, .gtfs-features, .gtfs-validation { display: grid; gap: 10px; padding: 18px; border: 1px solid #dfe3f4; border-radius: 14px; background: #fff; box-shadow: 0 8px 24px rgb(20 11 167 / 5%); }
 .gtfs-summary-card { grid-template-columns: 1fr auto; align-items: start; }
+.gtfs-public-links { display: grid; gap: 10px; padding: 14px 18px; border: 1px solid #dfe3f4; border-radius: 14px; background: #f8f9ff; }
+.gtfs-public-links h2 { margin: 3px 0; color: #14114b; font-size: 16px; font-weight: 500; }
+.gtfs-public-links ul { display: grid; gap: 7px; padding: 0; margin: 0; list-style: none; }
+.gtfs-public-links li { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #475569; font-size: 12px; }
+.gtfs-public-links a { color: #140ba7; font-weight: 600; text-decoration: none; }
+.gtfs-public-links a:hover { text-decoration: underline; }
 .gtfs-summary-card h2, .gtfs-version-card h2, .gtfs-features h2, .gtfs-validation h2 { margin: 3px 0; color: #14114b; font-size: 18px; font-weight: 500; }
 .gtfs-summary-card p, .gtfs-version-card p, .gtfs-features p, .gtfs-validation p { margin: 0; color: #64748b; font-size: 12px; line-height: 1.45; }
 .gtfs-version-list { display: grid; gap: 10px; }
