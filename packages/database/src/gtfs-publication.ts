@@ -27,6 +27,7 @@ export interface GtfsFeedVersion {
   tenantId: string;
   version: string;
   status: GtfsFeedVersionStatus;
+  createdAt: Date;
   validFrom: string;
   validUntil: string;
   scheduleSha256: string | null;
@@ -45,6 +46,18 @@ export interface GtfsValidationIssueDraft {
   suggestedAction?: string;
 }
 
+export interface GtfsValidationIssue {
+  code: string; severity: "error" | "warning" | "info"; fileName: string | null;
+  entityPublicId: string | null; message: string; suggestedAction: string | null;
+}
+
+export interface GtfsFeedPublicationStatus {
+  settings: GtfsFeedSettings;
+  activeVersion: GtfsFeedVersion | null;
+  latestVersion: GtfsFeedVersion | null;
+  issueCounts: Readonly<Record<string, Readonly<Record<"error" | "warning" | "info", number>>>>;
+}
+
 interface SettingsRow {
   tenant_id: string; public_slug: string; publisher_name: string; publisher_url: string;
   default_language: string; enabled_features: GtfsScheduleFeature[];
@@ -55,7 +68,7 @@ interface VersionRow {
   id: string; tenant_id: string; version: string; status: GtfsFeedVersionStatus;
   valid_from: string; valid_until: string; schedule_sha256: string | null;
   schedule_object_key: string | null; generated_at: Date | null;
-  validated_at: Date | null; published_at: Date | null;
+  validated_at: Date | null; published_at: Date | null; created_at?: Date;
 }
 
 function mapSettings(row: SettingsRow): GtfsFeedSettings {
@@ -70,12 +83,33 @@ function mapSettings(row: SettingsRow): GtfsFeedSettings {
 function mapVersion(row: VersionRow): GtfsFeedVersion {
   return {
     id: row.id, tenantId: row.tenant_id, version: row.version, status: row.status,
+    createdAt: row.created_at ? new Date(row.created_at) : new Date(0),
     validFrom: String(row.valid_from), validUntil: String(row.valid_until),
     scheduleSha256: row.schedule_sha256, scheduleObjectKey: row.schedule_object_key,
     generatedAt: row.generated_at ? new Date(row.generated_at) : null,
     validatedAt: row.validated_at ? new Date(row.validated_at) : null,
     publishedAt: row.published_at ? new Date(row.published_at) : null,
   };
+}
+
+function emptyIssueCounts(): { error: number; warning: number; info: number } { return { error: 0, warning: 0, info: 0 }; }
+
+export async function readGtfsFeedPublicationStatus(executor: SqlExecutor, tenantId: string): Promise<GtfsFeedPublicationStatus | null> {
+  const settings = await readGtfsFeedSettings(executor, tenantId);
+  if (!settings) return null;
+  const versions = await executor.query<VersionRow>("SELECT id, tenant_id, version, status, valid_from, valid_until, schedule_sha256, schedule_object_key, generated_at, validated_at, published_at, created_at FROM gtfs_feed_versions WHERE tenant_id = $1 ORDER BY created_at DESC, id DESC", [tenantId]);
+  const counts = await executor.query<{ feed_version_id: string; severity: "error" | "warning" | "info"; count: string }>("SELECT feed_version_id, severity, count(*)::text AS count FROM gtfs_validation_issues WHERE tenant_id = $1 GROUP BY feed_version_id, severity", [tenantId]);
+  const issueCounts: Record<string, { error: number; warning: number; info: number }> = {};
+  for (const version of versions) issueCounts[version.id] = emptyIssueCounts();
+  for (const issue of counts) { const target = issueCounts[issue.feed_version_id] ?? emptyIssueCounts(); target[issue.severity] = Number(issue.count); issueCounts[issue.feed_version_id] = target; }
+  const activeVersion = versions.find((version) => version.id === settings.activeVersionId) ?? null;
+  return { settings, activeVersion: activeVersion ? mapVersion(activeVersion) : null, latestVersion: versions[0] ? mapVersion(versions[0]) : null, issueCounts };
+}
+
+export async function readGtfsValidationIssues(executor: SqlExecutor, input: { tenantId: string; feedVersionId: string }): Promise<readonly GtfsValidationIssue[] | null> {
+  const version = await executor.query<{ id: string }>("SELECT id FROM gtfs_feed_versions WHERE tenant_id = $1 AND id = $2", [input.tenantId, input.feedVersionId]);
+  if (!version[0]) return null;
+  return executor.query<GtfsValidationIssue>("SELECT code, severity, file_name, entity_public_id, message, suggested_action FROM gtfs_validation_issues WHERE tenant_id = $1 AND feed_version_id = $2 ORDER BY issue_index", [input.tenantId, input.feedVersionId]);
 }
 
 export async function reserveGtfsPublicId(executor: SqlExecutor, input: {
@@ -165,6 +199,8 @@ export async function publishGtfsFeedVersion(executor: SqlExecutor, input: {
 export function createDatabaseGtfsPublication(pool: Pool) {
   return {
     readSettings: (tenantId: string) => withTenantTransaction(pool, tenantId, (executor) => readGtfsFeedSettings(executor, tenantId)),
+    readStatus: (tenantId: string) => withTenantTransaction(pool, tenantId, (executor) => readGtfsFeedPublicationStatus(executor, tenantId)),
+    readValidation: (input: { tenantId: string; feedVersionId: string }) => withTenantTransaction(pool, input.tenantId, (executor) => readGtfsValidationIssues(executor, input)),
     publish: (input: { tenantId: string; feedVersionId: string; actorId: string | null }) => withTenantTransaction(pool, input.tenantId, (executor) => publishGtfsFeedVersion(executor, input)),
   };
 }

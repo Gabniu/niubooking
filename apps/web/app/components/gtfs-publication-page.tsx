@@ -1,0 +1,28 @@
+// Ownership: compact admitted workspace view for GTFS Schedule readiness.
+
+"use client";
+
+import { useEffect, useState } from "react";
+import type { GtfsPublicationStatus } from "@bookingapp/contracts";
+import { fetchGtfsPublication, fetchGtfsValidation } from "../../src/gtfs-client.js";
+import { AdmissionNotice, apiBase, useWorkspaceAdmission, WorkspacePicker } from "./workspace-admission.js";
+import { WorkspaceShell } from "./workspace-shell.js";
+
+const request = (input: string, init: { credentials: "include" }) => window.fetch(input, init);
+type ViewState = { kind: "loading" | "ready" | "error"; message: string };
+
+function VersionCard({ label, version, onReview }: { label: string; version: NonNullable<GtfsPublicationStatus["latestCandidate"]>; onReview: () => void }) {
+  const totalIssues = Object.values(version.issueCounts).reduce((sum, count) => sum + count, 0);
+  return <article className="gtfs-version-card"><div><p className="eyebrow">{label}</p><h2>{version.version}</h2><p>{version.validFrom} to {version.validUntil}</p></div><div className="gtfs-version-meta"><span className={version.lifecycle === "published" ? "gtfs-pill good" : "gtfs-pill"}>{version.lifecycle}</span><span>{totalIssues} validation issue{totalIssues === 1 ? "" : "s"}</span><button className="account-button" type="button" onClick={onReview}>Review validation</button></div></article>;
+}
+
+export function GtfsPublicationPage() {
+  const { admission } = useWorkspaceAdmission();
+  const [status, setStatus] = useState<ViewState>({ kind: "loading", message: "Loading transit publication..." });
+  const [publication, setPublication] = useState<GtfsPublicationStatus | null>(null);
+  const [validation, setValidation] = useState<{ message: string; issues: readonly { severity: string; message: string; file?: string }[] } | null>(null);
+  const load = () => { if (admission.kind !== "ready") return; setStatus({ kind: "loading", message: "Loading transit publication..." }); void fetchGtfsPublication(request, apiBase, admission.tenantId).then((result) => { if (result.kind === "ready") { setPublication(result.status); setStatus({ kind: "ready", message: "Transit publication status is ready." }); } else setStatus({ kind: "error", message: result.message }); }).catch(() => setStatus({ kind: "error", message: "Transit publication could not be loaded." })); };
+  useEffect(load, [admission]);
+  async function review(versionId: string) { if (admission.kind !== "ready") return; const result = await fetchGtfsValidation(request, apiBase, admission.tenantId, versionId); setValidation(result.kind === "ready" ? { message: result.report.canPublish ? "No blocking issues were found." : "Resolve the blocking issues before publishing.", issues: result.report.issues } : { message: result.message, issues: [] }); }
+  return <WorkspaceShell activeHref="/app/gtfs"><section className="workspace-content gtfs-page"><header className="page-intro"><div><p className="eyebrow">Transit interoperability</p><h1>Schedule publication</h1><p className="intro-copy">Keep the public transit feed trustworthy before realtime updates are enabled.</p></div><button className="account-button" type="button" onClick={() => void load()} disabled={status.kind === "loading"}>Refresh</button></header>{admission.kind === "selecting" ? <WorkspacePicker workspaces={admission.workspaces} title="Choose a workspace for transit publication" /> : admission.kind !== "ready" ? <AdmissionNotice state={admission} title="Choose a workspace to review transit publication" /> : <>{status.kind !== "ready" && <p className={`gtfs-status ${status.kind}`} role="status">{status.message}</p>}{publication && <><article className="gtfs-summary-card"><div><p className="eyebrow">Publication state</p><h2>{publication.activeSchedule ? `Version ${publication.activeSchedule.version} is live` : "No public Schedule is live"}</h2><p>{publication.activeSchedule ? "The last promoted version remains the public source for trip planners." : "Configure and validate a Schedule version before publishing."}</p></div><span className={`gtfs-pill ${publication.realtimeState === "disabled" ? "" : "warning"}`}>{publication.realtimeState === "disabled" ? "Realtime disabled" : "Realtime needs attention"}</span></article><div className="gtfs-version-list">{publication.activeSchedule && <VersionCard label="Active Schedule" version={publication.activeSchedule} onReview={() => void review(publication.activeSchedule!.id)} />}{publication.latestCandidate && (!publication.activeSchedule || publication.latestCandidate.id !== publication.activeSchedule.id) && <VersionCard label="Latest candidate" version={publication.latestCandidate} onReview={() => void review(publication.latestCandidate!.id)} />}</div><article className="gtfs-features"><div><p className="eyebrow">Enabled features</p><h2>Feed readiness</h2></div>{publication.features.length ? <ul>{publication.features.map((feature) => <li key={feature.feature}><span>{feature.feature.replaceAll("_", " ")}</span><span className={`gtfs-pill ${feature.state === "enabled" ? "good" : ""}`}>{feature.state}</span></li>)}</ul> : <p>No GTFS features are configured yet.</p>}</article>{validation && <article className="gtfs-validation" role="status"><div><p className="eyebrow">Validation review</p><h2>{validation.message}</h2></div>{validation.issues.length ? <ul>{validation.issues.map((issue, index) => <li key={`${issue.file ?? "issue"}-${index}`}><strong>{issue.severity}</strong><span>{issue.message}</span>{issue.file && <small>{issue.file}</small>}</li>)}</ul> : <p>No validation issues were returned.</p>}</article>}</>}</>}</section></WorkspaceShell>;
+}

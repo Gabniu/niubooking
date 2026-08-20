@@ -61,6 +61,11 @@ const known: Record<string, string> = {
   FLEET_ACCESS_DENIED: "You do not have access to these live vehicle locations.",
   LIVE_FLEET_UNAVAILABLE: "Live vehicle locations are temporarily unavailable. Please try again.",
   TRACKING_SESSION_INACTIVE: "No active tracking session was found for this trip.",
+  GTFS_ACCESS_DENIED: "You do not have access to transit publication settings.",
+  GTFS_NOT_CONFIGURED: "Transit publication has not been configured for this workspace.",
+  GTFS_UNAVAILABLE: "Transit publication is temporarily unavailable. Please try again.",
+  GTFS_VERSION_NOT_FOUND: "That Schedule version could not be found.",
+  GTFS_VALIDATION_UNAVAILABLE: "Schedule validation is temporarily unavailable. Please try again.",
   MANAGE_NOT_FOUND: "This appointment link could not be found.",
   MANAGE_INVALID: "This appointment link is no longer valid.",
 };

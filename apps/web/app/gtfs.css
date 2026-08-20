@@ -1,0 +1,22 @@
+/* Ownership: compact transit publication readiness surface. */
+.gtfs-page { display: grid; gap: 16px; }
+.gtfs-page .page-intro { align-items: end; }
+.gtfs-summary-card, .gtfs-version-card, .gtfs-features, .gtfs-validation { display: grid; gap: 10px; padding: 18px; border: 1px solid #dfe3f4; border-radius: 14px; background: #fff; box-shadow: 0 8px 24px rgb(20 11 167 / 5%); }
+.gtfs-summary-card { grid-template-columns: 1fr auto; align-items: start; }
+.gtfs-summary-card h2, .gtfs-version-card h2, .gtfs-features h2, .gtfs-validation h2 { margin: 3px 0; color: #14114b; font-size: 18px; font-weight: 500; }
+.gtfs-summary-card p, .gtfs-version-card p, .gtfs-features p, .gtfs-validation p { margin: 0; color: #64748b; font-size: 12px; line-height: 1.45; }
+.gtfs-version-list { display: grid; gap: 10px; }
+.gtfs-version-card { grid-template-columns: 1fr auto; align-items: center; }
+.gtfs-version-meta { display: flex; align-items: center; gap: 10px; color: #64748b; font-size: 11px; }
+.gtfs-version-meta .account-button { min-height: 32px; font-size: 11px; }
+.gtfs-pill { display: inline-flex; align-items: center; min-height: 22px; padding: 0 8px; border-radius: 999px; color: #475569; background: #f1f5f9; font-size: 10px; font-weight: 600; text-transform: capitalize; }
+.gtfs-pill.good { color: #166534; background: #dcfce7; }
+.gtfs-pill.warning { color: #92400e; background: #fef3c7; }
+.gtfs-features ul, .gtfs-validation ul { display: grid; gap: 7px; padding: 0; margin: 0; list-style: none; }
+.gtfs-features li { display: flex; align-items: center; justify-content: space-between; padding: 9px 10px; border: 1px solid #eef0f7; border-radius: 9px; color: #334155; font-size: 12px; text-transform: capitalize; }
+.gtfs-validation li { display: grid; grid-template-columns: 72px 1fr auto; gap: 8px; padding: 9px 10px; border: 1px solid #fee2e2; border-radius: 9px; color: #334155; font-size: 12px; }
+.gtfs-validation li strong { color: #b91c1c; font-size: 10px; text-transform: uppercase; }
+.gtfs-validation li small { color: #64748b; font-size: 10px; }
+.gtfs-status { margin: 0; padding: 9px 12px; border-radius: 8px; color: #9f1239; background: #fff1f2; font-size: 12px; }
+.gtfs-status.loading { color: #475569; background: #f8fafc; }
+@media (max-width: 700px) { .gtfs-summary-card, .gtfs-version-card { grid-template-columns: 1fr; } .gtfs-version-meta { flex-wrap: wrap; } .gtfs-validation li { grid-template-columns: 1fr; } }
