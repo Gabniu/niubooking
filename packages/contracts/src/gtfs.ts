@@ -41,6 +41,7 @@ export interface GtfsPublicationStatus {
   readonly publicAlertsUrl: string | null;
   readonly activeSchedule: GtfsFeedVersionSummary | null;
   readonly latestCandidate: GtfsFeedVersionSummary | null;
+  readonly versions: readonly GtfsFeedVersionSummary[];
   readonly features: readonly GtfsFeatureReadiness[];
   readonly lastRealtimeObservationAt: string | null;
   readonly realtimeState: "disabled" | "healthy" | "delayed" | "stale";
@@ -76,6 +77,9 @@ export interface GtfsPublicationCommandResponse {
   readonly data: { readonly feedVersion: GtfsFeedVersionSummary } | null;
   readonly error: {
     readonly code:
+      | "UNAUTHENTICATED"
+      | "GTFS_COMMAND_INVALID"
+      | "GTFS_COMMAND_UNAVAILABLE"
       | "GTFS_ACCESS_DENIED"
       | "GTFS_VERSION_NOT_FOUND"
       | "GTFS_VALIDATION_REQUIRED"

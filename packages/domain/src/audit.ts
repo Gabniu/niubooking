@@ -6,6 +6,8 @@ export type AuditAction =
   | "transport.boarded"
   | "transport.seats_assigned"
   | "gtfs.feed_published"
+  | "gtfs.feed_withdrawn"
+  | "gtfs.feed_rolled_back"
   | "fleet.device_enrolled"
   | "fleet.device_revoked"
   | "fleet.trip_assigned"

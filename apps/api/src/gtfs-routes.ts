@@ -2,7 +2,7 @@
 
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { GtfsFeatureReadiness, GtfsPublicationStatus, GtfsValidationReportResponse } from "@bookingapp/contracts";
-import type { GtfsFeedPublicationStatus, GtfsValidationIssue } from "@bookingapp/database";
+import { GtfsPublicationCommandError, type GtfsFeedPublicationStatus, type GtfsValidationIssue, type GtfsPublicationAction } from "@bookingapp/database";
 import type { TenantContextRequest } from "./tenant-context-handler.js";
 import type { GtfsArtifactStore } from "./gtfs-artifact-store.js";
 
@@ -11,20 +11,23 @@ export interface GtfsPublicationAdmin {
   readValidation(input: { tenantId: string; feedVersionId: string }): Promise<readonly GtfsValidationIssue[] | null>;
   readPublicSchedule?(publicSlug: string): Promise<{ tenantId: string; publicSlug: string; version: string; objectKey: string; sha256: string; publishedAt: Date } | null>;
   artifactStore?: GtfsArtifactStore;
+  command?(input: { tenantId: string; feedVersionId: string; action: GtfsPublicationAction; idempotencyKey: string; actorId: string | null }): Promise<NonNullable<GtfsFeedPublicationStatus["activeVersion"]>>;
 }
 
 interface RouteDependencies { resolve(request: FastifyRequest<{ Params: { tenantId: string } }>): TenantContextRequest | Promise<TenantContextRequest>; gtfsPublication?: GtfsPublicationAdmin; gtfsArtifactStore?: GtfsArtifactStore; }
 const previewRoles = ["owner", "admin", "manager", "dispatcher"] as const;
+const commandRoles = ["owner", "admin"] as const;
 
 function admitted(context: TenantContextRequest, tenantId: string): boolean {
   return Boolean(context.identity && context.membership && context.membership.tenantId === tenantId && previewRoles.includes(context.membership.role as typeof previewRoles[number]));
 }
+function canCommand(context: TenantContextRequest, tenantId: string): boolean { return Boolean(context.identity && context.membership && context.membership.tenantId === tenantId && commandRoles.includes(context.membership.role as typeof commandRoles[number])); }
 
 function counts(value: Readonly<Record<"error" | "warning" | "info", number>> | undefined): Readonly<Record<"error" | "warning" | "info", number>> {
   return value ?? { error: 0, warning: 0, info: 0 };
 }
 
-function versionSummary(version: NonNullable<GtfsFeedPublicationStatus["activeVersion"]>, issueCounts: GtfsFeedPublicationStatus["issueCounts"]): GtfsPublicationStatus["activeSchedule"] {
+function versionSummary(version: NonNullable<GtfsFeedPublicationStatus["activeVersion"]>, issueCounts: GtfsFeedPublicationStatus["issueCounts"]): NonNullable<GtfsPublicationStatus["activeSchedule"]> {
   const issueCount = counts(issueCounts[version.id]);
   return { id: version.id, version: version.version, lifecycle: version.status, createdAt: version.createdAt.toISOString(), validatedAt: version.validatedAt?.toISOString() ?? null, publishedAt: version.publishedAt?.toISOString() ?? null, validFrom: version.validFrom, validUntil: version.validUntil, issueCounts: issueCount };
 }
@@ -38,10 +41,11 @@ function readiness(status: GtfsFeedPublicationStatus): readonly GtfsFeatureReadi
 function statusJson(status: GtfsFeedPublicationStatus): GtfsPublicationStatus {
   const active = status.activeVersion ? versionSummary(status.activeVersion, status.issueCounts) : null;
   const latest = status.latestVersion ? versionSummary(status.latestVersion, status.issueCounts) : null;
-  return { organizationId: status.settings.tenantId, publicScheduleUrl: null, publicVehiclePositionsUrl: null, publicTripUpdatesUrl: null, publicAlertsUrl: null, activeSchedule: active, latestCandidate: latest, features: readiness(status), lastRealtimeObservationAt: null, realtimeState: status.settings.realtimePublicationEnabled ? "stale" : "disabled" };
+  return { organizationId: status.settings.tenantId, publicScheduleUrl: null, publicVehiclePositionsUrl: null, publicTripUpdatesUrl: null, publicAlertsUrl: null, activeSchedule: active, latestCandidate: latest, versions: status.versions.map((version) => versionSummary(version, status.issueCounts)), features: readiness(status), lastRealtimeObservationAt: null, realtimeState: status.settings.realtimePublicationEnabled ? "stale" : "disabled" };
 }
 
 function denied(reply: { code(statusCode: number): { send(payload: unknown): unknown } }) { return reply.code(403).send({ data: null, error: { code: "GTFS_ACCESS_DENIED", message: "You do not have access to transit publication settings." } }); }
+function commandStatus(code: string): number { return code === "GTFS_COMMAND_INVALID" ? 400 : code === "GTFS_VERSION_NOT_FOUND" ? 404 : 409; }
 
 export function registerGtfsRoutes(app: FastifyInstance, dependencies: RouteDependencies): void {
   app.get<{ Params: { publicSlug: string } }>("/v1/public/gtfs/:publicSlug/schedule.zip", async (request, reply) => {
@@ -56,6 +60,20 @@ export function registerGtfsRoutes(app: FastifyInstance, dependencies: RouteDepe
       const filename = metadata.version.replace(/[^A-Za-z0-9._-]/gu, "-").slice(0, 80) || "schedule";
       return reply.code(200).header("Content-Type", "application/zip").header("Content-Disposition", `attachment; filename="schedule-${filename}.zip"`).header("Cache-Control", "public, max-age=300, stale-while-revalidate=60").header("ETag", etag).header("Last-Modified", metadata.publishedAt.toUTCString()).send(Buffer.from(artifact));
     } catch { return reply.code(503).send({ data: null, error: { code: "GTFS_UNAVAILABLE", message: "This transit feed is temporarily unavailable." } }); }
+  });
+  app.post<{ Params: { tenantId: string }; Body: { feedVersionId?: string; action?: GtfsPublicationAction; idempotencyKey?: string } }>("/v1/tenants/:tenantId/gtfs/commands", async (request, reply) => {
+    const context = await dependencies.resolve(request); if (!canCommand(context, request.params.tenantId)) return denied(reply);
+    if (!dependencies.gtfsPublication?.command) return reply.code(503).send({ data: null, error: { code: "GTFS_COMMAND_UNAVAILABLE", message: "Transit publication commands are temporarily unavailable." } });
+    const body = request.body; const actions: readonly GtfsPublicationAction[] = ["validate", "publish", "withdraw", "rollback"];
+    if (!body?.feedVersionId?.trim() || body.feedVersionId.length > 160 || !body.idempotencyKey?.trim() || body.idempotencyKey.length > 200 || !body.action || !actions.includes(body.action)) return reply.code(400).send({ data: null, error: { code: "GTFS_COMMAND_INVALID", message: "Choose a Schedule version, action, and unique command key." } });
+    try {
+      const version = await dependencies.gtfsPublication.command({ tenantId: request.params.tenantId, feedVersionId: body.feedVersionId.trim(), action: body.action, idempotencyKey: body.idempotencyKey.trim(), actorId: context.mappedUserId });
+      const status = await dependencies.gtfsPublication.readStatus(request.params.tenantId); const countsByVersion = status?.issueCounts ?? {};
+      return reply.send({ data: { feedVersion: versionSummary(version, countsByVersion) }, error: null });
+    } catch (error) {
+      if (error instanceof GtfsPublicationCommandError) return reply.code(commandStatus(error.code)).send({ data: null, error: { code: error.code, message: error.message } });
+      return reply.code(503).send({ data: null, error: { code: "GTFS_COMMAND_UNAVAILABLE", message: "Transit publication commands are temporarily unavailable." } });
+    }
   });
   app.get<{ Params: { tenantId: string } }>("/v1/tenants/:tenantId/gtfs/publication", async (request, reply) => {
     const context = await dependencies.resolve(request);

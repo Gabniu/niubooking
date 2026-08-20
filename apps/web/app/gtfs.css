@@ -9,6 +9,8 @@
 .gtfs-version-card { grid-template-columns: 1fr auto; align-items: center; }
 .gtfs-version-meta { display: flex; align-items: center; gap: 10px; color: #64748b; font-size: 11px; }
 .gtfs-version-meta .account-button { min-height: 32px; font-size: 11px; }
+.gtfs-command-withdraw { color: #b91c1c; border-color: #fecaca; }
+.gtfs-command-rollback { color: #92400e; border-color: #fde68a; }
 .gtfs-pill { display: inline-flex; align-items: center; min-height: 22px; padding: 0 8px; border-radius: 999px; color: #475569; background: #f1f5f9; font-size: 10px; font-weight: 600; text-transform: capitalize; }
 .gtfs-pill.good { color: #166534; background: #dcfce7; }
 .gtfs-pill.warning { color: #92400e; background: #fef3c7; }

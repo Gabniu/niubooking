@@ -4,6 +4,7 @@ import { isValidGtfsPublicId, type GtfsScheduleFeature } from "@bookingapp/domai
 import { randomUUID } from "node:crypto";
 import type { Pool } from "pg";
 import { appendAuditEvent } from "./audit-events.js";
+import { executeGtfsPublicationCommand } from "./gtfs-commands.js";
 import { withPublicTransaction, withTenantTransaction } from "./pg-executor.js";
 import type { SqlExecutor } from "./tenant-membership.js";
 
@@ -55,6 +56,7 @@ export interface GtfsFeedPublicationStatus {
   settings: GtfsFeedSettings;
   activeVersion: GtfsFeedVersion | null;
   latestVersion: GtfsFeedVersion | null;
+  versions: readonly GtfsFeedVersion[];
   issueCounts: Readonly<Record<string, Readonly<Record<"error" | "warning" | "info", number>>>>;
 }
 export interface GtfsPublicScheduleArtifact {
@@ -111,7 +113,7 @@ export async function readGtfsFeedPublicationStatus(executor: SqlExecutor, tenan
   for (const version of versions) issueCounts[version.id] = emptyIssueCounts();
   for (const issue of counts) { const target = issueCounts[issue.feed_version_id] ?? emptyIssueCounts(); target[issue.severity] = Number(issue.count); issueCounts[issue.feed_version_id] = target; }
   const activeVersion = versions.find((version) => version.id === settings.activeVersionId) ?? null;
-  return { settings, activeVersion: activeVersion ? mapVersion(activeVersion) : null, latestVersion: versions[0] ? mapVersion(versions[0]) : null, issueCounts };
+  return { settings, activeVersion: activeVersion ? mapVersion(activeVersion) : null, latestVersion: versions[0] ? mapVersion(versions[0]) : null, versions: versions.map(mapVersion), issueCounts };
 }
 
 export async function readGtfsValidationIssues(executor: SqlExecutor, input: { tenantId: string; feedVersionId: string }): Promise<readonly GtfsValidationIssue[] | null> {
@@ -220,5 +222,6 @@ export function createDatabaseGtfsPublication(pool: Pool) {
     readValidation: (input: { tenantId: string; feedVersionId: string }) => withTenantTransaction(pool, input.tenantId, (executor) => readGtfsValidationIssues(executor, input)),
     readPublicSchedule: (publicSlug: string) => withPublicTransaction(pool, (executor) => readGtfsPublicSchedule(executor, publicSlug)),
     publish: (input: { tenantId: string; feedVersionId: string; actorId: string | null }) => withTenantTransaction(pool, input.tenantId, (executor) => publishGtfsFeedVersion(executor, input)),
+    command: (input: { tenantId: string; feedVersionId: string; action: import("./gtfs-commands.js").GtfsPublicationAction; idempotencyKey: string; actorId: string | null }) => withTenantTransaction(pool, input.tenantId, (executor) => executeGtfsPublicationCommand(executor, input)),
   };
 }
