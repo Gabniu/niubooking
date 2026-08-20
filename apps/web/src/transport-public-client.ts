@@ -1,6 +1,6 @@
 // Ownership: public transport journey client; only opaque QR and manage tokens cross the browser boundary.
 
-import type { PublicTransportCancellationResponse, PublicTransportReservationResponse, PublicTransportTicketResponse, PublicTransportTripsResponse, RiderLiveStreamEvent, RiderLiveTripResponse } from "@bookingapp/contracts";
+import type { PublicTransportCancellationResponse, PublicTransportReservationResponse, PublicTransportTicketResponse, PublicTransportTripsResponse, RiderLiveStreamEvent, RiderLiveTripResponse, RiderLiveViewerSessionResponse } from "@bookingapp/contracts";
 import { userFacingMessage } from "./user-messages.js";
 
 export type TransportFetcher = (url: string, init?: { method?: "POST" | "GET"; headers?: Record<string, string>; body?: string }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
@@ -63,12 +63,16 @@ export async function fetchPublicTransportTicket(fetcher: TransportFetcher, base
   }
 }
 
-export async function fetchPublicLiveTrip(fetcher: TransportFetcher, baseUrl: string, token: string): Promise<TransportState<NonNullable<RiderLiveTripResponse["data"]>>> {
-  try { const response = await fetcher(`${baseUrl}/v1/public/transport/tickets/${encodeURIComponent(token)}/live`); const body = (await response.json()) as RiderLiveTripResponse; if (body.data) return { kind: "ready", value: body.data }; return { kind: response.status === 404 || response.status === 410 ? "unavailable" : "error", message: message(response.status, body.error, "Live trip location is temporarily unavailable. Please try again.") }; } catch { return { kind: "error", message: "We could not load the live trip. Check your connection and try again." }; }
+export async function fetchPublicLiveSession(fetcher: TransportFetcher, baseUrl: string, ticketToken: string): Promise<TransportState<NonNullable<RiderLiveViewerSessionResponse["data"]>>> {
+  try { const response = await fetcher(`${baseUrl}/v1/public/transport/tickets/${encodeURIComponent(ticketToken)}/live-session`, { method: "POST" }); const body = (await response.json()) as RiderLiveViewerSessionResponse; if (body.data) return { kind: "ready", value: body.data }; return { kind: response.status === 404 || response.status === 410 ? "unavailable" : "error", message: message(response.status, body.error, "Live trip tracking is temporarily unavailable. Please try again.") }; } catch { return { kind: "error", message: "We could not open live trip tracking. Check your connection and try again." }; }
 }
 
-export function openPublicLiveStream(factory: PublicTransportEventSourceFactory, baseUrl: string, token: string, onSnapshot: (value: NonNullable<RiderLiveTripResponse["data"]>) => void, onChanged: () => void, onError: () => void): () => void {
-  const source = factory(`${baseUrl}/v1/public/transport/tickets/${encodeURIComponent(token)}/live/stream`, { withCredentials: true });
+export async function fetchPublicLiveTrip(fetcher: TransportFetcher, baseUrl: string, viewerToken: string): Promise<TransportState<NonNullable<RiderLiveTripResponse["data"]>>> {
+  try { const response = await fetcher(`${baseUrl}/v1/public/transport/live/${encodeURIComponent(viewerToken)}`); const body = (await response.json()) as RiderLiveTripResponse; if (body.data) return { kind: "ready", value: body.data }; return { kind: response.status === 404 || response.status === 410 ? "unavailable" : "error", message: message(response.status, body.error, "Live trip location is temporarily unavailable. Please try again.") }; } catch { return { kind: "error", message: "We could not load the live trip. Check your connection and try again." }; }
+}
+
+export function openPublicLiveStream(factory: PublicTransportEventSourceFactory, baseUrl: string, viewerToken: string, onSnapshot: (value: NonNullable<RiderLiveTripResponse["data"]>) => void, onChanged: () => void, onError: () => void): () => void {
+  const source = factory(`${baseUrl}/v1/public/transport/live/${encodeURIComponent(viewerToken)}/stream`, { withCredentials: true });
   const handle = (event: { data: string }) => { try { const value = JSON.parse(event.data) as RiderLiveStreamEvent; if (value.response.data) onSnapshot(value.response.data); else onChanged(); } catch { onError(); } };
   source.addEventListener("snapshot", handle); source.addEventListener("changed", handle); source.onerror = onError; return () => source.close();
 }

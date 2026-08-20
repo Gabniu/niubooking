@@ -83,10 +83,23 @@ export interface RiderLiveStreamEvent {
   readonly response: RiderLiveTripResponse;
 }
 
+export interface RiderLiveViewerSession {
+  readonly viewerToken: string;
+  readonly expiresAt: string;
+}
+
+export interface RiderLiveViewerSessionResponse {
+  readonly data: RiderLiveViewerSession | null;
+  readonly error: {
+    readonly code: "TRACKING_LINK_INVALID" | "LIVE_TRIP_UNAVAILABLE";
+    readonly message: string;
+  } | null;
+}
+
 export interface RiderLiveTripResponse {
   readonly data: RiderLiveTripProjection | null;
   readonly error: {
-    readonly code: "TRACKING_LINK_INVALID" | "TRACKING_LINK_EXPIRED" | "LIVE_TRIP_UNAVAILABLE";
+    readonly code: "TRACKING_LINK_INVALID" | "TRACKING_LINK_EXPIRED" | "TRACKING_SESSION_REQUIRED" | "LIVE_TRIP_UNAVAILABLE";
     readonly message: string;
   } | null;
 }

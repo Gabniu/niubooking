@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cancelPublicTransportReservation, createPublicTransportReservation, fetchPublicLiveTrip, fetchPublicTransportTicket, fetchPublicTransportTrips, openPublicLiveStream, type PublicTransportEventSource } from "./transport-public-client.js";
+import { cancelPublicTransportReservation, createPublicTransportReservation, fetchPublicLiveSession, fetchPublicLiveTrip, fetchPublicTransportTicket, fetchPublicTransportTrips, openPublicLiveStream, type PublicTransportEventSource } from "./transport-public-client.js";
 
 const trip = { id: "trip-1", routeName: "Town → Airport", mode: "matatu", stops: [{ stopId: "Town", sequence: 1, boardingMinutes: 10, alightingMinutes: 2 }, { stopId: "Airport", sequence: 2, boardingMinutes: 5, alightingMinutes: 10 }], capacityMode: "seat", capacity: 14, remainingCapacity: 8, boardingStartsAt: "2026-09-01T06:00:00.000Z", boardingEndsAt: "2026-09-01T06:20:00.000Z" } as const;
 
@@ -27,8 +27,14 @@ test("loads a privacy-safe public ticket by opaque token", async () => {
   if (state.kind === "ready") assert.equal(state.value.routeName, "Town to Airport");
 });
 
-test("loads a ticket-scoped live projection without exposing tenant scope", async () => {
-  const state = await fetchPublicLiveTrip(async (url) => { assert.match(url, /tickets\/ticket-token\/live$/u); return { ok: true, status: 200, json: async () => ({ data: { tripId: "trip-1", routeLabel: "Town to Airport", capturedAt: "2026-09-01T07:05:00.000Z", freshness: "live", latitude: -1.28, longitude: 36.81, accuracyMetres: 7, headingDegrees: 90, eta: null }, error: null }) }; }, "https://booking.test", "ticket-token");
+test("exchanges a ticket for an opaque short-lived live session", async () => {
+  const state = await fetchPublicLiveSession(async (url, init) => { assert.match(url, /tickets\/ticket-token\/live-session$/u); assert.equal(init?.method, "POST"); return { ok: true, status: 200, json: async () => ({ data: { viewerToken: "viewer-token", expiresAt: "2026-09-01T07:15:00.000Z" }, error: null }) }; }, "https://booking.test", "ticket-token");
+  assert.equal(state.kind, "ready");
+  if (state.kind === "ready") assert.equal(state.value.viewerToken, "viewer-token");
+});
+
+test("loads a viewer-session live projection without exposing tenant scope", async () => {
+  const state = await fetchPublicLiveTrip(async (url) => { assert.match(url, /transport\/live\/viewer-token$/u); return { ok: true, status: 200, json: async () => ({ data: { tripId: "trip-1", routeLabel: "Town to Airport", capturedAt: "2026-09-01T07:05:00.000Z", freshness: "live", latitude: -1.28, longitude: 36.81, accuracyMetres: 7, headingDegrees: 90, eta: null }, error: null }) }; }, "https://booking.test", "viewer-token");
   assert.equal(state.kind, "ready");
   if (state.kind === "ready") { assert.equal(state.value.tripId, "trip-1"); assert.equal(state.value.eta, null); assert.equal("tenantId" in state.value, false); }
 });
@@ -39,7 +45,7 @@ test("parses public live stream snapshots and closes cleanly", () => {
   const source: PublicTransportEventSource = { addEventListener: (type, listener) => { listeners.set(type, listener); }, close: () => { closed = true; } };
   let snapshotTrip = "";
   let changes = 0;
-  const close = openPublicLiveStream(() => source, "https://booking.test", "ticket-token", (value) => { snapshotTrip = value.tripId; }, () => { changes += 1; }, () => { changes += 10; });
+  const close = openPublicLiveStream(() => source, "https://booking.test", "viewer-token", (value) => { snapshotTrip = value.tripId; }, () => { changes += 1; }, () => { changes += 10; });
   listeners.get("snapshot")?.({ data: JSON.stringify({ type: "snapshot", version: 1, response: { data: { tripId: "trip-1", routeLabel: "Town to Airport", capturedAt: null, freshness: "offline", latitude: null, longitude: null, accuracyMetres: null, headingDegrees: null, eta: null }, error: null } }) });
   listeners.get("changed")?.({ data: JSON.stringify({ type: "changed", version: 2, response: { data: null, error: { code: "LIVE_TRIP_CHANGED", message: "refresh" } } }) });
   assert.equal(snapshotTrip, "trip-1");

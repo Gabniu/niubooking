@@ -17,6 +17,7 @@ export * from "./service-variants.js";
 export * from "./industry-pack-settings.js";
 export * from "./occurrences.js";
 export * from "./transport.js";
+export * from "./transport-live.js";
 export * from "./gtfs-publication.js";
 export * from "./realtime-tracking.js";
 export * from "./feedback.js";
