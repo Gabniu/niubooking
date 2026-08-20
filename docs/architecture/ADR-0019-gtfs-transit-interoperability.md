@@ -104,9 +104,11 @@ IDs in `gtfs_feed_version_entities`, so later source edits cannot silently
 change what the promoted feed means. Staff publication status also reports the
 latest active observation and classifies the feed as healthy, delayed, stale,
 or disabled using bounded freshness thresholds. The worker has a bounded,
-cadence-controlled refresh/readiness seam that probes enabled public
-projections without persisting a second source of truth. Persistent feed
-caching, TripUpdates, Alerts,
+cadence-controlled refresh/readiness task that writes a short-lived,
+tenant-safe VehiclePositions cache keyed to the active Schedule version. The
+public route serves that cache with validators and falls back to the same
+privacy-safe projection when the cache is missing or expired; the cache is
+never a second source of booking or telemetry truth. TripUpdates, Alerts,
 occupancy, and detours remain explicit follow-on work.
 
 # Product and authorization boundary
@@ -127,9 +129,10 @@ from GTFS.
 The core Schedule and realtime foundations now persist agency profiles,
 stable GTFS IDs, named/geocoded stops, service calendars, shapes, stop-times,
 frequency windows, feed versions, immutable per-feed route/trip/stop reference
-snapshots, publication policy, tracking sessions, and current positions.
-Worker refresh orchestration, rider-quality extensions, TripUpdates, Alerts,
-occupancy, detours, and richer source settings remain explicit BATCH-005 work;
+snapshots, publication policy, tracking sessions, current positions, and the
+short-lived VehiclePositions cache. Rider-quality extensions, TripUpdates,
+Alerts, occupancy, detours, and richer source settings remain explicit
+BATCH-005 work;
 array order and internal UUIDs are not an acceptable substitute.
 
 # Acceptance

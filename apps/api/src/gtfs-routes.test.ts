@@ -87,3 +87,14 @@ test("public VehiclePositions delivery uses protobuf and omits private telemetry
   assert.equal((await app.inject({ method: "GET", url: "/v1/public/gtfs/missing/vehicle-positions.pb" })).statusCode, 404);
   await app.close();
 });
+
+test("public VehiclePositions prefers a fresh worker cache and exposes its validators", async () => {
+  const app = createApiServer({ resolve: context, gtfsPublication: {
+    readStatus: async () => null, readValidation: async () => [],
+    readCachedVehiclePositions: async () => ({ scheduleVersion: "2026.08.20.1", payload: Uint8Array.from([1, 2, 3]), sha256: "b".repeat(64), generatedAt: new Date("2026-08-20T08:02:00Z") }),
+    readPublicVehiclePositions: async () => { throw new Error("live fallback should not run"); },
+  } });
+  const response = await app.inject({ method: "GET", url: "/v1/public/gtfs/city-feed/vehicle-positions.pb" });
+  assert.equal(response.statusCode, 200); assert.equal(response.headers.etag, `"${"b".repeat(64)}"`); assert.equal(response.headers["last-modified"], "Thu, 20 Aug 2026 08:02:00 GMT"); assert.deepEqual([...response.rawPayload], [1, 2, 3]);
+  await app.close();
+});

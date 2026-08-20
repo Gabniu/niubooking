@@ -47,7 +47,7 @@ reservation, fleet, identity, or tenant model.
 - [x] GTFS source/export slice: published transport routes, patterns, stops, calendars, exceptions, shapes, frequencies, and reserved public IDs now compose the Schedule draft; owner/admin `/app/gtfs` Generate Feed persists the artifact, records validation evidence, and audits the generation before publish.
 - [x] GTFS VehiclePositions slice: the public protobuf endpoint requires realtime opt-in and an active published Schedule, reads expiring current telemetry, validates against immutable route/trip/stop reference snapshots, and drops stale or unresolved entities; `/app/gtfs` shows enabled public endpoint links.
 - [x] GTFS realtime readiness slice: `/app/gtfs` serializes the latest active observation and labels realtime as live, delayed, stale, or disabled using bounded freshness thresholds.
-- [x] GTFS worker refresh slice: the existing worker runs a bounded, cadence-controlled refresh/readiness probe for enabled public feeds, reports target and failure counts through redacted health, and avoids creating a second feed source of truth.
+- [x] GTFS worker refresh slice: the existing worker runs a bounded, cadence-controlled refresh for enabled public feeds, writes a short-lived tenant-safe VehiclePositions cache, reports target and failure counts through redacted health, and keeps request-time projection fallback available.
 - [ ] NIU Driver React Native application with physical-device background tests.
 - [ ] Regional tile/PMTiles cost proof, route matching, provider-backed ETA calculation,
   and the physical rider browser journey remain.
@@ -181,9 +181,9 @@ VehiclePositions now has a safe first slice: the public protobuf endpoint only
 reads an active published Schedule with realtime opt-in, joins expiring current
 positions to stable vehicle/trip/route mappings, rejects stale or unresolved
 rows, and never exposes driver, device, tenant, or session identifiers. The
-bounded refresh/readiness worker seam is now wired; remaining work is
-persistent feed caching, staff controls, TripUpdates, Alerts, occupancy, and
-detours. Generated Schedule versions now persist immutable
+bounded refresh/readiness worker seam and short-lived cache are now wired;
+remaining work is staff controls, TripUpdates, Alerts, occupancy, and detours.
+Generated Schedule versions now persist immutable
 route/trip/stop reference snapshots so later transport edits cannot alter the
 meaning of a promoted feed.
 

@@ -13,6 +13,7 @@ export interface GtfsPublicationAdmin {
   readStatus(tenantId: string): Promise<GtfsFeedPublicationStatus | null>;
   readValidation(input: { tenantId: string; feedVersionId: string }): Promise<readonly GtfsValidationIssue[] | null>;
   readPublicSchedule?(publicSlug: string): Promise<{ tenantId: string; publicSlug: string; version: string; objectKey: string; sha256: string; publishedAt: Date } | null>;
+  readCachedVehiclePositions?(publicSlug: string): Promise<{ scheduleVersion: string; payload: Uint8Array; sha256: string; generatedAt: Date } | null>;
   readPublicVehiclePositions?(publicSlug: string): Promise<import("@bookingapp/domain").GtfsRealtimeVehiclePositionsFeed | null>;
   artifactStore?: GtfsArtifactStore;
   readScheduleFiles?(input: { tenantId: string; feedVersionId: string }): Promise<readonly GtfsScheduleFile[] | null>;
@@ -69,14 +70,17 @@ export function registerGtfsRoutes(app: FastifyInstance, dependencies: RouteDepe
     } catch { return reply.code(503).send({ data: null, error: { code: "GTFS_UNAVAILABLE", message: "This transit feed is temporarily unavailable." } }); }
   });
   app.get<{ Params: { publicSlug: string } }>("/v1/public/gtfs/:publicSlug/vehicle-positions.pb", async (request, reply) => {
-    if (!dependencies.gtfsPublication?.readPublicVehiclePositions) return reply.code(503).send({ data: null, error: { code: "GTFS_REALTIME_UNAVAILABLE", message: "Live vehicle positions are temporarily unavailable." } });
+    if (!dependencies.gtfsPublication?.readPublicVehiclePositions && !dependencies.gtfsPublication?.readCachedVehiclePositions) return reply.code(503).send({ data: null, error: { code: "GTFS_REALTIME_UNAVAILABLE", message: "Live vehicle positions are temporarily unavailable." } });
     try {
-      const feed = await dependencies.gtfsPublication.readPublicVehiclePositions(request.params.publicSlug);
-      if (!feed) return reply.code(404).send({ data: null, error: { code: "GTFS_REALTIME_NOT_FOUND", message: "Live vehicle positions are not enabled for this feed." } });
-      const payload = Buffer.from(serializeGtfsRealtimeVehiclePositions(feed));
-      const etag = `"${createHash("sha256").update(payload).digest("hex")}"`;
+      const cached = await dependencies.gtfsPublication.readCachedVehiclePositions?.(request.params.publicSlug);
+      const feed = cached ? null : await dependencies.gtfsPublication.readPublicVehiclePositions?.(request.params.publicSlug);
+      if (!cached && !feed) return reply.code(404).send({ data: null, error: { code: "GTFS_REALTIME_NOT_FOUND", message: "Live vehicle positions are not enabled for this feed." } });
+      const payload = Buffer.from(cached?.payload ?? serializeGtfsRealtimeVehiclePositions(feed!));
+      const scheduleVersion = cached?.scheduleVersion ?? feed!.scheduleVersion;
+      const generatedAt = cached?.generatedAt ?? feed!.generatedAt;
+      const etag = `"${cached?.sha256 ?? createHash("sha256").update(payload).digest("hex")}"`;
       if (request.headers["if-none-match"] === etag) return reply.code(304).header("ETag", etag).send();
-      return reply.code(200).header("Content-Type", "application/x-protobuf").header("Cache-Control", "public, max-age=15, stale-while-revalidate=15").header("ETag", etag).header("X-GTFS-Schedule-Version", feed.scheduleVersion).send(payload);
+      return reply.code(200).header("Content-Type", "application/x-protobuf").header("Cache-Control", "public, max-age=15, stale-while-revalidate=15").header("ETag", etag).header("Last-Modified", generatedAt.toUTCString()).header("X-GTFS-Schedule-Version", scheduleVersion).send(payload);
     } catch { return reply.code(503).send({ data: null, error: { code: "GTFS_REALTIME_UNAVAILABLE", message: "Live vehicle positions are temporarily unavailable." } }); }
   });
   app.post<{ Params: { tenantId: string; feedVersionId: string } }>("/v1/tenants/:tenantId/gtfs/versions/:feedVersionId/generate", async (request, reply) => {

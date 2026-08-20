@@ -7,6 +7,7 @@ import { appendAuditEvent } from "./audit-events.js";
 import { executeGtfsPublicationCommand } from "./gtfs-commands.js";
 import { readGtfsScheduleFiles } from "./gtfs-source.js";
 import { readPublicGtfsVehiclePositions } from "./gtfs-realtime.js";
+import { readCachedGtfsVehiclePositions } from "./gtfs-realtime-cache.js";
 import { withPublicTransaction, withTenantTransaction } from "./pg-executor.js";
 import type { SqlExecutor } from "./tenant-membership.js";
 
@@ -234,6 +235,7 @@ export function createDatabaseGtfsPublication(pool: Pool) {
     readScheduleFiles: (input: { tenantId: string; feedVersionId: string }) => withTenantTransaction(pool, input.tenantId, (executor) => readGtfsScheduleFiles(executor, input)),
     recordValidation: (input: { tenantId: string; feedVersionId: string; issues: readonly GtfsValidationIssueDraft[]; scheduleSha256?: string; scheduleObjectKey?: string; scheduleReferences?: GtfsPublishedReferences; actorId?: string | null }) => withTenantTransaction(pool, input.tenantId, (executor) => recordGtfsValidation(executor, input)),
     readPublicSchedule: (publicSlug: string) => withPublicTransaction(pool, (executor) => readGtfsPublicSchedule(executor, publicSlug)),
+    readCachedVehiclePositions: (publicSlug: string) => readCachedGtfsVehiclePositions(pool, publicSlug),
     readPublicVehiclePositions: (publicSlug: string) => readPublicGtfsVehiclePositions(pool, publicSlug),
     publish: (input: { tenantId: string; feedVersionId: string; actorId: string | null }) => withTenantTransaction(pool, input.tenantId, (executor) => publishGtfsFeedVersion(executor, input)),
     command: (input: { tenantId: string; feedVersionId: string; action: import("./gtfs-commands.js").GtfsPublicationAction; idempotencyKey: string; actorId: string | null }) => withTenantTransaction(pool, input.tenantId, (executor) => executeGtfsPublicationCommand(executor, input)),
