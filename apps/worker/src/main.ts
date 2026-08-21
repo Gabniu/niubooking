@@ -1,8 +1,8 @@
 // Ownership: worker process entrypoint. It composes providers once, then runs bounded outbox ticks.
 
-import { createPool, createPoolExecutor, readPublicGtfsVehiclePositions, withPublicTransaction, writeCachedGtfsVehiclePositions } from "@bookingapp/database";
+import { createPool, createPoolExecutor, readPublicGtfsTripUpdates, readPublicGtfsVehiclePositions, withPublicTransaction, writeCachedGtfsTripUpdates, writeCachedGtfsVehiclePositions } from "@bookingapp/database";
 import { createHash } from "node:crypto";
-import { serializeGtfsRealtimeVehiclePositions } from "@bookingapp/domain";
+import { serializeGtfsRealtimeTripUpdates, serializeGtfsRealtimeVehiclePositions } from "@bookingapp/domain";
 import { createHttpChannelProvider } from "./http-channel-provider.js";
 import { createWorkerHealthServer } from "./health-server.js";
 import { createProviderRouter, type ChannelProviders } from "./provider-router.js";
@@ -25,12 +25,12 @@ const gtfsRealtimeRefresh = createGtfsRefreshTask({
   maxTargets: config.gtfsRefreshLimit,
   listTargets: async (limit) => withPublicTransaction(pool, async (publicExecutor) => (await publicExecutor.query<{ public_slug: string }>("SELECT public_slug FROM gtfs_feed_settings WHERE schedule_publication_enabled = true AND realtime_publication_enabled = true ORDER BY public_slug LIMIT $1", [limit])).map((row) => ({ publicSlug: row.public_slug }))),
   refreshTarget: async (target, now) => {
-    const feed = await readPublicGtfsVehiclePositions(pool, target.publicSlug, now);
-    if (!feed) return null;
-    const payload = serializeGtfsRealtimeVehiclePositions(feed);
-    const lastObservationAt = feed.entities.reduce<Date | null>((latest, entity) => !latest || entity.capturedAt > latest ? entity.capturedAt : latest, null);
-    const written = await writeCachedGtfsVehiclePositions(pool, { publicSlug: target.publicSlug, scheduleVersion: feed.scheduleVersion, payload, sha256: createHash("sha256").update(payload).digest("hex"), generatedAt: feed.generatedAt, lastObservationAt, entityCount: feed.entities.length });
-    return written ? { entityCount: feed.entities.length } : null;
+    const vehicleFeed = await readPublicGtfsVehiclePositions(pool, target.publicSlug, now);
+    const tripFeed = await readPublicGtfsTripUpdates(pool, target.publicSlug, now);
+    let entityCount = 0; let written = false;
+    if (vehicleFeed) { const payload = serializeGtfsRealtimeVehiclePositions(vehicleFeed); const lastObservationAt = vehicleFeed.entities.reduce<Date | null>((latest, entity) => !latest || entity.capturedAt > latest ? entity.capturedAt : latest, null); written = await writeCachedGtfsVehiclePositions(pool, { publicSlug: target.publicSlug, scheduleVersion: vehicleFeed.scheduleVersion, payload, sha256: createHash("sha256").update(payload).digest("hex"), generatedAt: vehicleFeed.generatedAt, lastObservationAt, entityCount: vehicleFeed.entities.length }) || written; entityCount += vehicleFeed.entities.length; }
+    if (tripFeed) { const payload = serializeGtfsRealtimeTripUpdates(tripFeed); written = await writeCachedGtfsTripUpdates(pool, { publicSlug: target.publicSlug, scheduleVersion: tripFeed.scheduleVersion, payload, sha256: createHash("sha256").update(payload).digest("hex"), generatedAt: tripFeed.generatedAt, entityCount: tripFeed.entities.length }) || written; entityCount += tripFeed.entities.length; }
+    return written ? { entityCount } : null;
   },
 });
 const runtime = createWorkerRuntime(executor, router, config.providers.map((provider) => provider.channel), config.batchLimit, { resolveRecipient: createDatabaseRecipientResolver(executor), gtfsRealtimeRefresh });
