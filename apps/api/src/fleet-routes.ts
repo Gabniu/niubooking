@@ -2,7 +2,7 @@
 
 import { randomBytes, randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { classifyPositionFreshness, type FleetDevice, type FleetTrackingSession, type FleetTripAssignment, type TelemetryReceipt, type VehiclePosition } from "@bookingapp/domain";
+import { classifyPositionFreshness, type FleetCrewAssignmentStatus, type FleetDevice, type FleetTrackingSession, type FleetTripAssignment, type TelemetryReceipt, type VehiclePosition } from "@bookingapp/domain";
 import { createFleetDeviceCredential, type FleetCurrentProjection } from "@bookingapp/database";
 import type { DriverPositionUpload, FleetStreamEvent, StaffLiveFleetResponse } from "@bookingapp/contracts";
 import type { TenantContextRequest } from "./tenant-context-handler.js";
@@ -16,6 +16,7 @@ export interface FleetTrackingAdmin {
   end(input: { tenantId: string; sessionId: string; actorId?: string; reason: string; driverUserId?: string; allowManage?: boolean }): Promise<FleetTrackingSession>;
   endTrip(input: { tenantId: string; tripId: string; branchIds?: readonly string[]; actorId?: string; reason: string }): Promise<FleetTrackingSession | null>;
   listCurrent(tenantId: string, branchIds?: readonly string[], assignedUserId?: string): Promise<readonly FleetCurrentProjection[]>;
+  listAssigned(tenantId: string, userId: string, branchIds?: readonly string[]): Promise<readonly FleetCrewAssignmentStatus[]>;
   readTripBranch(tenantId: string, tripId: string): Promise<string | null>;
   readSessionScope(tenantId: string, sessionId: string): Promise<{ branchId: string; driverUserId: string } | null>;
   ingestCredential(credential: string, position: Omit<VehiclePosition, "deviceId" | "receivedAt">): Promise<{ receipt: TelemetryReceipt; receivedAt: Date } | null>;
@@ -35,6 +36,7 @@ function bearer(request: FastifyRequest): string | null { const value = request.
 function text(value: unknown, max = 200): string | null { if (typeof value !== "string") return null; const result = value.trim(); return result.length > 0 && result.length <= max ? result : null; }
 function sessionJson(session: FleetTrackingSession) { return { ...session, startedAt: session.startedAt.toISOString(), expiresAt: session.expiresAt.toISOString(), endedAt: session.endedAt?.toISOString() ?? null }; }
 function endedTripJson(session: FleetTrackingSession) { return { tripId: session.tripId, status: session.status, endedAt: session.endedAt?.toISOString() ?? null }; }
+function crewStatusJson(item: FleetCrewAssignmentStatus) { return { assignmentId: item.assignmentId, branchId: item.branchId, tripId: item.tripId, role: item.role, status: item.status, assignedAt: item.assignedAt.toISOString(), endedAt: item.endedAt?.toISOString() ?? null, activeSession: item.activeSession ? { id: item.activeSession.id, vehicleResourceId: item.activeSession.vehicleResourceId, status: item.activeSession.status, startedAt: item.activeSession.startedAt.toISOString(), expiresAt: item.activeSession.expiresAt.toISOString() } : null }; }
 function fleetResponse(positions: readonly FleetCurrentProjection[]): StaffLiveFleetResponse { return { data: positions.map((item) => ({ ...item, capturedAt: item.capturedAt?.toISOString() ?? null, freshness: item.capturedAt ? classifyPositionFreshness(item.capturedAt, new Date()) : "offline", eta: item.eta ? { earliestArrival: item.eta.earliestArrival.toISOString(), latestArrival: item.eta.latestArrival.toISOString(), confidence: item.eta.confidence } : null })), error: null }; }
 function streamEvent(type: FleetStreamEvent["type"], version: number, response: StaffLiveFleetResponse): FleetStreamEvent { return { type, version, response }; }
 
@@ -96,6 +98,15 @@ export function registerFleetRoutes(app: FastifyInstance, dependencies: FleetRou
     if (!scope || !branchAllowed(context, scope.branchId) || !tripId || !deviceId || !driverUserId || !Number.isInteger(duration) || duration < 5 || duration > 1_440) return reply.code(403).send({ data: null, error: { code: "FLEET_ACCESS_DENIED", message: "You cannot hand over this tracking session." } });
     try { const session = await dependencies.fleetTracking.handover({ previousSessionId: request.params.previousSessionId, id: randomUUID(), tenantId: request.params.tenantId, tripId, deviceId, driverUserId, expiresAt: new Date(Date.now() + duration * 60_000), actorId: context.mappedUserId! }); return reply.code(201).send({ data: sessionJson(session), error: null }); }
     catch { return reply.code(409).send({ data: null, error: { code: "TRACKING_SESSION_INVALID", message: "Tracking could not be handed over. Check the active trip and enrolled device." } }); }
+  });
+
+  app.get<{ Params: { tenantId: string } }>("/v1/tenants/:tenantId/fleet/my-status", async (request, reply) => {
+    const context = await dependencies.resolve(request);
+    if (!admitted(context, request.params.tenantId, ["driver", "conductor"])) return reply.code(403).send({ data: null, error: { code: "FLEET_ACCESS_DENIED", message: "You do not have access to your crew assignments." } });
+    if (!dependencies.fleetTracking) return reply.code(503).send({ data: null, error: { code: "LIVE_FLEET_UNAVAILABLE", message: "Fleet tracking is temporarily unavailable." } });
+    const branchIds = context.membership?.role === "owner" ? undefined : context.membership?.branchIds ?? [];
+    const assignments = await dependencies.fleetTracking.listAssigned(request.params.tenantId, context.mappedUserId!, branchIds);
+    return reply.send({ data: assignments.map(crewStatusJson), error: null });
   });
 
   app.get<{ Params: { tenantId: string } }>("/v1/tenants/:tenantId/fleet/current", async (request, reply) => {

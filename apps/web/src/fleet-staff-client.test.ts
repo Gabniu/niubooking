@@ -1,7 +1,7 @@
 // Ownership: focused contract mapping proof for the staff fleet client.
 import assert from "node:assert/strict";
 import test from "node:test";
-import { endFleetTrip, fetchFleetCurrent, openFleetStream } from "./fleet-staff-client.js";
+import { endFleetTrip, fetchFleetCrewStatus, fetchFleetCurrent, openFleetStream } from "./fleet-staff-client.js";
 
 test("loads privacy-safe current fleet projections", async () => {
   const state = await fetchFleetCurrent(async (url) => { assert.match(url, /fleet\/current$/u); return { status: 200, json: async () => ({ data: [{ tripId: "trip-1", branchId: "branch-1", vehicleLabel: "Vehicle 4", routeLabel: "CBD loop", capturedAt: "2026-08-19T10:00:00.000Z", freshness: "live", latitude: -1.28, longitude: 36.81, accuracyMetres: 8, headingDegrees: 90, geometry: { type: "LineString", coordinates: [[36.81, -1.28], [36.82, -1.27]] }, stops: [{ stopId: "stop-1", label: "Town", sequence: 1, boardingMinutes: 0, alightingMinutes: 2, latitude: -1.28, longitude: 36.81 }], eta: null }], error: null }) }; }, "https://booking.test", "tenant-1");
@@ -17,6 +17,11 @@ test("maps a fleet permission response without exposing API wording", async () =
 test("keeps unavailable fleet data retryable", async () => {
   const state = await fetchFleetCurrent(async () => ({ status: 503, json: async () => ({ data: null, error: { code: "LIVE_FLEET_UNAVAILABLE", message: "internal" } }) }), "https://booking.test", "tenant-1");
   assert.deepEqual(state, { kind: "error", message: "Live vehicle locations are temporarily unavailable. Please try again." });
+});
+
+test("loads the signed-in crew status from the tenant-scoped endpoint", async () => {
+  const state = await fetchFleetCrewStatus(async (url) => { assert.match(url, /fleet\/my-status$/u); return { status: 200, json: async () => ({ data: [{ assignmentId: "assignment-1", branchId: "branch-1", tripId: "trip-1", role: "driver", status: "active", assignedAt: "2030-01-01T08:00:00.000Z", endedAt: null, activeSession: null }], error: null }) }; }, "https://booking.test", "tenant-1");
+  assert.equal(state.kind, "ready"); if (state.kind === "ready") assert.equal(state.value[0]?.tripId, "trip-1");
 });
 
 test("stops a manager-visible trip without exposing the session identifier", async () => {

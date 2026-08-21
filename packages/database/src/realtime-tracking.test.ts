@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { enrollFleetDevice, handoverFleetTrackingSession, ingestFleetPosition, startFleetTrackingSession } from "./realtime-tracking.js";
+import { enrollFleetDevice, handoverFleetTrackingSession, ingestFleetPosition, listAssignedFleetStatus, startFleetTrackingSession } from "./realtime-tracking.js";
 
 const sessionRow = { id: "session-1", tenant_id: "tenant-1", branch_id: "branch-1", trip_id: "trip-1", device_id: "device-1", driver_user_id: "driver-1", vehicle_resource_id: "vehicle-1", status: "active" as const, started_at: new Date("2030-01-01T08:00:00Z"), expires_at: new Date("2030-01-01T12:00:00Z"), ended_at: null };
 const position = { eventId: "event-2", sessionId: "session-1", deviceId: "device-1", sequence: 2, capturedAt: new Date("2030-01-01T09:00:10Z"), receivedAt: new Date("2030-01-01T09:00:11Z"), latitude: -1.2864, longitude: 36.8172, accuracyMetres: 8 };
@@ -48,4 +48,10 @@ test("hands over only the still-active session before starting its replacement",
   const result = await handoverFleetTrackingSession(executor, { previousSessionId: "session-1", id: "session-2", tenantId: "tenant-1", tripId: "trip-1", deviceId: "device-2", driverUserId: "driver-1", expiresAt: new Date(Date.now() + 60_000), actorId: "manager-1" });
   assert.equal(result.id, "session-2");
   assert.ok(statements[0]?.startsWith("UPDATE fleet_tracking_sessions"));
+});
+
+test("lists assigned crew status without exposing a device credential or session device id", async () => {
+  const executor = { query: async <T>(sql: string) => { assert.match(sql, /transport_trip_assignments/iu); return [{ id: "assignment-1", tenant_id: "tenant-1", branch_id: "branch-1", trip_id: "trip-1", user_id: "driver-1", role: "driver", status: "active", assigned_at: new Date("2030-01-01T08:00:00Z"), ended_at: null, session_id: "session-1", session_device_id: "device-1", session_vehicle_resource_id: "vehicle-1", session_status: "active", session_started_at: new Date("2030-01-01T08:00:00Z"), session_expires_at: new Date("2030-01-01T12:00:00Z") }] as T[]; } };
+  const result = await listAssignedFleetStatus(executor, "tenant-1", "driver-1", ["branch-1"]);
+  assert.equal(result[0]?.activeSession?.id, "session-1"); assert.equal(result[0]?.activeSession?.deviceId, "device-1");
 });

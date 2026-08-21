@@ -47,6 +47,20 @@
 .transport-manifest-row .account-button { min-height: 32px; padding-inline: 11px; font-size: 11px; }
 .transport-boarded-mark { color: #140ba7; font-size: 11px; font-weight: 600; }
 .fleet-operations-panel { display: grid; gap: 14px; margin-top: 16px; padding: 17px; border: 1px solid #d9def0; border-radius: 13px; background: #fff; box-shadow: 0 8px 24px rgb(20 11 167 / 5%); }
+.fleet-crew-status { display: grid; gap: 9px; padding: 11px 12px; border: 1px solid #dfe2f4; border-radius: 10px; background: #fafaff; }
+.fleet-crew-status-error { border-color: #fecaca; background: #fff7f7; }
+.fleet-crew-status-error p { margin: 0; color: #991b1b; font-size: 11px; }
+.fleet-crew-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.fleet-crew-heading h3 { margin: 3px 0 0; color: #171717; font-size: 14px; font-weight: 600; }
+.fleet-crew-list { display: grid; gap: 7px; }
+.fleet-crew-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 10px; border: 1px solid #e6e8f1; border-radius: 8px; background: #fff; }
+.fleet-crew-row > div:first-child { display: grid; gap: 2px; min-width: 0; }
+.fleet-crew-row strong { color: #17213a; font-size: 11px; font-weight: 600; }
+.fleet-crew-row span, .fleet-crew-row small { color: #64748b; font-size: 10px; }
+.fleet-crew-state { display: grid; justify-items: end; gap: 2px; text-align: right; }
+.fleet-crew-state b { color: #64748b; font-size: 10px; font-weight: 600; }
+.fleet-crew-state.is-active b { color: #047857; }
+.fleet-crew-muted { margin: 0; color: #64748b; font-size: 11px; }
 .fleet-panel-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
 .fleet-panel-heading h2 { margin-top: 3px; color: #171717; font-size: 19px; font-weight: 500; }
 .fleet-panel-heading p:last-child { margin: 5px 0 0; color: #64748b; font-size: 11px; }

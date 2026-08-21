@@ -1,6 +1,6 @@
 // Ownership: typed staff fleet reads; authorization and branch scope stay on the API.
 
-import type { FleetStreamEvent, StaffLiveFleetResponse } from "@bookingapp/contracts";
+import type { FleetCrewStatusResponse, FleetStreamEvent, StaffLiveFleetResponse } from "@bookingapp/contracts";
 import { userFacingMessage } from "./user-messages.js";
 
 export type FleetStaffFetcher = (url: string, init: { credentials: "include" }) => Promise<{ status: number; json(): Promise<unknown> }>;
@@ -8,6 +8,10 @@ export type FleetCommandFetcher = (url: string, init: { credentials: "include"; 
 export type FleetState =
   | { kind: "loading" }
   | { kind: "ready"; value: NonNullable<StaffLiveFleetResponse["data"]> }
+  | { kind: "denied" | "error"; message: string };
+export type FleetCrewStatusState =
+  | { kind: "loading" }
+  | { kind: "ready"; value: NonNullable<FleetCrewStatusResponse["data"]> }
   | { kind: "denied" | "error"; message: string };
 export interface FleetEventSource { addEventListener(type: "snapshot" | "changed", listener: (event: { data: string }) => void): void; close(): void; onerror?: ((event?: unknown) => void) | null; }
 export type FleetEventSourceFactory = (url: string, init: { withCredentials: boolean }) => FleetEventSource;
@@ -18,6 +22,14 @@ export async function fetchFleetCurrent(fetcher: FleetStaffFetcher, baseUrl: str
   if (body.data) return { kind: "ready", value: body.data };
   const denied = body.error?.code === "FLEET_ACCESS_DENIED" || body.error?.code === "UNAUTHENTICATED";
   return { kind: denied ? "denied" : "error", message: userFacingMessage(response.status, body.error, "Live fleet locations could not be loaded.") };
+}
+
+export async function fetchFleetCrewStatus(fetcher: FleetStaffFetcher, baseUrl: string, tenantId: string): Promise<FleetCrewStatusState> {
+  const response = await fetcher(`${baseUrl}/v1/tenants/${encodeURIComponent(tenantId)}/fleet/my-status`, { credentials: "include" });
+  const body = (await response.json()) as FleetCrewStatusResponse;
+  if (body.data) return { kind: "ready", value: body.data };
+  const denied = body.error?.code === "FLEET_ACCESS_DENIED" || body.error?.code === "UNAUTHENTICATED";
+  return { kind: denied ? "denied" : "error", message: userFacingMessage(response.status, body.error, "Your crew assignments could not be loaded.") };
 }
 
 export type FleetCommandState = { kind: "success"; endedAt: string } | { kind: "denied" | "error"; message: string };

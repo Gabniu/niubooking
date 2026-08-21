@@ -11,6 +11,7 @@ import {
   type FleetDevice,
   type FleetDevicePlatform,
   type FleetTrackingSession,
+  type FleetCrewAssignmentStatus,
   type FleetTripAssignment,
   type RouteEtaEstimate,
   type RouteEtaStop,
@@ -26,6 +27,7 @@ import type { Pool } from "pg";
 interface DeviceRow { id: string; tenant_id: string; branch_id: string; user_id: string | null; vehicle_resource_id: string | null; platform: FleetDevicePlatform; label: string; status: FleetDevice["status"]; enrolled_at: Date; revoked_at: Date | null; }
 interface AssignmentRow { id: string; tenant_id: string; branch_id: string; trip_id: string; user_id: string; role: FleetTripAssignment["role"]; status: FleetTripAssignment["status"]; assigned_at: Date; ended_at: Date | null; }
 interface SessionRow { id: string; tenant_id: string; branch_id: string; trip_id: string; device_id: string; driver_user_id: string; vehicle_resource_id: string; status: FleetTrackingSession["status"]; started_at: Date; expires_at: Date; ended_at: Date | null; }
+interface CrewStatusRow extends AssignmentRow { session_id: string | null; session_device_id: string | null; session_vehicle_resource_id: string | null; session_status: "active" | null; session_started_at: Date | null; session_expires_at: Date | null; }
 interface PositionRow { event_id: string; session_id: string; device_id: string; sequence: number; captured_at: Date; received_at: Date; latitude: number; longitude: number; accuracy_metres: number; speed_metres_per_second: number | null; heading_degrees: number | null; battery_percent: number | null; }
 interface ReceiptRow { tenant_id: string; event_id: string; session_id: string; device_id: string; decision: TelemetryReceipt["decision"]; reason_code: string | null; }
 
@@ -143,6 +145,30 @@ export async function listCurrentFleetPositions(executor: SqlExecutor, tenantId:
   return rows.map((row) => { const capturedAt = row.captured_at ? new Date(row.captured_at) : null; const freshness = capturedAt ? classifyPositionFreshness(capturedAt, new Date()) : "offline"; const destinationStopSequence = row.destination_stop_sequence ?? null; const eta = destinationStopSequence === null ? null : estimateRouteEta({ geometry: row.route_geometry, stops: row.route_stops ?? [], destinationStopSequence, latitude: row.latitude, longitude: row.longitude, accuracyMetres: row.accuracy_metres, speedMetresPerSecond: row.speed_metres_per_second ?? null, capturedAt, freshness, now: new Date() }); return { tripId: row.trip_id, branchId: row.branch_id, vehicleLabel: row.vehicle_label, routeLabel: row.route_label, capturedAt, latitude: row.latitude, longitude: row.longitude, accuracyMetres: row.accuracy_metres, headingDegrees: row.heading_degrees, ...(row.route_geometry ? { geometry: row.route_geometry } : {}), ...(row.route_stops?.length ? { stops: row.route_stops.map((stop) => ({ stopId: stop.stop_id ?? `stop-${stop.sequence}`, ...(stop.label ? { label: stop.label } : {}), sequence: stop.sequence, boardingMinutes: stop.boardingMinutes, alightingMinutes: stop.alightingMinutes, ...(stop.latitude === undefined ? {} : { latitude: stop.latitude }), ...(stop.longitude === undefined ? {} : { longitude: stop.longitude }) })) } : {}), eta }; });
 }
 
+export async function listAssignedFleetStatus(executor: SqlExecutor, tenantId: string, userId: string, branchIds?: readonly string[]): Promise<readonly FleetCrewAssignmentStatus[]> {
+  if (branchIds?.length === 0) return [];
+  const rows = await executor.query<CrewStatusRow>("SELECT assignment.id, assignment.tenant_id, assignment.branch_id, assignment.trip_id, assignment.user_id, assignment.role, assignment.status, assignment.assigned_at, assignment.ended_at, session.id AS session_id, session.device_id AS session_device_id, session.vehicle_resource_id AS session_vehicle_resource_id, session.status AS session_status, session.started_at AS session_started_at, session.expires_at AS session_expires_at FROM transport_trip_assignments assignment LEFT JOIN fleet_tracking_sessions session ON session.tenant_id = assignment.tenant_id AND session.trip_id = assignment.trip_id AND session.branch_id = assignment.branch_id AND session.status = 'active' AND session.expires_at > now() WHERE assignment.tenant_id = $1 AND assignment.user_id = $2 AND assignment.status = 'active' AND ($3::text[] IS NULL OR assignment.branch_id = ANY($3)) ORDER BY assignment.assigned_at DESC, assignment.id", [tenantId, userId, branchIds ?? null]);
+  return rows.map((row) => ({
+    assignmentId: row.id,
+    tenantId: row.tenant_id,
+    branchId: row.branch_id,
+    tripId: row.trip_id,
+    role: row.role,
+    status: row.status,
+    assignedAt: new Date(row.assigned_at),
+    endedAt: row.ended_at ? new Date(row.ended_at) : null,
+    activeSession: row.session_id && row.session_device_id && row.session_vehicle_resource_id && row.session_started_at && row.session_expires_at ? {
+      id: row.session_id,
+      deviceId: row.session_device_id,
+      vehicleResourceId: row.session_vehicle_resource_id,
+      status: "active" as const,
+      startedAt: new Date(row.session_started_at),
+      expiresAt: new Date(row.session_expires_at),
+      endedAt: null,
+    } : null,
+  }));
+}
+
 export async function readFleetTripBranch(executor: SqlExecutor, tenantId: string, tripId: string): Promise<string | null> {
   const rows = await executor.query<{ branch_id: string | null }>("SELECT branch_id FROM transport_trips WHERE tenant_id = $1 AND id = $2 LIMIT 1", [tenantId, tripId]);
   return rows[0]?.branch_id ?? null;
@@ -176,6 +202,7 @@ export function createDatabaseFleetTrackingAdmin(pool: Pool) {
     end: (input: Parameters<typeof endFleetTrackingSession>[1]) => withTenantTransaction(pool, input.tenantId, (executor) => endFleetTrackingSession(executor, input)),
     endTrip: (input: Parameters<typeof endFleetTrackingTrip>[1]) => withTenantTransaction(pool, input.tenantId, (executor) => endFleetTrackingTrip(executor, input)),
     listCurrent: (tenantId: string, branchIds?: readonly string[], assignedUserId?: string) => withTenantTransaction(pool, tenantId, (executor) => listCurrentFleetPositions(executor, tenantId, branchIds, assignedUserId)),
+    listAssigned: (tenantId: string, userId: string, branchIds?: readonly string[]) => withTenantTransaction(pool, tenantId, (executor) => listAssignedFleetStatus(executor, tenantId, userId, branchIds)),
     readTripBranch: (tenantId: string, tripId: string) => withTenantTransaction(pool, tenantId, (executor) => readFleetTripBranch(executor, tenantId, tripId)),
     readSessionScope: (tenantId: string, sessionId: string) => withTenantTransaction(pool, tenantId, (executor) => readFleetSessionScope(executor, tenantId, sessionId)),
     async ingestCredential(credential: string, position: Omit<VehiclePosition, "deviceId" | "receivedAt">): Promise<{ receipt: TelemetryReceipt; receivedAt: Date } | null> {

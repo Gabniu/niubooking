@@ -17,6 +17,7 @@ function fleet(overrides: Partial<FleetTrackingAdmin> = {}): FleetTrackingAdmin 
     end: async () => ({ ...session, status: "ended", endedAt: new Date("2030-01-01T09:00:00Z") }),
     endTrip: async () => ({ ...session, status: "ended", endedAt: new Date("2030-01-01T09:00:00Z") }),
     listCurrent: async () => [],
+    listAssigned: async () => [],
     readTripBranch: async () => "branch-1",
     readSessionScope: async () => ({ branchId: "branch-1", driverUserId: "driver-1" }),
     ingestCredential: async (_credential, position) => ({ receipt: { tenantId: "tenant-1", eventId: position.eventId, sessionId: position.sessionId, deviceId: "device-1", decision: "advance_current", reasons: [], replayed: false }, receivedAt: new Date("2030-01-01T09:00:01Z") }),
@@ -87,6 +88,18 @@ test("driver current projection is assignment-filtered", async () => {
   const app = createApiServer({ resolve: () => context("driver"), fleetTracking: fleet({ listCurrent: async (_tenant, _branches, assigned) => { assignedUser = assigned ?? ""; return []; } }) });
   assert.equal((await app.inject({ method: "GET", url: "/v1/tenants/tenant-1/fleet/current" })).statusCode, 200);
   assert.equal(assignedUser, "driver-1");
+});
+
+test("driver sees a safe status for their own assigned trip", async () => {
+  let requestedUser = "";
+  const app = createApiServer({ resolve: () => context("driver"), fleetTracking: fleet({ listAssigned: async (_tenant, userId, branches) => { requestedUser = userId; assert.deepEqual(branches, ["branch-1"]); return [{ assignmentId: "assignment-1", tenantId: "tenant-1", branchId: "branch-1", tripId: "trip-1", role: "driver", status: "active", assignedAt: new Date("2030-01-01T08:00:00Z"), endedAt: null, activeSession: { id: "session-1", deviceId: "device-1", vehicleResourceId: "vehicle-1", status: "active", startedAt: new Date("2030-01-01T08:00:00Z"), expiresAt: new Date("2030-01-01T12:00:00Z"), endedAt: null } }]; } }) });
+  const response = await app.inject({ method: "GET", url: "/v1/tenants/tenant-1/fleet/my-status" });
+  assert.equal(response.statusCode, 200); assert.equal(requestedUser, "driver-1"); assert.equal(response.json().data[0].activeSession.id, "session-1"); assert.equal("deviceId" in response.json().data[0].activeSession, false);
+});
+
+test("manager cannot read a driver's private crew status", async () => {
+  const app = createApiServer({ resolve: () => context("manager"), fleetTracking: fleet() });
+  assert.equal((await app.inject({ method: "GET", url: "/v1/tenants/tenant-1/fleet/my-status" })).statusCode, 403);
 });
 
 test("telemetry requires a device credential and never accepts tenant or device scope from the body", async () => {

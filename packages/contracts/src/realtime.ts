@@ -69,6 +69,31 @@ export interface FleetStreamEvent {
   readonly response: StaffLiveFleetResponse;
 }
 
+export interface FleetCrewAssignmentStatus {
+  readonly assignmentId: string;
+  readonly branchId: string;
+  readonly tripId: string;
+  readonly role: "driver" | "conductor";
+  readonly status: "active" | "ended";
+  readonly assignedAt: string;
+  readonly endedAt: string | null;
+  readonly activeSession: {
+    readonly id: string;
+    readonly vehicleResourceId: string;
+    readonly status: "active";
+    readonly startedAt: string;
+    readonly expiresAt: string;
+  } | null;
+}
+
+export interface FleetCrewStatusResponse {
+  readonly data: readonly FleetCrewAssignmentStatus[] | null;
+  readonly error: {
+    readonly code: "UNAUTHENTICATED" | "FLEET_ACCESS_DENIED" | "LIVE_FLEET_UNAVAILABLE";
+    readonly message: string;
+  } | null;
+}
+
 export interface RiderLiveTripProjection {
   readonly tripId: string;
   readonly routeLabel: string;

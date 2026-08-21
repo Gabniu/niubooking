@@ -54,6 +54,19 @@ export interface FleetTrackingSession {
   readonly endedAt: Date | null;
 }
 
+/** Safe status view for the signed-in driver or conductor. It never carries a device credential. */
+export interface FleetCrewAssignmentStatus {
+  readonly assignmentId: string;
+  readonly tenantId: string;
+  readonly branchId: string;
+  readonly tripId: string;
+  readonly role: FleetAssignmentRole;
+  readonly status: FleetTripAssignment["status"];
+  readonly assignedAt: Date;
+  readonly endedAt: Date | null;
+  readonly activeSession: Pick<FleetTrackingSession, "id" | "deviceId" | "vehicleResourceId" | "status" | "startedAt" | "expiresAt" | "endedAt"> | null;
+}
+
 export interface ScopedVehiclePosition extends VehiclePosition {
   readonly tenantId: string;
   readonly branchId: string;
