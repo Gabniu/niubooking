@@ -12,7 +12,14 @@ const version = { id: "feed-1", tenantId: "tenant-1", version: "2026.08.20.1", s
 test("admitted manager receives a privacy-safe GTFS publication status", async () => {
   const app = createApiServer({ resolve: context, gtfsPublication: { readStatus: async () => ({ settings: { tenantId: "tenant-1", publicSlug: "city-feed", publisherName: "Niu Transit", publisherUrl: "https://example.com", defaultLanguage: "en", enabledFeatures: ["core", "frequencies"], schedulePublicationEnabled: false, realtimePublicationEnabled: false, activeVersionId: null }, activeVersion: null, latestVersion: version, versions: [version], issueCounts: { "feed-1": { error: 0, warning: 1, info: 0 } }, lastRealtimeObservationAt: null }), readValidation: async () => [] } });
   const response = await app.inject({ method: "GET", url: "/v1/tenants/tenant-1/gtfs/publication" });
-  assert.equal(response.statusCode, 200); assert.equal(response.json().data.organizationId, "tenant-1"); assert.equal(response.json().data.latestCandidate.issueCounts.warning, 1); assert.equal(response.json().data.publicScheduleUrl, null); assert.equal(response.json().data.lastRealtimeObservationAt, null); assert.equal(response.json().data.realtimeState, "disabled");
+  assert.equal(response.statusCode, 200); assert.equal(response.json().data.organizationId, "tenant-1"); assert.equal(response.json().data.latestCandidate.issueCounts.warning, 1); assert.equal(response.json().data.publicScheduleUrl, null); assert.equal(response.json().data.publicAlertsUrl, null); assert.equal(response.json().data.lastRealtimeObservationAt, null); assert.equal(response.json().data.realtimeState, "disabled");
+  await app.close();
+});
+
+test("advertises the public Alerts feed when realtime publication is enabled", async () => {
+  const app = createApiServer({ resolve: context, gtfsPublication: { readStatus: async () => ({ settings: { tenantId: "tenant-1", publicSlug: "city-feed", publisherName: "Niu Transit", publisherUrl: "https://example.com", defaultLanguage: "en", enabledFeatures: ["core"], schedulePublicationEnabled: true, realtimePublicationEnabled: true, activeVersionId: null }, activeVersion: null, latestVersion: null, versions: [], issueCounts: {}, lastRealtimeObservationAt: new Date() }), readValidation: async () => [] } });
+  const response = await app.inject({ method: "GET", url: "/v1/tenants/tenant-1/gtfs/publication" });
+  assert.equal(response.json().data.publicAlertsUrl, "/v1/public/gtfs/city-feed/alerts.pb");
   await app.close();
 });
 
