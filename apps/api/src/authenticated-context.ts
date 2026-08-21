@@ -8,17 +8,38 @@ import type { IdentityContextRequest, TenantContextDependencies } from "./server
 
 type MembershipReader = (userId: string, tenantId: string) => Promise<LocalMembership | null>;
 type MembershipListReader = (userId: string) => Promise<readonly LocalMembership[]>;
+type AccessTokenVerifier = (token: string) => Promise<import("@bookingapp/domain").IdentitySubject>;
+type AccessTokenUserReader = (identity: import("@bookingapp/domain").IdentitySubject) => Promise<string | null>;
+
+export interface AuthenticatedDependencyOptions { accessTokenVerifier?: AccessTokenVerifier; accessTokenUserReader?: AccessTokenUserReader; }
+
+function bearerToken(request: FastifyRequest): string | null {
+  const value = request.headers.authorization;
+  if (!value?.startsWith("Bearer ") || value.length > 8192) return null;
+  const token = value.slice("Bearer ".length).trim();
+  return token.length > 0 ? token : null;
+}
 
 export function createAuthenticatedDependencies(
   sessions: SessionStore,
   membershipSource: SqlExecutor | MembershipReader,
   membershipListReader?: MembershipListReader,
+  options: AuthenticatedDependencyOptions = {},
 ): TenantContextDependencies {
   const membershipReader: MembershipReader = typeof membershipSource === "function"
     ? membershipSource
     : (userId, tenantId) => readMembership(membershipSource, userId, tenantId);
   const listReader = membershipListReader ?? (typeof membershipSource === "function" ? undefined : (userId: string) => listMemberships(membershipSource, userId));
   const resolveIdentity = async (request: FastifyRequest): Promise<IdentityContextRequest> => {
+    const accessToken = bearerToken(request);
+    if (accessToken && options.accessTokenVerifier) {
+      try {
+        const identity = await options.accessTokenVerifier(accessToken);
+        const userId = options.accessTokenUserReader ? await options.accessTokenUserReader(identity) : null;
+        return { identity, mappedUserId: userId };
+      } catch { return { identity: null, mappedUserId: null }; }
+    }
+    if (accessToken) return { identity: null, mappedUserId: null };
     const token = readSessionToken(request.headers.cookie);
     if (!token) return { identity: null, mappedUserId: null };
     const session = await sessions.find(hashSessionToken(token));

@@ -1,8 +1,8 @@
 import { createApiServer } from "./server.js";
 import { createDatabaseHealth, createDatabasePublicBookingDependencies, readApiRuntimeConfig } from "./runtime.js";
 import { createAuthenticatedDependencies } from "./authenticated-context.js";
-import { createDatabaseSessionStore, createPoolExecutor, listMemberships, readMembership, withTenantTransaction } from "@bookingapp/database";
-import { parseOptionalOidcConfig } from "@bookingapp/auth";
+import { createDatabaseSessionStore, createLocalUserReader, createPoolExecutor, listMemberships, readMembership, withTenantTransaction } from "@bookingapp/database";
+import { discoverOidcProvider, parseOptionalOidcConfig, verifyAccessToken } from "@bookingapp/auth";
 import { createDatabaseAuthDependencies } from "./auth-runtime.js";
 
 const environment = process.env.BOOKING_ENV?.trim() || "staging";
@@ -13,9 +13,18 @@ const config = readApiRuntimeConfig(process.env);
 const dependencies = createDatabasePublicBookingDependencies(config);
 const sessions = createDatabaseSessionStore(dependencies.pool);
 const auth = oidcConfig ? createDatabaseAuthDependencies(oidcConfig, dependencies.pool, sessions) : undefined;
+let oidcMetadataPromise: ReturnType<typeof discoverOidcProvider> | null = null;
+const accessTokenVerifier = oidcConfig ? async (token: string) => {
+  oidcMetadataPromise ??= discoverOidcProvider(oidcConfig);
+  try {
+    const metadata = await oidcMetadataPromise;
+    return verifyAccessToken(token, { issuer: metadata.issuer, audience: oidcConfig.accessTokenAudience ?? oidcConfig.clientId, jwksUri: metadata.jwksUri });
+  } catch (error) { oidcMetadataPromise = null; throw error; }
+} : undefined;
 const authenticated = createAuthenticatedDependencies(sessions, (userId, tenantId) =>
   withTenantTransaction(dependencies.pool, tenantId, (executor) => readMembership(executor, userId, tenantId)),
   (userId) => listMemberships(createPoolExecutor(dependencies.pool), userId),
+  { ...(accessTokenVerifier ? { accessTokenVerifier } : {}), ...(oidcConfig ? { accessTokenUserReader: createLocalUserReader(dependencies.pool) } : {}) },
 );
 const app = createApiServer({
   ...dependencies,

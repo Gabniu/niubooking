@@ -33,6 +33,13 @@ The Booking server environment must contain:
 AUTH_ISSUER=https://novaauth.niuautomations.com/api/auth
 AUTH_CLIENT_ID=<the-client-id-from-step-1>
 AUTH_REDIRECT_URI=https://booking.niuautomations.com/auth/callback
+# Optional: audience issued to native NIU Driver access tokens.
+# AUTH_ACCESS_TOKEN_AUDIENCE=<registered-booking-api-audience>
+
+Native clients use a separately registered public OAuth client with authorization
+code + PKCE and an approved app/universal-link redirect. They send the resulting
+access token as `Authorization: Bearer ...` to Booking; they do not use the web
+callback cookie or the one-time fleet device credential as identity.
 ```
 
 These values belong in the server's private `.env`, never in Git, the web

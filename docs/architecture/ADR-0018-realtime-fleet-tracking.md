@@ -22,6 +22,13 @@ Traccar forwarder is an optional adapter for premium fleets with dedicated GPS
 hardware; Traccar is not the tenant, trip, authorization, or customer-facing
 system of record.
 
+Native staff authentication uses NOVA OIDC authorization code + PKCE through a
+registered public mobile client. Booking accepts a verified bearer access token
+only when its issuer, signature, audience, and exact local subject mapping all
+match; browser sessions remain opaque Secure cookies. The driver device
+credential is a separate one-time secret stored by the native secure-storage
+adapter and is never used as an identity token.
+
 The first deployment uses PostgreSQL/PostGIS for current position, partitioned
 history, route geometry, and spatial checks. Driver uploads use HTTPS. Staff and
 customer maps consume a privacy-safe unidirectional realtime stream. MapLibre

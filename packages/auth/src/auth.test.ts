@@ -16,6 +16,11 @@ test("requires complete HTTPS OIDC configuration", () => {
   );
 });
 
+test("accepts an explicit native access-token audience without changing the web redirect", () => {
+  const config = parseOidcConfig({ AUTH_ISSUER: "https://auth.test", AUTH_CLIENT_ID: "booking-web", AUTH_REDIRECT_URI: "https://booking.test/auth/callback", AUTH_ACCESS_TOKEN_AUDIENCE: "booking-api" });
+  assert.equal(config.accessTokenAudience, "booking-api"); assert.equal(config.clientId, "booking-web");
+});
+
 test("preserves the NOVA issuer path and exact callback URI", () => {
   const config = parseOidcConfig({ AUTH_ISSUER: "https://novaauth.niuautomations.com/api/auth/", AUTH_CLIENT_ID: "booking", AUTH_REDIRECT_URI: "https://booking.example.test/auth/callback/" });
   assert.equal(config.issuer, "https://novaauth.niuautomations.com/api/auth");

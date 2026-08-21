@@ -4,6 +4,8 @@ export interface OidcConsumerConfig {
   issuer: string;
   clientId: string;
   redirectUri: string;
+  /** Optional resource audience for native access tokens; web sessions keep using clientId by default. */
+  accessTokenAudience?: string;
 }
 
 function normalizeHttpsUrl(raw: string, label: string, allowQuery = false, trimPath = false): string {
@@ -20,7 +22,8 @@ export function parseOidcConfig(input: Record<string, string | undefined>): Oidc
   const clientId = input.AUTH_CLIENT_ID?.trim();
   const redirectUri = input.AUTH_REDIRECT_URI?.trim();
   if (!issuer || !clientId || !redirectUri) throw new Error("OIDC configuration is incomplete");
-  return { issuer: normalizeHttpsUrl(issuer, "OIDC issuer", false, true), clientId, redirectUri: normalizeHttpsUrl(redirectUri, "OIDC redirect URI", true) };
+  const accessTokenAudience = input.AUTH_ACCESS_TOKEN_AUDIENCE?.trim();
+  return { issuer: normalizeHttpsUrl(issuer, "OIDC issuer", false, true), clientId, redirectUri: normalizeHttpsUrl(redirectUri, "OIDC redirect URI", true), ...(accessTokenAudience ? { accessTokenAudience } : {}) };
 }
 
 export function parseOptionalOidcConfig(input: Record<string, string | undefined>): OidcConsumerConfig | null {
