@@ -184,8 +184,9 @@ VehiclePositions now has a safe first slice: the public protobuf endpoint only
 reads an active published Schedule with realtime opt-in, joins expiring current
 positions to stable vehicle/trip/route mappings, rejects stale or unresolved
 rows, and never exposes driver, device, tenant, or session identifiers. The
-bounded refresh/readiness worker seam and short-lived cache are now wired;
-remaining work is Alert workspace controls, occupancy, and detours.
+bounded refresh/readiness worker seam and short-lived cache are now wired; the
+admitted Alert workspace is now wired; remaining work is occupancy and
+detours.
 Generated Schedule versions now persist immutable
 route/trip/stop reference snapshots so later transport edits cannot alter the
 meaning of a promoted feed.

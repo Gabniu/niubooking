@@ -55,6 +55,24 @@ export interface GtfsPublicationStatusResponse {
   } | null;
 }
 
+export type GtfsAlertStatus = "draft" | "published" | "withdrawn";
+export interface GtfsAlertRecord {
+  readonly entityPublicId: string;
+  readonly tenantId: string;
+  readonly feedVersionId: string;
+  readonly headerText: string;
+  readonly descriptionText?: string;
+  readonly activeFrom?: string;
+  readonly activeUntil?: string;
+  readonly routePublicIds?: readonly string[];
+  readonly stopPublicIds?: readonly string[];
+  readonly tripPublicIds?: readonly string[];
+  readonly status: GtfsAlertStatus;
+  readonly createdAt: string;
+}
+
+export interface GtfsAlertsResponse { readonly data: readonly GtfsAlertRecord[] | null; readonly error: { readonly code: string; readonly message: string } | null; }
+
 export interface GtfsValidationReportResponse {
   readonly data: {
     readonly feedVersionId: string;

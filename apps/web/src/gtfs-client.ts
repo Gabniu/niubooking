@@ -1,6 +1,6 @@
 // Ownership: typed tenant GTFS readiness client; no internal IDs are invented in the browser.
 
-import type { GtfsPublicationCommand, GtfsPublicationCommandResponse, GtfsPublicationGenerationResponse, GtfsPublicationStatus, GtfsValidationReportResponse } from "@bookingapp/contracts";
+import type { GtfsAlertRecord, GtfsPublicationCommand, GtfsPublicationCommandResponse, GtfsPublicationGenerationResponse, GtfsPublicationStatus, GtfsValidationReportResponse } from "@bookingapp/contracts";
 import { userFacingMessage } from "./user-messages.js";
 
 type Fetcher = (url: string, init: { credentials: "include"; method?: string; headers?: Record<string, string>; body?: string }) => Promise<{ status: number; json(): Promise<unknown> }>;
@@ -13,6 +13,7 @@ async function read(fetcher: Fetcher, url: string): Promise<{ status: number; bo
 }
 export type GtfsCommandState = { kind: "ready"; version: NonNullable<GtfsPublicationCommandResponse["data"]>["feedVersion"] } | { kind: "denied" | "error"; message: string };
 export type GtfsGenerationState = { kind: "ready"; version: NonNullable<GtfsPublicationGenerationResponse["data"]>["feedVersion"] } | { kind: "denied" | "error"; message: string };
+export type GtfsAlertsState = { kind: "ready"; alerts: readonly GtfsAlertRecord[] } | { kind: "denied" | "error"; message: string };
 
 export async function fetchGtfsPublication(fetcher: Fetcher, baseUrl: string, tenantId: string): Promise<GtfsPublicationState> {
   const { status, body } = await read(fetcher, `${baseUrl}/v1/tenants/${encodeURIComponent(tenantId)}/gtfs/publication`);
@@ -43,3 +44,9 @@ export async function generateGtfsArtifact(fetcher: Fetcher, baseUrl: string, te
   if (result.data) return { kind: "ready", version: result.data.feedVersion };
   return { kind: "error", message: userFacingMessage(response.status, result.error, "Schedule generation could not be completed.") };
 }
+
+export async function fetchGtfsAlerts(fetcher: Fetcher, baseUrl: string, tenantId: string): Promise<GtfsAlertsState> { const { status, body } = await read(fetcher, `${baseUrl}/v1/tenants/${encodeURIComponent(tenantId)}/gtfs/alerts`); if (Array.isArray(body.data)) return { kind: "ready", alerts: body.data as GtfsAlertRecord[] }; const denied = body.error?.code === "GTFS_ACCESS_DENIED" || body.error?.code === "UNAUTHENTICATED"; return { kind: denied ? "denied" : "error", message: userFacingMessage(status, body.error, "Transit alerts could not be loaded.") }; }
+
+export async function createGtfsAlert(fetcher: Fetcher, baseUrl: string, tenantId: string, input: { headerText: string; descriptionText?: string | undefined; activeFrom?: string | undefined; activeUntil?: string | undefined; routePublicIds?: readonly string[] | undefined; stopPublicIds?: readonly string[] | undefined; tripPublicIds?: readonly string[] | undefined }): Promise<{ kind: "ready"; alert: GtfsAlertRecord } | { kind: "denied" | "error"; message: string }> { const response = await fetcher(`${baseUrl}/v1/tenants/${encodeURIComponent(tenantId)}/gtfs/alerts`, { credentials: "include", method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }); const result = (await response.json()) as { data?: GtfsAlertRecord; error?: { code?: string; message?: string } | null }; if (result.data) return { kind: "ready", alert: result.data }; const denied = result.error?.code === "GTFS_ACCESS_DENIED" || result.error?.code === "UNAUTHENTICATED"; return { kind: denied ? "denied" : "error", message: userFacingMessage(response.status, result.error, "That alert could not be created.") }; }
+
+export async function setGtfsAlertStatus(fetcher: Fetcher, baseUrl: string, tenantId: string, alertId: string, status: "published" | "withdrawn"): Promise<{ kind: "ready"; alert: GtfsAlertRecord } | { kind: "denied" | "error"; message: string }> { const response = await fetcher(`${baseUrl}/v1/tenants/${encodeURIComponent(tenantId)}/gtfs/alerts/${encodeURIComponent(alertId)}`, { credentials: "include", method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status }) }); const result = (await response.json()) as { data?: GtfsAlertRecord; error?: { code?: string; message?: string } | null }; if (result.data) return { kind: "ready", alert: result.data }; const denied = result.error?.code === "GTFS_ACCESS_DENIED" || result.error?.code === "UNAUTHENTICATED"; return { kind: denied ? "denied" : "error", message: userFacingMessage(response.status, result.error, "That alert action could not be completed.") }; }

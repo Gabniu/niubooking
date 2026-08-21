@@ -27,4 +27,22 @@
 .gtfs-validation li small { color: #64748b; font-size: 10px; }
 .gtfs-status { margin: 0; padding: 9px 12px; border-radius: 8px; color: #9f1239; background: #fff1f2; font-size: 12px; }
 .gtfs-status.loading { color: #475569; background: #f8fafc; }
+.gtfs-alert-workspace { display: grid; gap: 14px; padding: 18px; border: 1px solid #dfe3f4; border-radius: 14px; background: #fff; }
+.gtfs-alert-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.gtfs-alert-heading h2 { margin: 3px 0; color: #14114b; font-size: 18px; font-weight: 500; }
+.gtfs-alert-heading p:not(.eyebrow), .gtfs-alert-empty { margin: 0; color: #64748b; font-size: 12px; line-height: 1.45; }
+.gtfs-alert-form { display: grid; gap: 12px; padding: 14px; border: 1px solid #eef0f7; border-radius: 10px; background: #f8f9ff; }
+.gtfs-alert-form label { display: grid; gap: 6px; color: #334155; font-size: 12px; font-weight: 500; }
+.gtfs-alert-form input, .gtfs-alert-form textarea { width: 100%; border: 1px solid #dfe3f4; border-radius: 8px; padding: 10px 11px; color: #171717; background: #fff; font: inherit; font-size: 13px; }
+.gtfs-alert-form textarea { min-height: 72px; resize: vertical; }
+.gtfs-alert-form input:focus-visible, .gtfs-alert-form textarea:focus-visible { outline: 3px solid #c2d2ff; outline-offset: 1px; border-color: #140ba7; }
+.gtfs-alert-date-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.gtfs-alert-scope-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.gtfs-alert-list { display: grid; gap: 8px; padding: 0; margin: 0; list-style: none; }
+.gtfs-alert-list li { display: flex; align-items: start; justify-content: space-between; gap: 16px; padding: 12px; border: 1px solid #eef0f7; border-radius: 10px; }
+.gtfs-alert-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: #171717; font-size: 13px; }
+.gtfs-alert-list p { margin: 5px 0; color: #475569; font-size: 12px; line-height: 1.45; }
+.gtfs-alert-list small { color: #64748b; font-size: 10px; }
+.gtfs-alert-list .account-button { min-height: 36px; font-size: 11px; }
+@media (max-width: 700px) { .gtfs-alert-heading, .gtfs-alert-list li { flex-direction: column; } .gtfs-alert-list .account-button { width: 100%; } .gtfs-alert-date-grid, .gtfs-alert-scope-grid { grid-template-columns: 1fr; } }
 @media (max-width: 700px) { .gtfs-summary-card, .gtfs-version-card { grid-template-columns: 1fr; } .gtfs-version-meta { flex-wrap: wrap; } .gtfs-validation li { grid-template-columns: 1fr; } }
