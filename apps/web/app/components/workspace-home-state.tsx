@@ -1,8 +1,7 @@
 // Ownership: client-side tenant admission presentation; it never fabricates workspace data.
 "use client";
 
-import { useEffect, useState } from "react";
-import type { CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { BookingIllustration } from "./booking-illustration.js";
 import { loadWorkspaceContext, type WorkspaceContextState } from "../../src/workspace-context.js";
 import { fetchAuthorizedWorkspaces, type WorkspacesState } from "../../src/workspaces-client.js";

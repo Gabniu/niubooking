@@ -12,7 +12,7 @@ export default [
     ],
   },
   {
-    files: ["**/*.{ts,mts,cts}"],
+    files: ["**/*.{ts,tsx,mts,cts}"],
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: { ecmaVersion: "latest", sourceType: "module" },
