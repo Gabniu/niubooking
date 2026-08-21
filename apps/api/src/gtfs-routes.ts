@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { GtfsFeatureReadiness, GtfsPublicationStatus, GtfsValidationReportResponse } from "@bookingapp/contracts";
-import { GtfsPublicationCommandError, type GtfsFeedPublicationStatus, type GtfsValidationIssue, type GtfsPublicationAction } from "@bookingapp/database";
+import { GtfsPublicationCommandError, type GtfsAlertRecord, type GtfsFeedPublicationStatus, type GtfsValidationIssue, type GtfsPublicationAction } from "@bookingapp/database";
 import { classifyGtfsRealtimeHealth, readGtfsScheduleReferences, serializeGtfsRealtimeAlerts, serializeGtfsRealtimeTripUpdates, serializeGtfsRealtimeVehiclePositions, validateGtfsScheduleFiles, type GtfsScheduleFile } from "@bookingapp/domain";
 import type { TenantContextRequest } from "./tenant-context-handler.js";
 import type { GtfsArtifactStore } from "./gtfs-artifact-store.js";
@@ -18,6 +18,9 @@ export interface GtfsPublicationAdmin {
   readPublicVehiclePositions?(publicSlug: string): Promise<import("@bookingapp/domain").GtfsRealtimeVehiclePositionsFeed | null>;
   readPublicTripUpdates?(publicSlug: string): Promise<import("@bookingapp/domain").GtfsRealtimeTripUpdatesFeed | null>;
   readPublicAlerts?(publicSlug: string): Promise<import("@bookingapp/domain").GtfsRealtimeAlertsFeed | null>;
+  listAlerts?(tenantId: string): Promise<readonly GtfsAlertRecord[]>;
+  createAlert?(input: import("@bookingapp/database").GtfsAlertDraft): Promise<GtfsAlertRecord>;
+  setAlertStatus?(input: { tenantId: string; alertId: string; status: "published" | "withdrawn" }): Promise<GtfsAlertRecord | null>;
   artifactStore?: GtfsArtifactStore;
   readScheduleFiles?(input: { tenantId: string; feedVersionId: string }): Promise<readonly GtfsScheduleFile[] | null>;
   recordValidation?(input: { tenantId: string; feedVersionId: string; issues: readonly { code: string; severity: "error" | "warning" | "info"; fileName?: string; entityPublicId?: string; message: string; suggestedAction?: string }[]; scheduleSha256?: string; scheduleObjectKey?: string; scheduleReferences?: import("@bookingapp/domain").GtfsPublishedReferences; actorId?: string | null }): Promise<NonNullable<GtfsFeedPublicationStatus["activeVersion"]>>;
@@ -57,6 +60,8 @@ function statusJson(status: GtfsFeedPublicationStatus): GtfsPublicationStatus {
 
 function denied(reply: { code(statusCode: number): { send(payload: unknown): unknown } }) { return reply.code(403).send({ data: null, error: { code: "GTFS_ACCESS_DENIED", message: "You do not have access to transit publication settings." } }); }
 function commandStatus(code: string): number { return code === "GTFS_COMMAND_INVALID" ? 400 : code === "GTFS_VERSION_NOT_FOUND" ? 404 : 409; }
+function serializeAlert(alert: GtfsAlertRecord): Record<string, unknown> { return { ...alert, ...(alert.activeFrom ? { activeFrom: alert.activeFrom.toISOString() } : {}), ...(alert.activeUntil ? { activeUntil: alert.activeUntil.toISOString() } : {}), createdAt: alert.createdAt.toISOString() }; }
+function alertDate(value: unknown): Date | undefined | null { if (value === undefined || value === null || value === "") return value === null ? null : undefined; if (typeof value !== "string") return undefined; const date = new Date(value); return Number.isFinite(date.getTime()) ? date : undefined; }
 
 export function registerGtfsRoutes(app: FastifyInstance, dependencies: RouteDependencies): void {
   app.get<{ Params: { publicSlug: string } }>("/v1/public/gtfs/:publicSlug/schedule.zip", async (request, reply) => {
@@ -107,6 +112,24 @@ export function registerGtfsRoutes(app: FastifyInstance, dependencies: RouteDepe
       if (request.headers["if-none-match"] === etag) return reply.code(304).header("ETag", etag).send();
       return reply.code(200).header("Content-Type", "application/x-protobuf").header("Cache-Control", "public, max-age=15, stale-while-revalidate=15").header("ETag", etag).header("Last-Modified", feed.generatedAt.toUTCString()).header("X-GTFS-Schedule-Version", feed.scheduleVersion).send(payload);
     } catch { return reply.code(503).send({ data: null, error: { code: "GTFS_REALTIME_UNAVAILABLE", message: "Alerts are temporarily unavailable." } }); }
+  });
+  app.get<{ Params: { tenantId: string } }>("/v1/tenants/:tenantId/gtfs/alerts", async (request, reply) => {
+    const context = await dependencies.resolve(request); if (!admitted(context, request.params.tenantId)) return denied(reply);
+    if (!dependencies.gtfsPublication?.listAlerts) return reply.code(503).send({ data: null, error: { code: "GTFS_ALERTS_UNAVAILABLE", message: "Transit alerts are temporarily unavailable." } });
+    try { return reply.send({ data: (await dependencies.gtfsPublication.listAlerts(request.params.tenantId)).map(serializeAlert), error: null }); } catch { return reply.code(503).send({ data: null, error: { code: "GTFS_ALERTS_UNAVAILABLE", message: "Transit alerts are temporarily unavailable." } }); }
+  });
+  app.post<{ Params: { tenantId: string }; Body: { headerText?: string; descriptionText?: string; activeFrom?: string | null; activeUntil?: string | null; routePublicIds?: string[]; stopPublicIds?: string[]; tripPublicIds?: string[] } }>("/v1/tenants/:tenantId/gtfs/alerts", async (request, reply) => {
+    const context = await dependencies.resolve(request); if (!canCommand(context, request.params.tenantId)) return denied(reply);
+    if (!dependencies.gtfsPublication?.createAlert) return reply.code(503).send({ data: null, error: { code: "GTFS_ALERTS_UNAVAILABLE", message: "Transit alerts are temporarily unavailable." } });
+    const body = request.body; const activeFrom = alertDate(body?.activeFrom); const activeUntil = alertDate(body?.activeUntil);
+    const invalidFrom = Object.prototype.hasOwnProperty.call(body ?? {}, "activeFrom") && activeFrom === undefined; const invalidUntil = Object.prototype.hasOwnProperty.call(body ?? {}, "activeUntil") && activeUntil === undefined;
+    if (!body?.headerText?.trim() || body.headerText.length > 240 || invalidFrom || invalidUntil || (body.routePublicIds && !Array.isArray(body.routePublicIds)) || (body.stopPublicIds && !Array.isArray(body.stopPublicIds)) || (body.tripPublicIds && !Array.isArray(body.tripPublicIds))) return reply.code(400).send({ data: null, error: { code: "GTFS_ALERT_INVALID", message: "Add a title and valid alert times." } });
+    try { const alert = await dependencies.gtfsPublication.createAlert({ tenantId: request.params.tenantId, headerText: body.headerText, ...(body.descriptionText ? { descriptionText: body.descriptionText } : {}), ...(activeFrom ? { activeFrom } : {}), ...(activeUntil ? { activeUntil } : {}), ...(body.routePublicIds?.length ? { routePublicIds: body.routePublicIds } : {}), ...(body.stopPublicIds?.length ? { stopPublicIds: body.stopPublicIds } : {}), ...(body.tripPublicIds?.length ? { tripPublicIds: body.tripPublicIds } : {}), createdBy: context.mappedUserId }); return reply.code(201).send({ data: serializeAlert(alert), error: null }); } catch (error) { const message = error instanceof Error && error.message.startsWith("GTFS_ALERT_INVALID:") ? error.message.slice("GTFS_ALERT_INVALID:".length) : "Transit alert could not be created."; return reply.code(message === "Transit alert could not be created." ? 503 : 422).send({ data: null, error: { code: message === "Transit alert could not be created." ? "GTFS_ALERTS_UNAVAILABLE" : "GTFS_ALERT_INVALID", message } }); }
+  });
+  app.patch<{ Params: { tenantId: string; alertId: string }; Body: { status?: "published" | "withdrawn" } }>("/v1/tenants/:tenantId/gtfs/alerts/:alertId", async (request, reply) => {
+    const context = await dependencies.resolve(request); if (!canCommand(context, request.params.tenantId)) return denied(reply);
+    if (!dependencies.gtfsPublication?.setAlertStatus || !/^[A-Za-z0-9_-]{8,160}$/u.test(request.params.alertId) || !request.body?.status || !["published", "withdrawn"].includes(request.body.status)) return reply.code(400).send({ data: null, error: { code: "GTFS_ALERT_INVALID", message: "Choose publish or withdraw for this alert." } });
+    try { const alert = await dependencies.gtfsPublication.setAlertStatus({ tenantId: request.params.tenantId, alertId: request.params.alertId, status: request.body.status }); return alert ? reply.send({ data: serializeAlert(alert), error: null }) : reply.code(404).send({ data: null, error: { code: "GTFS_ALERT_NOT_FOUND", message: "That alert was not found." } }); } catch { return reply.code(503).send({ data: null, error: { code: "GTFS_ALERTS_UNAVAILABLE", message: "Transit alerts are temporarily unavailable." } }); }
   });
   app.post<{ Params: { tenantId: string; feedVersionId: string } }>("/v1/tenants/:tenantId/gtfs/versions/:feedVersionId/generate", async (request, reply) => {
     const context = await dependencies.resolve(request);

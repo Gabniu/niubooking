@@ -1,6 +1,6 @@
 // Ownership: public GTFS-Realtime projection from expiring tenant telemetry.
 
-import { buildGtfsRealtimeTripUpdates, buildGtfsRealtimeVehiclePositions, type GtfsRealtimeTripUpdatesFeed, type GtfsRealtimeVehiclePositionsFeed } from "@bookingapp/domain";
+import { buildGtfsRealtimeAlerts, buildGtfsRealtimeTripUpdates, buildGtfsRealtimeVehiclePositions, type GtfsRealtimeAlertsFeed, type GtfsRealtimeAlert, type GtfsRealtimeTripUpdatesFeed, type GtfsRealtimeVehiclePositionsFeed } from "@bookingapp/domain";
 import { withPublicTransaction, withTenantTransaction } from "./pg-executor.js";
 import type { Pool } from "pg";
 import type { SqlExecutor } from "./tenant-membership.js";
@@ -13,6 +13,7 @@ interface PositionRow {
 }
 interface TripUpdateRow { entity_public_id: string; vehicle_public_id: string; trip_public_id: string; route_public_id: string; pattern_id: string; occurrence_starts_at: Date; captured_at: Date; stop_public_id: string; stop_sequence: number; arrival_seconds: number; departure_seconds: number; }
 interface ReferenceRow { entity_kind: "route" | "trip" | "stop"; public_id: string; }
+interface AlertRow { id: string; header_text: string; description_text: string | null; active_from: Date | null; active_until: Date | null; route_public_ids: string[]; stop_public_ids: string[]; trip_public_ids: string[]; }
 
 function dateInTimezone(value: Date, timezone: string): string {
   const parts = new Intl.DateTimeFormat("en", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(value);
@@ -103,5 +104,20 @@ export async function readPublicGtfsTripUpdates(pool: Pool, publicSlug: string, 
     for (const row of rows) { const current = grouped.get(row.trip_public_id) ?? { patternIds: new Set<string>(), vehiclePublicId: row.vehicle_public_id, routePublicId: row.route_public_id, startDate: dateInTimezone(new Date(row.occurrence_starts_at), timezone), capturedAt: new Date(row.captured_at), stops: [] }; current.patternIds.add(row.pattern_id); current.stops.push(row); grouped.set(row.trip_public_id, current); }
     const candidates = [...grouped.entries()].flatMap(([tripPublicId, group]) => group.patternIds.size !== 1 ? [] : [{ entityPublicId: `tu-${tripPublicId}`, trip: { tripPublicId, routePublicId: group.routePublicId, startDate: group.startDate, scheduleRelationship: "scheduled" as const }, vehiclePublicId: group.vehiclePublicId, capturedAt: group.capturedAt, stopUpdates: group.stops.map((stop) => ({ stopPublicId: stop.stop_public_id, stopSequence: stop.stop_sequence, arrivalAt: serviceDateAtSeconds(group.startDate, stop.arrival_seconds, timezone), departureAt: serviceDateAtSeconds(group.startDate, stop.departure_seconds, timezone) })) }]);
     return buildGtfsRealtimeTripUpdates({ scheduleVersion: feed.version, generatedAt: now, published, candidates }).feed;
+  });
+}
+
+export async function readPublicGtfsAlerts(pool: Pool, publicSlug: string, now = new Date()): Promise<GtfsRealtimeAlertsFeed | null> {
+  if (!publicSlug.trim()) return null;
+  const feed = await withPublicTransaction(pool, (executor) => readFeed(executor, publicSlug));
+  if (!feed || !feed.realtime_publication_enabled) return null;
+  return withTenantTransaction(pool, feed.tenant_id, async (executor) => {
+    const [rows, referenceRows] = await Promise.all([
+      executor.query<AlertRow>("SELECT id, header_text, description_text, active_from, active_until, route_public_ids, stop_public_ids, trip_public_ids FROM gtfs_realtime_alerts WHERE tenant_id = $1 AND feed_version_id = $2 AND status = 'published' AND (active_from IS NULL OR active_from <= $3) AND (active_until IS NULL OR active_until > $3) ORDER BY id", [feed.tenant_id, feed.feed_version_id, now]),
+      executor.query<ReferenceRow>("SELECT entity_kind, public_id FROM gtfs_feed_version_entities WHERE tenant_id = $1 AND feed_version_id = $2", [feed.tenant_id, feed.feed_version_id]),
+    ]);
+    const published = { scheduleVersion: feed.version, routeIds: new Set(referenceRows.filter((row) => row.entity_kind === "route").map((row) => row.public_id)), tripIds: new Set(referenceRows.filter((row) => row.entity_kind === "trip").map((row) => row.public_id)), stopIds: new Set(referenceRows.filter((row) => row.entity_kind === "stop").map((row) => row.public_id)) };
+    const candidates: GtfsRealtimeAlert[] = rows.map((row) => ({ entityPublicId: row.id, headerText: row.header_text, ...(row.description_text ? { descriptionText: row.description_text } : {}), ...(row.active_from ? { activeFrom: new Date(row.active_from) } : {}), ...(row.active_until ? { activeUntil: new Date(row.active_until) } : {}), ...(row.route_public_ids.length ? { routePublicIds: row.route_public_ids } : {}), ...(row.stop_public_ids.length ? { stopPublicIds: row.stop_public_ids } : {}), ...(row.trip_public_ids.length ? { tripPublicIds: row.trip_public_ids } : {}) }));
+    return buildGtfsRealtimeAlerts({ scheduleVersion: feed.version, generatedAt: now, published, candidates }).feed;
   });
 }

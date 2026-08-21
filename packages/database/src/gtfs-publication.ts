@@ -6,8 +6,9 @@ import type { Pool } from "pg";
 import { appendAuditEvent } from "./audit-events.js";
 import { executeGtfsPublicationCommand } from "./gtfs-commands.js";
 import { readGtfsScheduleFiles } from "./gtfs-source.js";
-import { readPublicGtfsTripUpdates, readPublicGtfsVehiclePositions } from "./gtfs-realtime.js";
+import { readPublicGtfsAlerts, readPublicGtfsTripUpdates, readPublicGtfsVehiclePositions } from "./gtfs-realtime.js";
 import { readCachedGtfsTripUpdates, readCachedGtfsVehiclePositions } from "./gtfs-realtime-cache.js";
+import { createGtfsAlert, listGtfsAlerts, setGtfsAlertStatus } from "./gtfs-alerts.js";
 import { withPublicTransaction, withTenantTransaction } from "./pg-executor.js";
 import type { SqlExecutor } from "./tenant-membership.js";
 
@@ -239,6 +240,10 @@ export function createDatabaseGtfsPublication(pool: Pool) {
     readCachedTripUpdates: (publicSlug: string) => readCachedGtfsTripUpdates(pool, publicSlug),
     readPublicVehiclePositions: (publicSlug: string) => readPublicGtfsVehiclePositions(pool, publicSlug),
     readPublicTripUpdates: (publicSlug: string) => readPublicGtfsTripUpdates(pool, publicSlug),
+    readPublicAlerts: (publicSlug: string) => readPublicGtfsAlerts(pool, publicSlug),
+    listAlerts: (tenantId: string) => withTenantTransaction(pool, tenantId, (executor) => listGtfsAlerts(executor, tenantId)),
+    createAlert: (input: import("./gtfs-alerts.js").GtfsAlertDraft) => withTenantTransaction(pool, input.tenantId, (executor) => createGtfsAlert(executor, input)),
+    setAlertStatus: (input: { tenantId: string; alertId: string; status: "published" | "withdrawn" }) => withTenantTransaction(pool, input.tenantId, (executor) => setGtfsAlertStatus(executor, input)),
     publish: (input: { tenantId: string; feedVersionId: string; actorId: string | null }) => withTenantTransaction(pool, input.tenantId, (executor) => publishGtfsFeedVersion(executor, input)),
     command: (input: { tenantId: string; feedVersionId: string; action: import("./gtfs-commands.js").GtfsPublicationAction; idempotencyKey: string; actorId: string | null }) => withTenantTransaction(pool, input.tenantId, (executor) => executeGtfsPublicationCommand(executor, input)),
   };

@@ -19,6 +19,7 @@ export * from "./occurrences.js";
 export * from "./transport.js";
 export * from "./transport-live.js";
 export * from "./gtfs-publication.js";
+export * from "./gtfs-alerts.js";
 export * from "./gtfs-commands.js";
 export * from "./gtfs-source.js";
 export * from "./gtfs-realtime.js";

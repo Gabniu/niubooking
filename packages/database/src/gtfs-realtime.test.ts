@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { Pool } from "pg";
-import { readPublicGtfsTripUpdates, readPublicGtfsVehiclePositions } from "./gtfs-realtime.js";
+import { readPublicGtfsAlerts, readPublicGtfsTripUpdates, readPublicGtfsVehiclePositions } from "./gtfs-realtime.js";
 
 test("publishes only fresh positions with references present in the Schedule source", async () => {
   const client = {
@@ -40,4 +40,18 @@ test("projects TripUpdates only from one published pattern with persisted stop-t
   const pool = { async connect() { return client; } } as unknown as Pool;
   const feed = await readPublicGtfsTripUpdates(pool, "city-feed", new Date("2026-08-20T08:01:30Z"));
   assert.equal(feed?.entities[0]?.trip.tripPublicId, "trip-1"); assert.equal(feed?.entities[0]?.stopUpdates[0]?.stopPublicId, "stop-1");
+});
+
+test("publishes only active, Schedule-referenced Alerts", async () => {
+  const client = {
+    async query(sql: string) {
+      if (sql.includes("SELECT settings.tenant_id")) return { rows: [{ tenant_id: "tenant-1", feed_version_id: "version-1", version: "feed-1", realtime_publication_enabled: true }] };
+      if (sql.includes("FROM gtfs_realtime_alerts")) return { rows: [{ id: "alert-1", header_text: "Road closed", description_text: null, active_from: null, active_until: null, route_public_ids: ["route-1"], stop_public_ids: [], trip_public_ids: [] }] };
+      if (sql.includes("FROM gtfs_feed_version_entities")) return { rows: [{ entity_kind: "route", public_id: "route-1" }] };
+      return { rows: [] };
+    }, release() { return undefined; },
+  };
+  const pool = { async connect() { return client; } } as unknown as Pool;
+  const feed = await readPublicGtfsAlerts(pool, "city-feed", new Date("2026-08-21T10:00:00Z"));
+  assert.deepEqual(feed?.entities.map((alert) => alert.entityPublicId), ["alert-1"]);
 });

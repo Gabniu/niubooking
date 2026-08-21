@@ -50,6 +50,7 @@ reservation, fleet, identity, or tenant model.
 - [x] GTFS worker refresh slice: the existing worker runs a bounded, cadence-controlled refresh for enabled public feeds, writes a short-lived tenant-safe VehiclePositions cache, reports target and failure counts through redacted health, and keeps request-time projection fallback available.
 - [x] GTFS TripUpdates source slice: privacy-safe TripUpdates now project only from an unambiguous published pattern with persisted stop-times, use deterministic domain ordering and dependency-free protobuf encoding, and are exposed through a guarded public route; ambiguous or incomplete observations are omitted.
 - [x] GTFS Alerts contract slice: validated, deterministic, privacy-safe Alerts now have dependency-free protobuf encoding and a guarded public route; the route stays unavailable until an authoritative alert source is composed.
+- [x] GTFS Alerts source slice: owner/admin API controls persist draft/published/withdrawn alerts, validate every selector against the active Schedule snapshot, and the public route projects only active alerts tied to the promoted version.
 - [ ] NIU Driver React Native application with physical-device background tests.
 - [ ] Regional tile/PMTiles cost proof, route matching, provider-backed ETA calculation,
   and the physical rider browser journey remain.
@@ -184,7 +185,7 @@ reads an active published Schedule with realtime opt-in, joins expiring current
 positions to stable vehicle/trip/route mappings, rejects stale or unresolved
 rows, and never exposes driver, device, tenant, or session identifiers. The
 bounded refresh/readiness worker seam and short-lived cache are now wired;
-remaining work is staff controls, Alerts, occupancy, and detours.
+remaining work is Alert workspace controls, occupancy, and detours.
 Generated Schedule versions now persist immutable
 route/trip/stop reference snapshots so later transport edits cannot alter the
 meaning of a promoted feed.
