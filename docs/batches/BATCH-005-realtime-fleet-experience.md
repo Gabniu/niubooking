@@ -40,6 +40,7 @@ reservation, fleet, identity, or tenant model.
 - [x] Crew status slice: driver and conductor workspace users can see their own active trip assignments and whether a session is sharing location; the API and UI omit raw credentials and keep session start/stop in NIU Driver until the mobile app exists.
 - [x] Driver core reliability slice: `@bookingapp/driver-tracking` provides a platform-neutral ordered queue/controller, offline retry retention, blocked-session stop behavior, and a credential-safe telemetry transport for the future React Native app.
 - [x] Driver command client slice: the same core maps authenticated assigned-trip start/stop API commands to safe mobile states without exposing session internals; native authentication transport remains an app integration boundary.
+- [x] Native auth boundary slice: the platform-neutral driver core now defines secure-storage adapters, expiry-aware restore/sign-out, and token-free snapshots for the future NOVA OIDC native client; no storage vendor or refresh-token behavior is assumed before the mobile app is built.
 - [x] Manager stop-trip slice: owner/admin/manager/dispatcher staff can end a branch-scoped active trip from the staff list; the API returns only trip status and end time, and the row action is wired through the typed client.
 - [x] GTFS core serialization slice: a validated Schedule draft now produces byte-stable `agency`, `stops`, `routes`, `trips`, `stop_times`, calendar/exception, shape, and frequency files with service-day times above `24:00:00` preserved.
 - [x] GTFS readiness slice: admitted transit staff can review publication state, candidate issue counts, feature readiness, and validation details through `/app/gtfs`; drivers remain denied and no public URL is advertised before a real artifact endpoint exists.
@@ -54,7 +55,7 @@ reservation, fleet, identity, or tenant model.
 - [x] GTFS TripUpdates source slice: privacy-safe TripUpdates now project only from an unambiguous published pattern with persisted stop-times, use deterministic domain ordering and dependency-free protobuf encoding, and are exposed through a guarded public route; ambiguous or incomplete observations are omitted.
 - [x] GTFS Alerts contract slice: validated, deterministic, privacy-safe Alerts now have dependency-free protobuf encoding and a guarded public route; the route stays unavailable until an authoritative alert source is composed.
 - [x] GTFS Alerts source slice: owner/admin API controls persist draft/published/withdrawn alerts, validate every selector against the active Schedule snapshot, and the public route projects only active alerts tied to the promoted version.
-- [ ] NIU Driver React Native application with physical-device background tests.
+- [ ] NIU Driver React Native application with physical-device background tests; wire the native OIDC redirect, OS secure storage, token refresh policy, and Traccar Client SDK only in that app layer.
 - [ ] Regional tile/PMTiles cost proof, route matching, provider-backed ETA calculation,
   and the physical rider browser journey remain.
 - [ ] Validated GTFS Schedule publication. Stable ID, service-day time,
