@@ -15,6 +15,7 @@ import {
 } from "./gtfs-realtime.js";
 import { serializeGtfsRealtimeAlerts, serializeGtfsRealtimeTripUpdates, serializeGtfsRealtimeVehiclePositions } from "./gtfs-realtime-protobuf.js";
 import { readGtfsScheduleReferences } from "./gtfs-validation.js";
+import { occupancyStatusFromSeatLoad } from "./gtfs-occupancy.js";
 
 const now = new Date("2026-08-19T12:00:00Z");
 const published: GtfsPublishedReferences = {
@@ -50,6 +51,15 @@ test("classifies realtime publication health from the latest observation", () =>
   assert.equal(classifyGtfsRealtimeHealth(true, new Date("2026-08-20T09:59:30Z"), observedAt), "healthy");
   assert.equal(classifyGtfsRealtimeHealth(true, new Date("2026-08-20T09:58:30Z"), observedAt), "delayed");
   assert.equal(classifyGtfsRealtimeHealth(true, new Date("2026-08-20T09:57:00Z"), observedAt), "stale");
+});
+
+test("publishes conservative seat occupancy and omits open-capacity guesses", () => {
+  assert.equal(occupancyStatusFromSeatLoad("seat", 0, 33), "empty");
+  assert.equal(occupancyStatusFromSeatLoad("seat", 8, 33), "many_seats_available");
+  assert.equal(occupancyStatusFromSeatLoad("seat", 16, 33), "few_seats_available");
+  assert.equal(occupancyStatusFromSeatLoad("seat", 30, 33), "crushed_standing_room_only");
+  assert.equal(occupancyStatusFromSeatLoad("seat", 33, 33), "full");
+  assert.equal(occupancyStatusFromSeatLoad("open", 8, 33), undefined);
 });
 
 test("accepts a fresh headway vehicle whose IDs resolve in the active feed", () => {
@@ -129,6 +139,15 @@ test("builds a deterministic privacy-safe VehiclePositions feed and drops stale 
   const encoded = serializeGtfsRealtimeVehiclePositions(result.feed);
   assert.ok(encoded.length > 20);
   assert.match(new TextDecoder().decode(encoded), /2\.0/iu);
+});
+
+test("keeps occupancy in the VehiclePositions protobuf projection", () => {
+  const feed = buildGtfsRealtimeVehiclePositions({
+    scheduleVersion: published.scheduleVersion, generatedAt: now, published,
+    candidates: [{ entityPublicId: "vp-seat", vehiclePublicId: "vehicle-seat", tripPublicId: "route-23-pattern-a", routePublicId: "route-23", startDate: "20260819", latitude: -1.2, longitude: 36.8, capturedAt: new Date("2026-08-19T11:59:45Z"), occupancyStatus: "few_seats_available" }],
+  }).feed;
+  assert.equal(feed.entities[0]?.occupancyStatus, "few_seats_available");
+  assert.ok(serializeGtfsRealtimeVehiclePositions(feed).length > 20);
 });
 
 test("snapshots only public route, trip, and stop IDs from a validated Schedule", () => {

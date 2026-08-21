@@ -1,6 +1,7 @@
 // Ownership: privacy-safe GTFS-Realtime references and freshness validation.
 
 import { isValidGtfsPublicId } from "./gtfs-schedule.js";
+import type { GtfsRealtimeOccupancyStatus } from "./gtfs-occupancy.js";
 
 export type GtfsRealtimeScheduleRelationship =
   | "scheduled"
@@ -35,14 +36,7 @@ export interface GtfsRealtimeVehiclePosition {
   readonly capturedAt: Date;
   readonly currentStopSequence?: number;
   readonly stopPublicId?: string;
-  readonly occupancyStatus?:
-    | "empty"
-    | "many_seats_available"
-    | "few_seats_available"
-    | "standing_room_only"
-    | "crushed_standing_room_only"
-    | "full"
-    | "not_accepting_passengers";
+  readonly occupancyStatus?: GtfsRealtimeOccupancyStatus;
 }
 
 export interface GtfsRealtimeTripUpdate {
@@ -99,6 +93,7 @@ export interface GtfsRealtimeVehiclePositionCandidate {
   readonly bearing?: number;
   readonly speedMetresPerSecond?: number;
   readonly capturedAt: Date;
+  readonly occupancyStatus?: GtfsRealtimeOccupancyStatus;
 }
 
 export type GtfsRealtimeHealthState = "disabled" | "healthy" | "delayed" | "stale";
@@ -127,6 +122,7 @@ export function buildGtfsRealtimeVehiclePositions(input: {
       longitude: candidate.longitude,
       ...(candidate.bearing === undefined ? {} : { bearing: candidate.bearing }),
       ...(candidate.speedMetresPerSecond === undefined ? {} : { speedMetresPerSecond: candidate.speedMetresPerSecond }),
+      ...(candidate.occupancyStatus === undefined ? {} : { occupancyStatus: candidate.occupancyStatus }),
       capturedAt: candidate.capturedAt,
     };
     const reasons = validateGtfsRealtimeVehiclePosition(position, input.published, input.generatedAt);

@@ -112,8 +112,9 @@ never a second source of booking or telemetry truth. TripUpdates now have a
 validated domain/protobuf contract and guarded endpoint. The projection joins
 only an unambiguous published pattern with persisted stop-times; ambiguous or
 incomplete observations are omitted. Alerts are now tenant-authored and
-Schedule-bound through an admitted staff lifecycle; occupancy and detours
-remain explicit follow-on work.
+Schedule-bound through an admitted staff lifecycle. Seat-mode occupancy is
+derived only from authoritative reservation inventory; open-capacity occupancy
+and detours remain explicit follow-on work.
 
 # Product and authorization boundary
 
@@ -134,10 +135,10 @@ The core Schedule and realtime foundations now persist agency profiles,
 stable GTFS IDs, named/geocoded stops, service calendars, shapes, stop-times,
 frequency windows, feed versions, immutable per-feed route/trip/stop reference
 snapshots, publication policy, tracking sessions, current positions, and the
-short-lived VehiclePositions cache. Rider-quality extensions, occupancy,
-detours, and richer source settings remain explicit BATCH-005 work; Alert
-authoring and public projection are now implemented as a tenant-scoped,
-Schedule-bound lifecycle;
+short-lived VehiclePositions cache. Rider-quality extensions, open-capacity
+occupancy, detours, and richer source settings remain explicit BATCH-005 work;
+Alert authoring, public projection, and conservative seat-mode occupancy are
+now implemented as tenant-scoped, Schedule-bound projections;
 array order and internal UUIDs are not an acceptable substitute.
 
 # Acceptance

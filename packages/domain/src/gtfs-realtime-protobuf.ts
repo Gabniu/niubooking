@@ -42,7 +42,12 @@ function vehiclePosition(position: GtfsRealtimeVehiclePosition): number[] {
     ...uintField(5, Math.floor(position.capturedAt.getTime() / 1_000)),
     ...messageField(8, stringField(1, position.vehiclePublicId)),
     ...(position.stopPublicId === undefined ? [] : stringField(8, position.stopPublicId)),
+    ...(position.occupancyStatus === undefined ? [] : uintField(9, occupancyStatusCode(position.occupancyStatus))),
   ];
+}
+
+function occupancyStatusCode(status: NonNullable<GtfsRealtimeVehiclePosition["occupancyStatus"]>): number {
+  return ["empty", "many_seats_available", "few_seats_available", "standing_room_only", "crushed_standing_room_only", "full", "not_accepting_passengers"].indexOf(status);
 }
 
 function entity(position: GtfsRealtimeVehiclePosition): number[] {

@@ -61,8 +61,10 @@ reservation, fleet, identity, or tenant model.
   extensions remain.
   exporter, independent validator, flexible service, fares, accessibility, and
   rider-quality extensions remain.
-- [ ] GTFS-Realtime VehiclePositions, TripUpdates, Alerts, occupancy, and gated
-  experimental detours against the active Schedule version.
+- [x] GTFS-Realtime VehiclePositions, TripUpdates, Alerts, and conservative
+  seat-mode occupancy against the active Schedule version.
+- [ ] GTFS-Realtime experimental detours and open-capacity occupancy against
+  the active Schedule version.
 - [ ] Optional private Traccar hardware forwarder.
 - [ ] Replay/load/cost simulation and production observability.
 
@@ -185,8 +187,8 @@ reads an active published Schedule with realtime opt-in, joins expiring current
 positions to stable vehicle/trip/route mappings, rejects stale or unresolved
 rows, and never exposes driver, device, tenant, or session identifiers. The
 bounded refresh/readiness worker seam and short-lived cache are now wired; the
-admitted Alert workspace is now wired; remaining work is occupancy and
-detours.
+admitted Alert workspace and conservative seat-mode occupancy are now wired;
+remaining work is open-capacity occupancy and detours.
 Generated Schedule versions now persist immutable
 route/trip/stop reference snapshots so later transport edits cannot alter the
 meaning of a promoted feed.

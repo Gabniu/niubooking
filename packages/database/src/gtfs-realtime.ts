@@ -1,6 +1,6 @@
 // Ownership: public GTFS-Realtime projection from expiring tenant telemetry.
 
-import { buildGtfsRealtimeAlerts, buildGtfsRealtimeTripUpdates, buildGtfsRealtimeVehiclePositions, type GtfsRealtimeAlertsFeed, type GtfsRealtimeAlert, type GtfsRealtimeTripUpdatesFeed, type GtfsRealtimeVehiclePositionsFeed } from "@bookingapp/domain";
+import { buildGtfsRealtimeAlerts, buildGtfsRealtimeTripUpdates, buildGtfsRealtimeVehiclePositions, occupancyStatusFromSeatLoad, type GtfsRealtimeAlertsFeed, type GtfsRealtimeAlert, type GtfsRealtimeTripUpdatesFeed, type GtfsRealtimeVehiclePositionsFeed } from "@bookingapp/domain";
 import { withPublicTransaction, withTenantTransaction } from "./pg-executor.js";
 import type { Pool } from "pg";
 import type { SqlExecutor } from "./tenant-membership.js";
@@ -9,7 +9,7 @@ interface FeedRow { tenant_id: string; feed_version_id: string; version: string;
 interface AgencyRow { timezone: string; }
 interface PositionRow {
   entity_public_id: string; vehicle_public_id: string; trip_public_id: string; route_public_id: string;
-  captured_at: Date; latitude: number; longitude: number; bearing: number | null; speed_metres_per_second: number | null;
+  captured_at: Date; latitude: number; longitude: number; bearing: number | null; speed_metres_per_second: number | null; capacity_mode?: "seat" | "open"; capacity?: number; reserved_quantity?: number;
 }
 interface TripUpdateRow { entity_public_id: string; vehicle_public_id: string; trip_public_id: string; route_public_id: string; pattern_id: string; occurrence_starts_at: Date; captured_at: Date; stop_public_id: string; stop_sequence: number; arrival_seconds: number; departure_seconds: number; }
 interface ReferenceRow { entity_kind: "route" | "trip" | "stop"; public_id: string; }
@@ -41,7 +41,7 @@ async function readFeed(executor: SqlExecutor, publicSlug: string): Promise<Feed
 async function readPositions(executor: SqlExecutor, tenantId: string, feedVersionId: string, now: Date, scheduleVersion: string): Promise<GtfsRealtimeVehiclePositionsFeed> {
   const [agencyRows, rows, referenceRows] = await Promise.all([
     executor.query<AgencyRow>("SELECT timezone FROM transport_agencies WHERE tenant_id = $1 AND status = 'active' ORDER BY id LIMIT 1", [tenantId]),
-    executor.query<PositionRow>(`SELECT 'vp-' || vehicle_map.public_id AS entity_public_id, vehicle_map.public_id AS vehicle_public_id, trip_map.public_id AS trip_public_id, route_map.public_id AS route_public_id, current.captured_at, current.latitude, current.longitude, current.heading_degrees AS bearing, current.speed_metres_per_second
+      executor.query<PositionRow>(`SELECT 'vp-' || vehicle_map.public_id AS entity_public_id, vehicle_map.public_id AS vehicle_public_id, trip_map.public_id AS trip_public_id, route_map.public_id AS route_public_id, current.captured_at, current.latitude, current.longitude, current.heading_degrees AS bearing, current.speed_metres_per_second, trip.capacity_mode, trip.capacity, trip.reserved_quantity
       FROM fleet_tracking_sessions session
       JOIN transport_trips trip ON trip.tenant_id = session.tenant_id AND trip.id = session.trip_id
       JOIN transport_routes route ON route.tenant_id = trip.tenant_id AND route.id = trip.route_id AND route.version = trip.route_version AND route.status = 'published'
@@ -55,11 +55,14 @@ async function readPositions(executor: SqlExecutor, tenantId: string, feedVersio
     executor.query<ReferenceRow>("SELECT entity_kind, public_id FROM gtfs_feed_version_entities WHERE tenant_id = $1 AND feed_version_id = $2", [tenantId, feedVersionId]),
   ]);
   const timezone = agencyRows[0]?.timezone ?? "UTC";
-  const candidates = rows.map((row) => ({
+  const candidates = rows.map((row) => {
+    const occupancyStatus = occupancyStatusFromSeatLoad(row.capacity_mode, row.reserved_quantity, row.capacity);
+    return {
     entityPublicId: row.entity_public_id, vehiclePublicId: row.vehicle_public_id, tripPublicId: row.trip_public_id,
     routePublicId: row.route_public_id, startDate: dateInTimezone(now, timezone), latitude: row.latitude, longitude: row.longitude,
-    ...(row.bearing === null ? {} : { bearing: row.bearing }), ...(row.speed_metres_per_second === null ? {} : { speedMetresPerSecond: row.speed_metres_per_second }), capturedAt: new Date(row.captured_at),
-  }));
+    ...(row.bearing === null ? {} : { bearing: row.bearing }), ...(row.speed_metres_per_second === null ? {} : { speedMetresPerSecond: row.speed_metres_per_second }), ...(occupancyStatus ? { occupancyStatus } : {}), capturedAt: new Date(row.captured_at),
+    };
+  });
   const published = {
     scheduleVersion,
     routeIds: new Set(referenceRows.filter((row) => row.entity_kind === "route").map((row) => row.public_id)),
