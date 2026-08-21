@@ -8,11 +8,12 @@ import {
   validateGtfsRealtimeVehiclePosition,
   buildGtfsRealtimeVehiclePositions,
   buildGtfsRealtimeTripUpdates,
+  buildGtfsRealtimeAlerts,
   classifyGtfsRealtimeHealth,
   type GtfsPublishedReferences,
   type GtfsRealtimeVehiclePosition,
 } from "./gtfs-realtime.js";
-import { serializeGtfsRealtimeTripUpdates, serializeGtfsRealtimeVehiclePositions } from "./gtfs-realtime-protobuf.js";
+import { serializeGtfsRealtimeAlerts, serializeGtfsRealtimeTripUpdates, serializeGtfsRealtimeVehiclePositions } from "./gtfs-realtime-protobuf.js";
 import { readGtfsScheduleReferences } from "./gtfs-validation.js";
 
 const now = new Date("2026-08-19T12:00:00Z");
@@ -102,6 +103,16 @@ test("validates alert selectors and active periods", () => {
     headerText: "Changed stop",
     stopPublicIds: ["missing"],
   }, published).join("; "), /unknown stop/iu);
+});
+
+test("builds privacy-safe Alerts, removes expired entries, and serializes protobuf", () => {
+  const result = buildGtfsRealtimeAlerts({ scheduleVersion: published.scheduleVersion, generatedAt: now, published, candidates: [
+    { entityPublicId: "alert-z", headerText: "Road closure", descriptionText: "Use another stop.", routePublicIds: ["route-23"], activeFrom: now },
+    { entityPublicId: "alert-old", headerText: "Finished", activeUntil: new Date("2026-08-19T11:59:00Z") },
+  ] });
+  assert.deepEqual(result.feed.entities.map((alert) => alert.entityPublicId), ["alert-z"]);
+  assert.equal(result.dropped[0]?.entityPublicId, "alert-old");
+  assert.ok(serializeGtfsRealtimeAlerts(result.feed).length > 20);
 });
 
 test("builds a deterministic privacy-safe VehiclePositions feed and drops stale candidates", () => {

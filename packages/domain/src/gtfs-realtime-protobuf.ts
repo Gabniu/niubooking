@@ -1,6 +1,6 @@
 // Ownership: dependency-free GTFS-Realtime VehiclePositions protobuf encoding.
 
-import type { GtfsRealtimeTripUpdate, GtfsRealtimeTripUpdatesFeed, GtfsRealtimeVehiclePosition, GtfsRealtimeVehiclePositionsFeed } from "./gtfs-realtime.js";
+import type { GtfsRealtimeAlert, GtfsRealtimeAlertsFeed, GtfsRealtimeTripUpdate, GtfsRealtimeTripUpdatesFeed, GtfsRealtimeVehiclePosition, GtfsRealtimeVehiclePositionsFeed } from "./gtfs-realtime.js";
 
 const encoder = new TextEncoder();
 
@@ -71,6 +71,22 @@ function tripUpdate(update: GtfsRealtimeTripUpdate): number[] {
 
 function tripUpdateEntity(update: GtfsRealtimeTripUpdate): number[] { return [...stringField(1, update.entityPublicId), ...messageField(3, tripUpdate(update))]; }
 
+function translatedText(text: string): number[] { return messageField(1, stringField(1, text)); }
+function alertPeriod(alert: GtfsRealtimeAlert): number[] {
+  return [...(alert.activeFrom ? uintField(1, Math.floor(alert.activeFrom.getTime() / 1_000)) : []), ...(alert.activeUntil ? uintField(2, Math.floor(alert.activeUntil.getTime() / 1_000)) : [])];
+}
+function informedEntities(alert: GtfsRealtimeAlert): number[][] {
+  return [
+    ...(alert.routePublicIds ?? []).map((id) => stringField(2, id)),
+    ...(alert.stopPublicIds ?? []).map((id) => stringField(4, id)),
+    ...(alert.tripPublicIds ?? []).map((id) => messageField(3, stringField(1, id))),
+  ];
+}
+function alertMessage(alert: GtfsRealtimeAlert): number[] {
+  return [...(alert.activeFrom || alert.activeUntil ? messageField(1, alertPeriod(alert)) : []), ...informedEntities(alert).map((entity) => messageField(5, entity)).flat(), ...messageField(7, translatedText(alert.headerText)), ...(alert.descriptionText ? messageField(8, translatedText(alert.descriptionText)) : [])];
+}
+function alertEntity(alert: GtfsRealtimeAlert): number[] { return [...stringField(1, alert.entityPublicId), ...messageField(5, alertMessage(alert))]; }
+
 export function serializeGtfsRealtimeVehiclePositions(feed: GtfsRealtimeVehiclePositionsFeed): Uint8Array {
   const header = [
     ...stringField(1, "2.0"),
@@ -84,4 +100,9 @@ export function serializeGtfsRealtimeTripUpdates(feed: GtfsRealtimeTripUpdatesFe
   const header = [...stringField(1, "2.0"), ...uintField(4, Math.floor(feed.generatedAt.getTime() / 1_000))];
   const body = [...messageField(1, header), ...feed.entities.map((update) => messageField(2, tripUpdateEntity(update))).flat()];
   return Uint8Array.from(body);
+}
+
+export function serializeGtfsRealtimeAlerts(feed: GtfsRealtimeAlertsFeed): Uint8Array {
+  const header = [...stringField(1, "2.0"), ...uintField(4, Math.floor(feed.generatedAt.getTime() / 1_000))];
+  return Uint8Array.from([...messageField(1, header), ...feed.entities.map((alert) => messageField(2, alertEntity(alert))).flat()]);
 }

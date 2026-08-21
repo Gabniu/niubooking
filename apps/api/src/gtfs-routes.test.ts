@@ -108,3 +108,10 @@ test("TripUpdates delivery is protobuf, cacheable, and fail-closed when not comp
   assert.equal(response.statusCode, 200); assert.equal(response.headers["content-type"], "application/x-protobuf"); assert.equal(response.headers["x-gtfs-schedule-version"], "2026.08.20.1");
   assert.equal((await app.inject({ method: "GET", url: "/v1/public/gtfs/missing/trip-updates.pb" })).statusCode, 404); await app.close();
 });
+
+test("Alerts delivery is protobuf and fail-closed when no alert source is composed", async () => {
+  const app = createApiServer({ resolve: context, gtfsPublication: { readStatus: async () => null, readValidation: async () => [] } });
+  const unavailable = await app.inject({ method: "GET", url: "/v1/public/gtfs/city-feed/alerts.pb" });
+  assert.equal(unavailable.statusCode, 503);
+  await app.close();
+});

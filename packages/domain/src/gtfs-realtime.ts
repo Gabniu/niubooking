@@ -65,6 +65,12 @@ export interface GtfsRealtimeTripUpdatesFeed {
   readonly entities: readonly GtfsRealtimeTripUpdate[];
 }
 
+export interface GtfsRealtimeAlertsFeed {
+  readonly scheduleVersion: string;
+  readonly generatedAt: Date;
+  readonly entities: readonly GtfsRealtimeAlert[];
+}
+
 export interface GtfsRealtimeAlert {
   readonly entityPublicId: string;
   readonly headerText: string;
@@ -140,6 +146,22 @@ export function buildGtfsRealtimeTripUpdates(input: {
   const entities = input.candidates.flatMap((candidate) => {
     const reasons = validateGtfsRealtimeTripUpdate(candidate, input.published, input.generatedAt);
     if (reasons.length) { dropped.push({ entityPublicId: candidate.entityPublicId, reasons }); return []; }
+    return [candidate];
+  }).sort((left, right) => left.entityPublicId.localeCompare(right.entityPublicId));
+  return { feed: { scheduleVersion: input.scheduleVersion, generatedAt: input.generatedAt, entities }, dropped };
+}
+
+export function buildGtfsRealtimeAlerts(input: {
+  scheduleVersion: string;
+  generatedAt: Date;
+  published: GtfsPublishedReferences;
+  candidates: readonly GtfsRealtimeAlert[];
+}): { feed: GtfsRealtimeAlertsFeed; dropped: readonly { entityPublicId: string; reasons: readonly string[] }[] } {
+  const dropped: { entityPublicId: string; reasons: readonly string[] }[] = [];
+  const entities = input.candidates.flatMap((candidate) => {
+    const reasons = [...validateGtfsRealtimeAlert(candidate, input.published)];
+    if (candidate.activeUntil && candidate.activeUntil <= input.generatedAt) reasons.push("Realtime alert has expired");
+    if (reasons.length) { dropped.push({ entityPublicId: candidate.entityPublicId, reasons: [...new Set(reasons)] }); return []; }
     return [candidate];
   }).sort((left, right) => left.entityPublicId.localeCompare(right.entityPublicId));
   return { feed: { scheduleVersion: input.scheduleVersion, generatedAt: input.generatedAt, entities }, dropped };
