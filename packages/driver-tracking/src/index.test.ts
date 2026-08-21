@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createDriverTelemetryFetcher, createDriverTrackingController, createMemoryTelemetryQueue } from "./index.js";
+import { createDriverSessionClient, createDriverTelemetryFetcher, createDriverTrackingController, createMemoryTelemetryQueue } from "./index.js";
 
 const sample = (eventId: string) => ({ eventId, capturedAt: "2030-01-01T08:00:00.000Z", latitude: -1.2864, longitude: 36.8172, accuracyMetres: 8, batteryPercent: 82 });
 
@@ -44,4 +44,18 @@ test("sends only the contract payload and bearer credential", async () => {
   const send = createDriverTelemetryFetcher(async (url, init) => { seenUrl = url; seenBody = init.body; seenAuth = init.headers.authorization; return { status: 202 }; }, "https://booking.test/v1/fleet/telemetry", "opaque-credential");
   const result = await send({ sessionId: "session-1", eventId: "event-1", sequence: 0, capturedAt: "2030-01-01T08:00:00.000Z", latitude: -1.28, longitude: 36.81, accuracyMetres: 7 });
   assert.equal(result, "accepted"); assert.equal(seenUrl, "https://booking.test/v1/fleet/telemetry"); assert.equal(seenAuth, "Bearer opaque-credential"); assert.equal("tenantId" in JSON.parse(seenBody), false); assert.equal("deviceId" in JSON.parse(seenBody), false);
+});
+
+test("starts and ends an assigned session without exposing API internals", async () => {
+  const calls: string[] = [];
+  const client = createDriverSessionClient(async (url, init) => { calls.push(`${init.method} ${url}`); if (url.endsWith("tracking-sessions")) return { status: 201, json: async () => ({ data: { id: "session-1", expiresAt: "2030-01-01T12:00:00.000Z" } }) }; return { status: 200, json: async () => ({ data: { endedAt: "2030-01-01T09:00:00.000Z" } }) }; }, "https://booking.test");
+  assert.deepEqual(await client.start("tenant-1", "trip-1", "device-1", 60), { kind: "ready", sessionId: "session-1", expiresAt: "2030-01-01T12:00:00.000Z" });
+  assert.deepEqual(await client.end("tenant-1", "session-1"), { kind: "success", endedAt: "2030-01-01T09:00:00.000Z" });
+  assert.match(calls[0] ?? "", /POST https:\/\/booking\.test\/v1\/tenants\/tenant-1\/fleet\/tracking-sessions$/u);
+  assert.match(calls[1] ?? "", /POST https:\/\/booking\.test\/v1\/tenants\/tenant-1\/fleet\/tracking-sessions\/session-1\/end$/u);
+});
+
+test("maps a denied mobile session command to simple recovery copy", async () => {
+  const client = createDriverSessionClient(async () => ({ status: 403, json: async () => ({ data: null, error: { code: "FLEET_ACCESS_DENIED" } }) }), "https://booking.test");
+  assert.deepEqual(await client.start("tenant-1", "trip-1", "device-1"), { kind: "denied", message: "You cannot control this assigned trip." });
 });

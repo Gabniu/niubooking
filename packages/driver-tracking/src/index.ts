@@ -1,6 +1,7 @@
 // Ownership: platform-neutral NIU Driver telemetry core; native location and secure storage stay at the app edge.
 
 import type { DriverPositionUpload } from "@bookingapp/contracts";
+export { createDriverSessionClient, type DriverSessionEndState, type DriverSessionFetcher, type DriverSessionStartState } from "./session-client.js";
 
 export interface DriverLocationSample {
   readonly eventId: string;
