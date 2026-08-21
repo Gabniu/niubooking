@@ -22,6 +22,12 @@ Traccar forwarder is an optional adapter for premium fleets with dedicated GPS
 hardware; Traccar is not the tenant, trip, authorization, or customer-facing
 system of record.
 
+The shared driver-tracking core exposes a durable telemetry-queue adapter. The
+native app supplies encrypted local persistence, and queue mutations are
+serialized so a restart or concurrent location callback cannot silently drop a
+position. Corrupt persisted records fail closed; the queue never becomes a
+second source of truth for trip or reservation state.
+
 Native staff authentication uses NOVA OIDC authorization code + PKCE through a
 registered public mobile client. Booking accepts a verified bearer access token
 only when its issuer, signature, audience, and exact local subject mapping all
