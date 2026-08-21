@@ -25,7 +25,7 @@ function commandKey(action: CardAction, versionId: string): string { const gener
 function realtimeLabel(state: GtfsPublicationStatus["realtimeState"]): string { return state === "disabled" ? "Realtime disabled" : state === "healthy" ? "Realtime live" : state === "delayed" ? "Realtime delayed" : "Realtime needs attention"; }
 
 function PublicFeedLinks({ publication }: { publication: GtfsPublicationStatus }): ReactNode {
-  const links = [["Schedule ZIP", publication.publicScheduleUrl], ["VehiclePositions protobuf", publication.publicVehiclePositionsUrl]] as const;
+  const links = [["Schedule ZIP", publication.publicScheduleUrl], ["VehiclePositions protobuf", publication.publicVehiclePositionsUrl], ["TripUpdates protobuf", publication.publicTripUpdatesUrl]] as const;
   if (!links.some(([, href]) => href)) return null;
   return <article className="gtfs-public-links"><div><p className="eyebrow">Public endpoints</p><h2>Share the live feed</h2></div><ul>{links.map(([label, href]) => href ? <li key={href}><span>{label}</span><a href={`${apiBase}${href}`} target="_blank" rel="noreferrer">Open endpoint</a></li> : null)}</ul></article>;
 }

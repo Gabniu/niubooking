@@ -48,7 +48,7 @@ reservation, fleet, identity, or tenant model.
 - [x] GTFS VehiclePositions slice: the public protobuf endpoint requires realtime opt-in and an active published Schedule, reads expiring current telemetry, validates against immutable route/trip/stop reference snapshots, and drops stale or unresolved entities; `/app/gtfs` shows enabled public endpoint links.
 - [x] GTFS realtime readiness slice: `/app/gtfs` serializes the latest active observation and labels realtime as live, delayed, stale, or disabled using bounded freshness thresholds.
 - [x] GTFS worker refresh slice: the existing worker runs a bounded, cadence-controlled refresh for enabled public feeds, writes a short-lived tenant-safe VehiclePositions cache, reports target and failure counts through redacted health, and keeps request-time projection fallback available.
-- [x] GTFS TripUpdates contract slice: validated privacy-safe TripUpdates now have deterministic domain ordering, dependency-free protobuf encoding, and a guarded public route; it stays unavailable until stop-time observations are sourced authoritatively.
+- [x] GTFS TripUpdates source slice: privacy-safe TripUpdates now project only from an unambiguous published pattern with persisted stop-times, use deterministic domain ordering and dependency-free protobuf encoding, and are exposed through a guarded public route; ambiguous or incomplete observations are omitted.
 - [ ] NIU Driver React Native application with physical-device background tests.
 - [ ] Regional tile/PMTiles cost proof, route matching, provider-backed ETA calculation,
   and the physical rider browser journey remain.
@@ -183,7 +183,7 @@ reads an active published Schedule with realtime opt-in, joins expiring current
 positions to stable vehicle/trip/route mappings, rejects stale or unresolved
 rows, and never exposes driver, device, tenant, or session identifiers. The
 bounded refresh/readiness worker seam and short-lived cache are now wired;
-remaining work is staff controls, TripUpdates, Alerts, occupancy, and detours.
+remaining work is staff controls, TripUpdates caching, Alerts, occupancy, and detours.
 Generated Schedule versions now persist immutable
 route/trip/stop reference snapshots so later transport edits cannot alter the
 meaning of a promoted feed.

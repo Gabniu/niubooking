@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { Pool } from "pg";
-import { readPublicGtfsVehiclePositions } from "./gtfs-realtime.js";
+import { readPublicGtfsTripUpdates, readPublicGtfsVehiclePositions } from "./gtfs-realtime.js";
 
 test("publishes only fresh positions with references present in the Schedule source", async () => {
   const client = {
@@ -25,4 +25,19 @@ test("publishes only fresh positions with references present in the Schedule sou
   const feed = await readPublicGtfsVehiclePositions(pool, "city-feed", new Date("2026-08-20T08:01:30Z"));
   assert.deepEqual(feed?.entities.map((entity) => entity.entityPublicId), ["vp-v1"]);
   assert.equal("deviceId" in (feed?.entities[0] ?? {}), false);
+});
+
+test("projects TripUpdates only from one published pattern with persisted stop-times", async () => {
+  const client = {
+    async query(sql: string) {
+      if (sql.includes("SELECT settings.tenant_id")) return { rows: [{ tenant_id: "tenant-1", feed_version_id: "version-1", version: "feed-1", realtime_publication_enabled: true }] };
+      if (sql.includes("SELECT timezone")) return { rows: [{ timezone: "Africa/Nairobi" }] };
+      if (sql.includes("FROM fleet_tracking_sessions")) return { rows: [{ entity_public_id: "tu-trip-1", vehicle_public_id: "v1", trip_public_id: "trip-1", route_public_id: "route-1", pattern_id: "pattern-1", occurrence_starts_at: new Date("2026-08-20T05:00:00Z"), captured_at: new Date("2026-08-20T08:01:00Z"), stop_public_id: "stop-1", stop_sequence: 1, arrival_seconds: 8 * 3600, departure_seconds: 8 * 3600 + 30 }] };
+      if (sql.includes("FROM gtfs_feed_version_entities")) return { rows: [{ entity_kind: "route", public_id: "route-1" }, { entity_kind: "trip", public_id: "trip-1" }, { entity_kind: "stop", public_id: "stop-1" }] };
+      return { rows: [] };
+    }, release() { return undefined; },
+  };
+  const pool = { async connect() { return client; } } as unknown as Pool;
+  const feed = await readPublicGtfsTripUpdates(pool, "city-feed", new Date("2026-08-20T08:01:30Z"));
+  assert.equal(feed?.entities[0]?.trip.tripPublicId, "trip-1"); assert.equal(feed?.entities[0]?.stopUpdates[0]?.stopPublicId, "stop-1");
 });
