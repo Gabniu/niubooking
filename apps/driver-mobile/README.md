@@ -8,6 +8,8 @@ The first screen is a real, compact operational shell. It intentionally shows **
 
 Background location is wired at the configuration boundary, but it is not considered production-ready until a development build and physical Android/iOS devices verify permission prompts, task recovery, offline queueing, and stop-sharing behavior.
 
+The next native runtime step consumes these Expo config values without bundling secrets: `apiBaseUrl`, `telemetryEndpoint`, `authIssuer`, `authClientId`, and the `niudriver://` `authRedirectUri`. The secure storage adapter is present, but the PKCE browser flow and token exchange remain intentionally disabled until the registered NOVA Auth client and redirect allowlist are available.
+
 ## Commands
 
 ```bash
