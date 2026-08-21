@@ -4,6 +4,7 @@ import type { DriverPositionUpload } from "@bookingapp/contracts";
 export { createDriverSessionClient, type DriverSessionEndState, type DriverSessionFetcher, type DriverSessionStartState } from "./session-client.js";
 export { createNativeAuthSession, type NativeAccessCredential, type NativeAuthSession, type NativeAuthSnapshot, type NativeAuthStatus, type NativeAuthStorage } from "./native-auth.js";
 export { createPersistentTelemetryQueue, type DriverTelemetryQueueStorage } from "./persistent-queue.js";
+export { createDriverMobileController, type DriverActiveSession, type DriverActiveSessionStorage, type DriverMobileController, type DriverMobileDependencies, type DriverMobilePhase, type DriverMobileSnapshot, type DriverMobileStartInput } from "./mobile-controller.js";
 
 export interface DriverLocationSample {
   readonly eventId: string;

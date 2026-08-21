@@ -23,6 +23,11 @@ snapshot, or treats a device credential as a human identity. React Native will
 provide the storage adapter and browser redirect adapter when the NIU Driver
 app is built.
 
+The same native application boundary persists only the non-secret active
+tracking-session record (tenant, trip, opaque session reference, and expiry) so
+an app restart can resume or stop its own server session. The record is never
+returned in the UI snapshot and is cleared when the server session ends.
+
 Access-token refresh is intentionally an app/provider integration concern. A
 refresh token may be stored only by the same secure adapter after NOVA confirms
 that the registered mobile client is allowed to receive one; it is not added to
