@@ -44,7 +44,7 @@ physical-device evidence, real PostgreSQL concurrency, or live visual review.
 | Deployment | `/health/live` and `/health/ready` return 200 | API is reachable; web release is wrong |
 | Database | Local integration lane skips without `TEST_DATABASE_URL` | CI/approved-server concurrency and migration evidence still required for release |
 | Dependencies | `npm audit --audit-level=high`: 0 high, 0 critical, 11 moderate | No high-severity release stop; moderate Expo chain needs owned remediation |
-| Graph | Graphify refreshed code graph: 3,665 nodes, 5,921 edges, 346 communities; Obsidian export: 4,011 notes | Architecture relationships refreshed; semantic doc extraction was unavailable without a configured graph LLM backend |
+| Graph | Graphify code-only refresh after the release commit: 3,665 nodes, 5,921 edges, 345 communities; previous Obsidian export: 4,011 notes | Architecture relationships refreshed; semantic doc extraction was unavailable without a configured graph LLM backend |
 
 ## User-story audit
 
@@ -132,6 +132,19 @@ reachability only; they do not prove that the web image, Next route manifest,
 OIDC configuration, tenant database, worker, provider delivery, or native app
 is the intended release.
 
+### Deployment attempts after the audit
+
+The current release candidate was packaged as immutable commit
+`3c0291266663bc230595882f107f64a4e6230bd0` on
+`release/audit-staging-2026-08-22` and pushed to GitHub. The first workflow run
+(`32578136392`) stopped before deployment because the abbreviated SHA was
+interpreted as a branch by checkout. The retry (`32578198091`) correctly
+checked out the full SHA, then stopped at the deployment-secret gate because
+all five `staging` environment secrets are currently absent. Neither run
+opened SSH or changed the staging host. The release hold therefore remains
+valid, but the source revision integrity problem is resolved; the remaining
+blocker is staging access/configuration.
+
 ## Findings and improvements
 
 ### P0 — deployed web release is not the intended product
@@ -150,14 +163,15 @@ exact route inventory above for real Next responses; it must be run against the
 next deployed image together with a build identifier and authenticated staging
 journey. Health-only acceptance remains prohibited.
 
-### P1 — deployment revision must match the verified tree
+### P1 — staging access is not configured
 
-The GitHub Actions deployment client is available, but the workflow checks out
-the selected remote ref rather than the local working tree. The current tree
-contains uncommitted product, documentation, and verification changes and does
-not equal `origin/main`; triggering the workflow now would deploy an unverified
-revision. Release work must first produce one reviewed immutable revision, then
-run the staging workflow and the live route gate against that exact revision.
+The GitHub Actions deployment client is available and the current audited tree
+now exists as one pushed immutable release candidate. The staging environment is
+missing `BOOKING_STAGING_HOST`, `BOOKING_STAGING_USER`,
+`BOOKING_STAGING_SSH_KEY`, `BOOKING_STAGING_KNOWN_HOSTS`, and
+`BOOKING_STAGING_APP_DIR`, so the workflow cannot reach the approved server.
+Configure those values outside the repository, then run the workflow against
+the full release SHA and keep the route gate as a hard acceptance check.
 
 ### P1 — driver runtime is not yet a complete user journey
 
@@ -208,19 +222,21 @@ permission/error states.
 
 ## Recommended release sequence
 
-1. Deploy the current API/web image from the checked-in source and verify the
-   production bridge actually owns all migrated route families.
-2. Run the complete live-page inventory above; fail the release on any unexpected
+1. Configure the five `staging` environment secrets without placing values in
+   Git or workflow logs.
+2. Deploy the current API/web image from the immutable release SHA and verify
+   the production bridge actually owns all migrated route families.
+3. Run the complete live-page inventory above; fail the release on any unexpected
    404, legacy root, wrong content type, or missing build identifier.
-3. Configure a disposable approved tenant and execute OIDC sign-in, workspace
+4. Configure a disposable approved tenant and execute OIDC sign-in, workspace
    selection, schedule read/write, public booking, manage/cancel, feedback,
    transport ticket, and GTFS readiness journeys.
-4. Run PostgreSQL migration, tenancy, authorization, and concurrency evidence
+5. Run PostgreSQL migration, tenancy, authorization, and concurrency evidence
    with an explicit `TEST_DATABASE_URL`.
-5. Finish native driver provisioning/start-stop composition and physical-device
+6. Finish native driver provisioning/start-stop composition and physical-device
    proof before marking fleet tracking complete.
-6. Implement start/handover idempotency and align telemetry evidence with ADR-0018.
-7. Only then move the release hold in `MASTER_EXECUTION_PLAN.md` and mark the
+7. Implement start/handover idempotency and align telemetry evidence with ADR-0018.
+8. Only then move the release hold in `MASTER_EXECUTION_PLAN.md` and mark the
    affected feature-surface rows as fully verified.
 
 ## Audit conclusion

@@ -37,6 +37,15 @@ confirm API readiness and the complete 23-route Next smoke gate, then execute
 the authenticated OIDC → tenant → real-data journey. Only after those checks
 pass should the public hostname be changed or accepted as the Booking release.
 
+The 2026-08-22 release attempt produced immutable candidate
+`3c0291266663bc230595882f107f64a4e6230bd0` on
+`release/audit-staging-2026-08-22`. Run `32578136392` failed before deployment
+because an abbreviated SHA was supplied; retry `32578198091` checked out the
+full SHA but failed the secret preflight because the `staging` environment has
+none of the five required deployment secrets. No server-side release was
+created by either run. Configure the environment secrets before retrying; do
+not bypass the preflight or accept the live hostname based on API health alone.
+
 Local verification follows this status: it does not start Docker Desktop or create a database implicitly. When a server database is provisioned, run the real integration lane with an explicit `TEST_DATABASE_URL`; until then the local lane reports the database proof as skipped rather than consuming workstation resources.
 
 Historical note (superseded by the live verification above): the earlier record
