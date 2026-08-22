@@ -31,15 +31,33 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
 
+      - name: Record exact release revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          requested_ref="${{ inputs.ref }}"
+          if [[ "$requested_ref" =~ ^[0-9a-fA-F]{40}$ && "$actual_sha" != "$requested_ref" ]]; then
+            echo "Checked out $actual_sha, but requested immutable revision $requested_ref" >&2
+            exit 1
+          fi
+          echo "BOOKING_RELEASE_SHA=$actual_sha" >> "$GITHUB_ENV"
+          echo "Deploying checked-out revision $actual_sha"
+
       - name: Validate deployment secrets
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$STAGING_HOST"
-          test -n "$STAGING_USER"
-          test -n "$STAGING_SSH_KEY"
-          test -n "$STAGING_KNOWN_HOSTS"
-          test -n "$STAGING_APP_DIR"
+          missing=()
+          [[ -n "$STAGING_HOST" ]] || missing+=(BOOKING_STAGING_HOST)
+          [[ -n "$STAGING_USER" ]] || missing+=(BOOKING_STAGING_USER)
+          [[ -n "$STAGING_SSH_KEY" ]] || missing+=(BOOKING_STAGING_SSH_KEY)
+          [[ -n "$STAGING_KNOWN_HOSTS" ]] || missing+=(BOOKING_STAGING_KNOWN_HOSTS)
+          [[ -n "$STAGING_APP_DIR" ]] || missing+=(BOOKING_STAGING_APP_DIR)
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing GitHub Environment secret(s): %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
           case "$STAGING_APP_DIR" in
             /*) ;;
             *) echo "BOOKING_STAGING_APP_DIR must be an absolute server path" >&2; exit 1 ;;
@@ -70,19 +88,19 @@ jobs:
             --exclude='./test-results' --exclude='./playwright-report' \
             --exclude='./graphify-out' --exclude='./.graphify-semantic' \
             --exclude='./.env' --exclude='./.env.*' \
-            -czf "/tmp/booking-${GITHUB_SHA}.tgz" .
-          scp "/tmp/booking-${GITHUB_SHA}.tgz" "booking-staging:/tmp/booking-${GITHUB_SHA}.tgz"
+            -czf "/tmp/booking-${BOOKING_RELEASE_SHA}.tgz" .
+          scp "/tmp/booking-${BOOKING_RELEASE_SHA}.tgz" "booking-staging:/tmp/booking-${BOOKING_RELEASE_SHA}.tgz"
 
       - name: Deploy and smoke test on staging
         shell: bash
         run: |
           set -euo pipefail
-          ssh booking-staging "GITHUB_SHA='$GITHUB_SHA' APP_DIR='$STAGING_APP_DIR' bash -s" <<'REMOTE'
+          ssh booking-staging "BOOKING_RELEASE_SHA='$BOOKING_RELEASE_SHA' APP_DIR='$STAGING_APP_DIR' bash -s" <<'REMOTE'
           set -euo pipefail
-          release="$APP_DIR/releases/$GITHUB_SHA"
+          release="$APP_DIR/releases/$BOOKING_RELEASE_SHA"
           mkdir -p "$release"
-          tar -xzf "/tmp/booking-$GITHUB_SHA.tgz" -C "$release"
-          rm -f "/tmp/booking-$GITHUB_SHA.tgz"
+          tar -xzf "/tmp/booking-$BOOKING_RELEASE_SHA.tgz" -C "$release"
+          rm -f "/tmp/booking-$BOOKING_RELEASE_SHA.tgz"
           test -f "$APP_DIR/.env"
           ln -sfn "$release" "$APP_DIR/current"
           cd "$APP_DIR/current"
