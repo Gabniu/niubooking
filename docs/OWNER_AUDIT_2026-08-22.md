@@ -44,7 +44,7 @@ physical-device evidence, real PostgreSQL concurrency, or live visual review.
 | Deployment | `/health/live` and `/health/ready` return 200 | API is reachable; web release is wrong |
 | Database | Local integration lane skips without `TEST_DATABASE_URL` | CI/approved-server concurrency and migration evidence still required for release |
 | Dependencies | `npm audit --audit-level=high`: 0 high, 0 critical, 11 moderate | No high-severity release stop; moderate Expo chain needs owned remediation |
-| Graph | Graphify code-only refresh after the release commit: 3,665 nodes, 5,921 edges, 345 communities; previous Obsidian export: 4,011 notes | Architecture relationships refreshed; semantic doc extraction was unavailable without a configured graph LLM backend |
+| Graph | Graphify code-only refresh after the release commit: 3,665 nodes, 5,921 edges, 347 communities; previous Obsidian export: 4,011 notes | Architecture relationships refreshed; semantic doc extraction was unavailable without a configured graph LLM backend |
 
 ## User-story audit
 
