@@ -431,12 +431,11 @@ has been verified. Health endpoints alone are not web-release evidence. The next
 deployment must prove every public, auth, and staff route against the production
 bridge; `npm run check:deployed-web` now performs that 23-route check, but it
 still must be run against the next deployed image, followed by an authorized
-tenant journey with real OIDC and persistence. The audited source is now
-packaged as immutable release candidate
-`3c0291266663bc230595882f107f64a4e6230bd0`, but staging deployment is blocked
-because the GitHub `staging` environment has no deployment secrets. Configure
-those secrets before retrying the release workflow; do not accept the public
-hostname based on API health alone.
+tenant journey with real OIDC and persistence. The audited source and hardened
+workflow are packaged on `release/audit-staging-2026-08-22`; its latest tip is
+the immutable revision to deploy after staging secrets are configured. Staging
+deployment remains blocked because the GitHub `staging` environment has no
+deployment secrets. Do not accept the public hostname based on API health alone.
 The owner audit in `docs/OWNER_AUDIT_2026-08-22.md` is the release checklist and
 must remain attached to the deployment record.
 

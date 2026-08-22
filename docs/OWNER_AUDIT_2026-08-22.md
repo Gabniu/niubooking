@@ -150,6 +150,11 @@ release paths to the exact checked-out SHA. Run `32596589911` verified
 `eb343cd2c7fd49f99c95a013f17d8b323722c57d` and reported all five missing secret
 names clearly, still without opening SSH or changing the host.
 
+Follow-up owner verification on 2026-08-23 found the same production state:
+API liveness/readiness are 200, but the 23-route Next smoke gate still fails;
+the public web release remains the legacy shell. The release branch tip is the
+revision to deploy once staging access is configured.
+
 ## Findings and improvements
 
 ### P0 — deployed web release is not the intended product

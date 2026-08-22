@@ -1,6 +1,6 @@
 # Booking — deployment status
 
-**Last verified: 2026-08-22.**
+**Last verified: 2026-08-23.**
 
 ## Status: API LIVE; WEB RELEASE DRIFT BLOCKS FEATURE ACCEPTANCE
 
@@ -50,6 +50,11 @@ The workflow was then hardened to bind the server release directory and
 archive name to the exact checked-out SHA, and run `32596589911` verified that
 revision successfully before stopping at the same secret preflight. Its log
 now names every missing secret without exposing values.
+
+Follow-up verification on 2026-08-23 is unchanged: `/health/live` and
+`/health/ready` return 200, while `npm run check:deployed-web` against the
+public hostname fails all 23 expected Next routes. The public web release was
+not changed by the failed preflight runs.
 
 Local verification follows this status: it does not start Docker Desktop or create a database implicitly. When a server database is provisioned, run the real integration lane with an explicit `TEST_DATABASE_URL`; until then the local lane reports the database proof as skipped rather than consuming workstation resources.
 
