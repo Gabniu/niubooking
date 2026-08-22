@@ -46,6 +46,11 @@ none of the five required deployment secrets. No server-side release was
 created by either run. Configure the environment secrets before retrying; do
 not bypass the preflight or accept the live hostname based on API health alone.
 
+The workflow was then hardened to bind the server release directory and
+archive name to the exact checked-out SHA, and run `32596589911` verified that
+revision successfully before stopping at the same secret preflight. Its log
+now names every missing secret without exposing values.
+
 Local verification follows this status: it does not start Docker Desktop or create a database implicitly. When a server database is provisioned, run the real integration lane with an explicit `TEST_DATABASE_URL`; until then the local lane reports the database proof as skipped rather than consuming workstation resources.
 
 Historical note (superseded by the live verification above): the earlier record

@@ -145,6 +145,11 @@ opened SSH or changed the staging host. The release hold therefore remains
 valid, but the source revision integrity problem is resolved; the remaining
 blocker is staging access/configuration.
 
+The deployment workflow was hardened afterward to bind archive and server
+release paths to the exact checked-out SHA. Run `32596589911` verified
+`eb343cd2c7fd49f99c95a013f17d8b323722c57d` and reported all five missing secret
+names clearly, still without opening SSH or changing the host.
+
 ## Findings and improvements
 
 ### P0 — deployed web release is not the intended product
