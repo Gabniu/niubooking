@@ -437,7 +437,10 @@ the immutable revision to deploy after staging secrets are configured. Staging
 deployment remains blocked because the GitHub `staging` environment has no
 deployment secrets. Do not accept the public hostname based on API health alone.
 The owner audit in `docs/OWNER_AUDIT_2026-08-22.md` is the release checklist and
-must remain attached to the deployment record.
+must remain attached to the deployment record. ADR-0022 records the separate
+P1 fleet command-safety gap: start/handover idempotency and recoverable
+one-time credential replay must be implemented and concurrency-tested before
+the native driver journey is production-verified.
 
 ## 13. First implementation backlog
 

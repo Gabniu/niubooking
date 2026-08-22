@@ -88,3 +88,9 @@ delivery are implemented. No transport controls are exposed prematurely.
   `verified locally` labels are source/local evidence, not deployed acceptance;
   connected production journeys remain blocked until the current web release is
   deployed and exercised with real OIDC, tenant membership, and persistence.
+
+- Owner follow-up (2026-08-23): `STORY-DRIVER-01` / `FLOW-DRIVER-01` has a P1
+  command-safety gap. Tracking start and handover need transactional
+  idempotency plus recoverable one-time credential replay; see
+  `docs/architecture/ADR-0022-fleet-command-idempotency.md`. Do not mark the
+  native driver journey production-verified until its acceptance cases pass.

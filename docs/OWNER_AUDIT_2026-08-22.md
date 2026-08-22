@@ -199,7 +199,10 @@ each request. A lost response followed by retry can create a new session or leav
 the client without the one-time provider credential. Add an idempotency key bound
 to tenant, actor, trip, and command, persist the result/audit outcome, and return
 the original response on replay. The database active-session constraint remains
-necessary but is not a substitute for command idempotency.
+necessary but is not a substitute for command idempotency. The required
+cross-layer decision and acceptance cases are now recorded in
+`docs/architecture/ADR-0022-fleet-command-idempotency.md`; implementation is
+still outstanding and this finding remains open.
 
 ### P1 — connected acceptance evidence is incomplete
 
