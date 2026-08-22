@@ -21,6 +21,7 @@ function fleet(overrides: Partial<FleetTrackingAdmin> = {}): FleetTrackingAdmin 
     readTripBranch: async () => "branch-1",
     readSessionScope: async () => ({ branchId: "branch-1", driverUserId: "driver-1" }),
     ingestCredential: async (_credential, position) => ({ receipt: { tenantId: "tenant-1", eventId: position.eventId, sessionId: position.sessionId, deviceId: "device-1", decision: "advance_current", reasons: [], replayed: false }, receivedAt: new Date("2030-01-01T09:00:01Z") }),
+    ingestTraccarCredential: async (_credential, observation) => ({ receipt: { tenantId: "tenant-1", eventId: observation.eventId, sessionId: "session-1", deviceId: "device-1", decision: "advance_current", reasons: [], replayed: false }, receivedAt: new Date("2030-01-01T09:00:01Z") }),
     ...overrides,
   };
 }
@@ -45,7 +46,7 @@ test("assigned driver starts and ends their own tracking session", async () => {
   let startedBy = ""; let endedBy = "";
   const app = createApiServer({ resolve: () => context("driver"), fleetTracking: fleet({ start: async (input) => { startedBy = input.driverUserId; return session; }, end: async (input) => { endedBy = input.driverUserId ?? ""; return { ...session, status: "ended", endedAt: new Date("2030-01-01T09:00:00Z") }; } }) });
   const started = await app.inject({ method: "POST", url: "/v1/tenants/tenant-1/fleet/tracking-sessions", payload: { tripId: "trip-1", deviceId: "device-1", durationMinutes: 60 } });
-  assert.equal(started.statusCode, 201); assert.equal(startedBy, "driver-1");
+  assert.equal(started.statusCode, 201); assert.equal(startedBy, "driver-1"); assert.match(started.json().data.traccarCredential, /^niu_traccar_v1\./u); assert.equal("traccarCredentialSecret" in started.json().data, false);
   const ended = await app.inject({ method: "POST", url: "/v1/tenants/tenant-1/fleet/tracking-sessions/session-1/end", payload: { reason: "trip complete" } });
   assert.equal(ended.statusCode, 200); assert.equal(endedBy, "driver-1");
 });
@@ -116,6 +117,28 @@ test("accepted current telemetry publishes only a tenant-scoped change signal", 
   const app = createApiServer({ resolve: () => context("owner"), liveStream: { subscribe: () => () => {}, publish: (tenantId) => published.push(tenantId) }, fleetTracking: fleet({ ingestCredential: async (_credential, position) => ({ receipt: { tenantId: "tenant-1", eventId: position.eventId, sessionId: position.sessionId, deviceId: "device-1", decision: "advance_current", reasons: [], replayed: false }, receivedAt: new Date("2030-01-01T09:00:01Z") }) }) });
   const response = await app.inject({ method: "POST", url: "/v1/fleet/telemetry", headers: { authorization: "Bearer credential-1" }, payload: { sessionId: "session-1", eventId: "event-2", sequence: 2, capturedAt: "2030-01-01T09:00:00Z", latitude: -1.28, longitude: 36.81, accuracyMetres: 8 } });
   assert.equal(response.statusCode, 202); assert.deepEqual(published, ["tenant-1"]); await app.close();
+});
+
+test("OsmAnd telemetry normalizes provider fields without trusting tenant scope", async () => {
+  const seen: { credential: string; observation?: import("@bookingapp/domain").FleetTelemetryObservation } = { credential: "" };
+  const app = createApiServer({ resolve: () => context("owner"), fleetTracking: fleet({ ingestTraccarCredential: async (credential, observation) => { seen.credential = credential; seen.observation = observation; return { receipt: { tenantId: "tenant-1", eventId: observation.eventId, sessionId: "session-1", deviceId: "device-1", decision: "advance_current", reasons: [], replayed: false }, receivedAt: new Date("2030-01-01T09:00:01Z") }; } }) });
+  const response = await app.inject({ method: "GET", url: "/v1/fleet/telemetry/osmand?id=niu_traccar_v1.tenant.session.secretsecretsecretsecretsecret&timestamp=1893488400&lat=-1.28&lon=36.81&accuracy=8&speed=10&bearing=90&batt=72&tenantId=attacker" });
+  assert.equal(response.statusCode, 200);
+  assert.match(seen.credential, /^niu_traccar_v1\./u);
+  const observation = seen.observation;
+  assert.ok(observation);
+  assert.equal(observation.latitude, -1.28);
+  assert.equal(observation.longitude, 36.81);
+  assert.equal(Math.round(Number(observation.speedMetresPerSecond) * 1_000), 5_144);
+  assert.equal("tenantId" in observation, false);
+  await app.close();
+});
+
+test("OsmAnd telemetry accepts urlencoded POST bodies and rejects inactive devices", async () => {
+  const app = createApiServer({ resolve: () => context("owner"), fleetTracking: fleet({ ingestTraccarCredential: async () => ({ kind: "inactive" }) }) });
+  const response = await app.inject({ method: "POST", url: "/v1/fleet/telemetry/osmand", headers: { "content-type": "application/x-www-form-urlencoded" }, payload: "id=niu_traccar_v1.tenant.session.secretsecretsecretsecretsecret&timestamp=1893488400&location=-1.28%2C36.81" });
+  assert.equal(response.statusCode, 409);
+  await app.close();
 });
 
 test("stream denies roles without fleet visibility before opening a connection", async () => {

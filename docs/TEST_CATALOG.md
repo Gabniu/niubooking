@@ -1,16 +1,19 @@
 # Test Catalog
 
-Current repository verification (2026-08-19): Booking is running on
-`vp-server` in an isolated API/web/database stack. All 34 migrations apply,
-both health probes returned 200, the web shell served successfully, `/auth/session`
-returned an unauthenticated response, and `/auth/login` returned the NOVA Auth
-redirect with the exact callback and S256 PKCE. The stack is bound to localhost
-ports 3110/3111 behind the HTTPS nginx vhost; its environment file is outside
-the source bundle.
+Current repository verification (2026-08-22): local source gates pass with 579
+compiled Node tests (575 passing, 4 intentionally skipped), 64 browser tests
+across desktop/mobile Chromium, and the Expo mobile typecheck/lint/web export.
+The public API health probes returned 200, but the deployed web hostname serves
+the legacy static shell and returns 404 for current Next routes; no deployed
+authenticated journey is therefore accepted as verified.
 
-Fast-lane update: the compiled suite now contains 406 tests (403 passing and 3 intentionally skipped locally); the three real-PostgreSQL tests pass in CI, while the local lane skips them when `TEST_DATABASE_URL` is absent.
+The real-PostgreSQL lane remains skipped locally when `TEST_DATABASE_URL` is
+absent. CI or the approved server must rerun migrations, concurrency, tenancy,
+and authorization integration evidence before release.
 
-Test IDs connect product intent to automated evidence. The repository currently has 296 compiled Node tests and 20 passing browser journeys; this catalog adds the real-database layer and reserves acceptance suites for future batches.
+Test IDs connect product intent to automated evidence. Unit and disconnected-state
+coverage do not substitute for live OIDC, authorized tenant, provider, physical
+device, and deployment smoke journeys.
 
 Approved-server evidence (2026-08-14): `vp-server` PostgreSQL, isolated temporary schema, Node 24 runner — migrations reran successfully, competing reservations did not oversell, and concurrent cancellation released capacity exactly once. Temporary server workspace and test container were removed after the run.
 

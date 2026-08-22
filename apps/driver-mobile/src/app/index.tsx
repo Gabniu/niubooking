@@ -1,3 +1,5 @@
+// Ownership: NIU Driver native shell. Auth UI reports provider state without exposing credentials.
+
 import {
   HankenGrotesk_400Regular,
   HankenGrotesk_500Medium,
@@ -5,6 +7,7 @@ import {
   useFonts,
 } from '@expo-google-fonts/hanken-grotesk';
 import { StatusBar } from 'expo-status-bar';
+import * as WebBrowser from 'expo-web-browser';
 import {
   ActivityIndicator,
   Pressable,
@@ -13,7 +16,17 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { createNativeAuthSession } from '@bookingapp/driver-tracking';
+import {
+  createNativeOidcClient,
+  createSecureNativeAuthStorage,
+  createSecureNativeRefreshTokenStorage,
+  readDriverRuntimeConfig,
+} from '../runtime';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const colors = {
   canvas: '#F7F9FD',
@@ -46,7 +59,44 @@ export default function DriverHomeScreen() {
     HankenGrotesk_500Medium,
     HankenGrotesk_600SemiBold,
   });
-  const configured = false;
+  const config = useMemo(() => readDriverRuntimeConfig(), []);
+  const auth = useMemo(() => createNativeAuthSession(createSecureNativeAuthStorage()), []);
+  const refreshStorage = useMemo(() => createSecureNativeRefreshTokenStorage(), []);
+  const [authStatus, setAuthStatus] = useState<'signed_out' | 'signed_in' | 'expired'>('signed_out');
+  const [signingIn, setSigningIn] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const oidc = useRef(config ? createNativeOidcClient(config, auth, refreshStorage) : null);
+  const configured = config !== null;
+
+  useEffect(() => {
+    if (!config) return;
+    let mounted = true;
+    void auth.restore().then(async (snapshot) => {
+      if (snapshot.status === 'expired' && config.authRefreshEnabled && oidc.current) {
+        try {
+          snapshot = await oidc.current.refresh();
+        } catch {
+          // The sign-in action remains available when refresh is unavailable or transiently offline.
+        }
+      }
+      if (mounted) setAuthStatus(snapshot.status);
+    });
+    return () => { mounted = false; };
+  }, [auth, config]);
+
+  const signIn = async () => {
+    if (!oidc.current || signingIn) return;
+    setSigningIn(true);
+    setAuthError(null);
+    try {
+      const snapshot = await oidc.current.signIn();
+      setAuthStatus(snapshot.status);
+    } catch {
+      setAuthError('Sign-in could not be completed. Check your connection and try again.');
+    } finally {
+      setSigningIn(false);
+    }
+  };
 
   if (!fontsLoaded) {
     return <View style={styles.loading}><ActivityIndicator color={colors.blue} /></View>;
@@ -85,13 +135,16 @@ export default function DriverHomeScreen() {
           </Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityState={{ disabled: !configured }}
-            disabled={!configured}
-            style={({ pressed }) => [styles.primaryButton, pressed && configured && styles.pressed, !configured && styles.disabledButton]}
+            accessibilityState={{ busy: signingIn, disabled: !configured || signingIn }}
+            disabled={!configured || signingIn}
+            onPress={signIn}
+            style={({ pressed }: { pressed: boolean }) => [styles.primaryButton, pressed && configured && styles.pressed, (!configured || signingIn) && styles.disabledButton]}
           >
-            <Text style={styles.primaryButtonText}>{configured ? 'Continue to sign in  →' : 'Sign-in setup pending'}</Text>
+            <Text style={styles.primaryButtonText}>{signingIn ? 'Opening secure sign-in…' : configured ? 'Continue to sign in' : 'Sign-in setup pending'}</Text>
           </Pressable>
-          {!configured && <Text style={styles.hint}>A server connection is required before sign-in can begin.</Text>}
+          {!configured && <Text style={styles.hint}>A registered NOVA Auth client and server connection are required before sign-in can begin.</Text>}
+          {authError && <Text accessibilityRole="alert" style={styles.error}>{authError}</Text>}
+          {authStatus === 'signed_in' && <Text style={styles.success}>Identity connected. Assigned trips remain controlled by Booking permissions.</Text>}
         </View>
 
         <View style={styles.sectionHeader}>
@@ -135,11 +188,13 @@ const styles = StyleSheet.create({
   cardEyebrow: { color: colors.blue, fontFamily: 'HankenGrotesk_600SemiBold', fontSize: 11, letterSpacing: 0.9, marginTop: 2 },
   cardTitle: { color: colors.text, fontFamily: 'HankenGrotesk_600SemiBold', fontSize: 21 },
   cardCopy: { color: colors.secondary, fontFamily: 'HankenGrotesk_400Regular', fontSize: 14, lineHeight: 21 },
-  primaryButton: { minHeight: 46, paddingHorizontal: 18, borderRadius: 10, backgroundColor: colors.blue, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+  primaryButton: { minHeight: 48, paddingHorizontal: 18, borderRadius: 10, backgroundColor: colors.blue, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   pressed: { backgroundColor: colors.deepBlue, transform: [{ scale: 0.99 }] },
   disabledButton: { backgroundColor: '#D9D8EF' },
   primaryButtonText: { color: colors.surface, fontFamily: 'HankenGrotesk_600SemiBold', fontSize: 15 },
   hint: { color: colors.secondary, fontFamily: 'HankenGrotesk_400Regular', fontSize: 12, lineHeight: 18 },
+  error: { color: '#B42318', fontFamily: 'HankenGrotesk_500Medium', fontSize: 12, lineHeight: 18 },
+  success: { color: '#166534', fontFamily: 'HankenGrotesk_500Medium', fontSize: 12, lineHeight: 18 },
   sectionHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 2 },
   sectionTitle: { color: colors.text, fontFamily: 'HankenGrotesk_600SemiBold', fontSize: 18 },
   sectionMeta: { color: colors.secondary, fontFamily: 'HankenGrotesk_400Regular', fontSize: 12 },

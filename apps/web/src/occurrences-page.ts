@@ -1,7 +1,9 @@
 // Ownership: compact occurrence workspace with staff reservation controls.
 
 import { createOccurrence, fetchOccurrences, fetchReservations, updateReservationStatus } from "./occurrences-client.js";
+import { fetchCustomers } from "./customers-client.js";
 import type { ReservationSummary } from "@bookingapp/contracts";
+import { customerDisplayName } from "./schedule-display.js";
 
 const root = document.querySelector<HTMLElement>("[data-occurrences-page]");
 const form = document.querySelector<HTMLFormElement>("#occurrence-form");
@@ -13,24 +15,28 @@ const statusElement = status;
 const listElement = list;
 const tenantId = root.dataset.tenantId || new URLSearchParams(location.search).get("tenant") || "";
 const apiBase = root.dataset.apiBase || "";
+let customerNames: Readonly<Record<string, string>> = {};
 const reservationStatuses: ReservationSummary["status"][] = ["held", "confirmed", "checked_in", "completed", "cancelled", "no_show"];
 
 function show(kind: string, message: string): void { statusElement.dataset.state = kind; statusElement.textContent = message; statusElement.hidden = false; }
 function text(tag: string, value: string, className?: string): HTMLElement { const element = document.createElement(tag); element.textContent = value; if (className) element.className = className; return element; }
 function reservationRow(reservation: ReservationSummary, occurrenceId: string): HTMLElement {
   const row = document.createElement("div"); row.className = "reservation-row";
-  row.append(text("span", reservation.customerId, "reservation-customer"), text("span", `×${reservation.quantity}`, "reservation-quantity"));
-  const select = document.createElement("select"); select.className = "reservation-status"; select.setAttribute("aria-label", `Status for ${reservation.customerId}`);
+  const customerName = customerDisplayName(reservation.customerId, customerNames);
+  row.append(text("span", customerName, "reservation-customer"), text("span", `×${reservation.quantity}`, "reservation-quantity"));
+  const select = document.createElement("select"); select.className = "reservation-status"; select.setAttribute("aria-label", `Status for ${customerName}`);
   for (const value of reservationStatuses) { const option = new Option(value.replace("_", " "), value, value === reservation.status, value === reservation.status); select.add(option); }
   select.addEventListener("change", async () => { select.disabled = true; const result = await updateReservationStatus(window.fetch.bind(window), apiBase, tenantId, occurrenceId, reservation.id, select.value as ReservationSummary["status"]); select.disabled = false; if (result.kind === "error") { select.value = reservation.status; show("error", result.message); } else { reservation.status = result.reservation.status; show("ready", "Reservation status updated."); } });
   row.append(select); return row;
 }
 async function loadReservations(occurrenceId: string, target: HTMLElement): Promise<void> {
   target.textContent = "Loading reservations…";
+  await loadCustomerNames();
   const result = await fetchReservations(window.fetch.bind(window), apiBase, tenantId, occurrenceId);
   if (result.kind === "error") { target.textContent = result.message; return; }
   target.replaceChildren(...result.reservations.length ? result.reservations.map((reservation) => reservationRow(reservation, occurrenceId)) : [text("small", "No reservations yet.")]);
 }
+async function loadCustomerNames(): Promise<void> { try { const result = await fetchCustomers(window.fetch.bind(window), apiBase, tenantId); customerNames = result.kind === "ready" ? Object.fromEntries(result.customers.map((customer) => [customer.id, customer.displayName])) : {}; } catch { customerNames = {}; } }
 function render(occurrences: readonly { id: string; label: string; serviceId: string; startsAt: string; endsAt: string; status: string; capacity: number | null; reservedQuantity: number }[]): void {
   listElement.replaceChildren(); if (!occurrences.length) { listElement.textContent = "No service occurrences are scheduled for this workspace."; return; }
   for (const occurrence of occurrences) {
@@ -55,4 +61,4 @@ form.addEventListener("submit", async (event) => {
   if (result.kind === "ready") { form.reset(); show("ready", `${result.occurrence.label} was added.`); await load(); } else show("error", result.message);
 });
 refresh.addEventListener("click", () => { void load(); });
-void load();
+void Promise.all([loadCustomerNames(), load()]);

@@ -1,10 +1,11 @@
 // Ownership: platform-neutral NIU Driver telemetry core; native location and secure storage stay at the app edge.
 
 import type { DriverPositionUpload } from "@bookingapp/contracts";
+export { createNativeOsmAndTelemetryFetcher, type NativeProviderTransport } from "./osmand-telemetry.js";
 export { createDriverSessionClient, type DriverSessionEndState, type DriverSessionFetcher, type DriverSessionStartState } from "./session-client.js";
 export { createNativeAuthSession, type NativeAccessCredential, type NativeAuthSession, type NativeAuthSnapshot, type NativeAuthStatus, type NativeAuthStorage } from "./native-auth.js";
 export { createPersistentTelemetryQueue, type DriverTelemetryQueueStorage } from "./persistent-queue.js";
-export { createDriverMobileController, type DriverActiveSession, type DriverActiveSessionStorage, type DriverMobileController, type DriverMobileDependencies, type DriverMobilePhase, type DriverMobileSnapshot, type DriverMobileStartInput } from "./mobile-controller.js";
+export { createDriverMobileController, type DriverActiveSession, type DriverActiveSessionStorage, type DriverCaptureLifecycle, type DriverMobileController, type DriverMobileDependencies, type DriverMobilePhase, type DriverMobileSnapshot, type DriverMobileStartInput } from "./mobile-controller.js";
 
 export interface DriverLocationSample {
   readonly eventId: string;
@@ -53,7 +54,7 @@ export function createDriverTelemetryFetcher(fetcher: DriverTelemetryFetcher, en
   return async (position: DriverPositionUpload): Promise<DriverSendResult> => {
     try {
       const response = await fetcher(endpoint, { method: "POST", headers: { authorization: `Bearer ${credential}`, "content-type": "application/json" }, body: JSON.stringify(position) });
-      if (response.status === 202) return "accepted";
+      if (response.status === 200 || response.status === 202) return "accepted";
       if (response.status === 401 || response.status === 409) return "blocked";
       if (response.status >= 500) return "retry";
       return "dropped";

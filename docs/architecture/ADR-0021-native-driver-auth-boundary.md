@@ -12,9 +12,10 @@ risks: [RISK-AUTH-SESSION-001, RISK-LOCATION-PRIVACY-001]
 
 NIU Driver uses NOVA OIDC Authorization Code + PKCE as a public native client.
 The native app receives an access token, keeps it in platform secure storage,
-and sends it as a bearer token to Booking. Booking verifies issuer, signature,
-audience, expiry, and the exact local subject mapping before resolving tenant,
-branch, role, and assigned-trip scope.
+and sends it as a bearer token for assigned-trip commands. Booking verifies
+issuer, signature, audience, expiry, and the exact local subject mapping before
+resolving tenant, branch, role, and assigned-trip scope. Telemetry is separately
+authenticated with a short-lived session-scoped provider credential.
 
 The platform-neutral `@bookingapp/driver-tracking` package owns only the safe
 session lifecycle contract: restore, replace, expire, and sign out. It never
@@ -42,8 +43,10 @@ the shared tracking core or sent to telemetry endpoints.
 4. Expired or malformed persisted credentials are cleared before the app can
    publish telemetry.
 5. Session snapshots expose only signed-in state and expiry, never token text.
-6. Telemetry and assigned-trip commands use the current access token; they do
-   not accept tenant, driver, vehicle, or session identity from the payload.
+6. Assigned-trip commands use the current access token. Telemetry uses the
+   short-lived session-scoped provider credential issued by the start command;
+   the provider adapter derives tenant, driver, vehicle, and active session
+   identity server-side and never trusts those fields from the upload body.
 
 # Consequences
 

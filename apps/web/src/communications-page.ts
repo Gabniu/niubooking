@@ -82,7 +82,7 @@ function renderContactMethods(methods: readonly CustomerContactMethodSummary[]):
   for (const method of methods) {
     const row = document.createElement("div");
     row.className = "contact-method-row";
-    row.innerHTML = `<strong>${method.customerName ?? method.customerId}</strong><span>${method.channel} · ${method.maskedDestination}</span><small>${method.customerName ? `${method.customerId} · ` : ""}${method.verifiedAt ? "Verified" : "Pending verification"} · ${method.consentStatus}</small>`;
+    row.innerHTML = `<strong>${method.customerName ?? "Customer name unavailable"}</strong><span>${method.channel} · ${method.maskedDestination}</span><small>${method.verifiedAt ? "Verified" : "Pending verification"} · ${method.consentStatus}</small>`;
     contactList.append(row);
   }
 }
@@ -98,7 +98,7 @@ async function loadCustomerOptions(): Promise<void> {
   customerSelect.replaceChildren();
   if (result.kind !== "ready" || result.customers.length === 0) { customerSelect.add(new Option(result.kind === "ready" ? "Create a customer profile first" : result.message, "")); customerSelect.disabled = true; return; }
   customerSelect.add(new Option("Choose a customer", ""));
-  for (const customer of result.customers) customerSelect.add(new Option(`${customer.displayName} · ${customer.id}`, customer.id));
+  for (const customer of result.customers) customerSelect.add(new Option(customer.displayName, customer.id));
   customerSelect.disabled = false;
 }
 

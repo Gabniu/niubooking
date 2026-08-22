@@ -4,10 +4,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchAuthorizedWorkspaces, type WorkspacesState } from "../../src/workspaces-client.js";
 import { loadWorkspaceContext, type WorkspaceContextState } from "../../src/workspace-context.js";
+import { workspaceDisplayName, workspaceReference } from "../../src/workspace-display.js";
 
 export const apiBase = (process.env.NEXT_PUBLIC_API_BASE ?? "").replace(/\/$/u, "");
 export type Workspaces = Extract<WorkspacesState, { kind: "ready" }>["workspaces"];
 export type AdmissionState = { kind: "disconnected" | "loading"; message?: string } | WorkspaceContextState | { kind: "selecting"; workspaces: Workspaces };
+
 function browserRequest(input: string, init: { credentials: "include" }): Promise<Response> { return window.fetch(input, init); }
 
 export function useWorkspaceAdmission() {
@@ -39,5 +41,5 @@ export function AdmissionNotice({ state, title = "Choose a workspace to continue
 }
 
 export function WorkspacePicker({ workspaces, title = "Where would you like to work?" }: { workspaces: Workspaces; title?: string }) {
-  return <section className="schedule-picker" aria-labelledby="workspace-picker-title"><div><p className="eyebrow">Authorized workspaces</p><h2 id="workspace-picker-title">{title}</h2><p>Select an organization from your live NIU Auth membership.</p></div><div className="schedule-picker-list">{workspaces.map((workspace) => <a className="schedule-workspace-choice" href={`${typeof window === "undefined" ? "/app" : window.location.pathname}?tenant=${encodeURIComponent(workspace.tenantId)}`} key={workspace.tenantId}><span><strong>{workspace.tenantId}</strong><small>{workspace.role} / {workspace.branchIds.length} branch{workspace.branchIds.length === 1 ? "" : "es"}</small></span><span aria-hidden="true">-</span></a>)}</div></section>;
+  return <section className="schedule-picker" aria-labelledby="workspace-picker-title"><div><p className="eyebrow">Authorized workspaces</p><h2 id="workspace-picker-title">{title}</h2><p>Select an organization from your live NIU Auth membership.</p></div><div className="schedule-picker-list">{workspaces.map((workspace, index) => <a className="schedule-workspace-choice" href={`${typeof window === "undefined" ? "/app" : window.location.pathname}?tenant=${encodeURIComponent(workspace.tenantId)}`} key={workspace.tenantId}><span><strong>{workspaceDisplayName(index, workspaces.length)}</strong><small>{workspace.role} / {workspace.branchIds.length} branch{workspace.branchIds.length === 1 ? "" : "es"} · {workspaceReference(workspace.tenantId)}</small></span><span aria-hidden="true">-</span></a>)}</div></section>;
 }

@@ -25,6 +25,7 @@ export * from "./gtfs-source.js";
 export * from "./gtfs-realtime.js";
 export * from "./gtfs-realtime-cache.js";
 export * from "./realtime-tracking.js";
+export * from "./fleet-credentials.js";
 export * from "./feedback.js";
 export * from "./feedback-admin.js";
 export * from "./feedback-responses-admin.js";

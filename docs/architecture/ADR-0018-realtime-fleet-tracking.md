@@ -31,9 +31,11 @@ second source of truth for trip or reservation state.
 Native staff authentication uses NOVA OIDC authorization code + PKCE through a
 registered public mobile client. Booking accepts a verified bearer access token
 only when its issuer, signature, audience, and exact local subject mapping all
-match; browser sessions remain opaque Secure cookies. The driver device
-credential is a separate one-time secret stored by the native secure-storage
-adapter and is never used as an identity token.
+match; browser sessions remain opaque Secure cookies. Device enrollment and
+session publishing credentials are separate from identity: an authorized
+session start issues a high-entropy, session-scoped Traccar credential, stores
+only its hash, and invalidates it when the session ends or expires. It is held
+in native secure storage and is never used as an identity token.
 
 The first deployment uses PostgreSQL/PostGIS for current position, partitioned
 history, route geometry, and spatial checks. Driver uploads use HTTPS. Staff and
@@ -73,7 +75,7 @@ Every accepted position carries an event ID, enrolled device ID, monotonically
 increasing sequence, capture and receive timestamps, latitude, longitude,
 accuracy, speed, heading, battery state, provider, and app version. Tenant,
 driver, vehicle, branch, and active trip are derived from the authenticated
-device session rather than trusted from the payload.
+session credential rather than trusted from the provider payload.
 
 The current position advances only when `(capturedAt, sequence)` is newer.
 Delayed offline points may be retained in history but never rewind the live

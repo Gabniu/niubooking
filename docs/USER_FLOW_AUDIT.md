@@ -8,6 +8,14 @@ an authorized user must have a clear entrypoint, and every applicable state must
 lead to a safe next action. Run `npm run check:routes` whenever a route,
 navigation item, public link, or contextual action changes.
 
+The audit also checks capability discoverability. For each retained feature, ask
+whether the intended user can find it without knowing an internal name, understand
+its current state, reach setup/configuration, use it, change or disable it later,
+and find the next useful action. Simplification may reorganize or progressively
+disclose a feature, but it must not remove the capability or leave it reachable
+only through an undocumented deep link. Use the review form in
+`docs/templates/USER_STORY_FLOW_TEMPLATE.md` for new or changed flows.
+
 ## Audited flows
 
 | Flow | Audience | Entry | Successful path | Recovery states checked | Status |
@@ -32,7 +40,8 @@ route gate confirms that every shell item has a real Next App Router page:
 
 `/app`, `/app/schedule`, `/app/customers`, `/app/services`,
 `/app/resources`, `/app/occurrences`, `/app/feedback`, `/app/communications`,
-`/app/packs`, `/app/pack-settings`, and `/app/qr-studio`.
+`/app/gtfs`, `/app/transport`, `/app/packs`, `/app/pack-settings`, and
+`/app/qr-studio`.
 
 Service composition is deliberately contextual rather than a separate primary
 menu item; the services catalog must expose its `Configure` action. Pack settings
@@ -73,3 +82,9 @@ delivery are implemented. No transport controls are exposed prematurely.
   provider credentials, and a deployed database is still required before any
   capability is marked fully verified. Local route reachability does not prove
   provider callback or delivery configuration.
+- Owner audit correction (2026-08-22): the public hostname was reachable, but
+  `/` served the legacy static shell and the checked-in Next paths (`/app`,
+  `/auth/sign-in`, and the public dynamic families) returned 404. The table's
+  `verified locally` labels are source/local evidence, not deployed acceptance;
+  connected production journeys remain blocked until the current web release is
+  deployed and exercised with real OIDC, tenant membership, and persistence.

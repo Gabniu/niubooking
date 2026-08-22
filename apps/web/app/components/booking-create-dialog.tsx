@@ -17,8 +17,9 @@ type RequestInitLike = {
 type OptionState = "loading" | "ready" | "error";
 const request = (input: string, init: RequestInitLike) => window.fetch(input, init);
 
-export function BookingCreateDialog({ tenantId, onCreated }: { tenantId: string; onCreated: () => void }) {
+export function BookingCreateDialog({ tenantId, onCreated, openRequest = 0 }: { tenantId: string; onCreated: () => void; openRequest?: number }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const previousOpenRequest = useRef(openRequest);
   const [customers, setCustomers] = useState<readonly CustomerProfileSummary[]>([]);
   const [resources, setResources] = useState<readonly ResourceSummary[]>([]);
   const [optionState, setOptionState] = useState<OptionState>("loading");
@@ -55,6 +56,11 @@ export function BookingCreateDialog({ tenantId, onCreated }: { tenantId: string;
       setOptionMessage("Customer options could not be loaded. Please try again.");
     });
   }, [tenantId]);
+
+  useEffect(() => {
+    if (openRequest > previousOpenRequest.current) open();
+    previousOpenRequest.current = openRequest;
+  }, [openRequest]);
 
   function open() {
     setMessage(null);

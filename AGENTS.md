@@ -10,6 +10,10 @@ These instructions apply to every task in this repository.
 4. Read `docs/DESIGN_SYSTEM.md` before changing UI.
 5. Inspect the repository, existing contracts, tests, and current Git state before editing.
 6. Query `graphify-out/graph.json` before answering architecture or relationship questions when it exists.
+7. Keep the project graph current: after durable code, product-flow, capability,
+   or architecture changes, run the Graphify update and Obsidian export. When a
+   graph relationship informs an audit, plan, or decision, reference the relevant
+   graph report/node/path instead of relying only on memory or file search.
 
 ## Product doctrine
 
@@ -46,6 +50,49 @@ These instructions apply to every task in this repository.
 - Do not create UI for machine endpoints, webhooks, health checks, internal jobs, or privileged operational controls unless a real authorized user workflow requires it.
 - An intentionally deferred surface must have an owner, reason, target phase, and acceptance reference. “Backend done” is not a valid completion state for a required user workflow.
 - Also audit the opposite direction: frontend controls must not be decorative, disconnected, backed by fake production data, or call nonexistent contracts.
+
+## User stories, task flows, and humane language
+
+- Every user-facing capability must begin with a stable user-story ID and a
+  named task flow. A user story states who is trying to achieve what and why; a
+  task/user flow maps the steps, pages, decisions, mutations, and recovery paths
+  from trigger to outcome; a user journey is the larger end-to-end experience
+  before, during, and after the task.
+- Before implementation and again before closure, review the story and flow from
+  the user's point of view. Check entrypoint, prerequisites, page-to-page
+  transitions, back/refresh/deep-link behavior, loading, empty, validation,
+  permission, offline/degraded, pending, success, and recovery states. A route
+  existing is not evidence that the flow works.
+- Product simplification must reduce cognitive load, not remove capability.
+  Compare the intended capability inventory before and after the change; every
+  removed, hidden, renamed, or deferred capability needs an explicit decision,
+  owner, reason, and acceptance reference.
+- Every retained capability needs a discoverability contract: who can use it,
+  where they find it, what it does in plain language, whether it is enabled or
+  configured, how they set or change it, how they undo or disable it, and what
+  happens next. Prefer a visible contextual entrypoint, setup prompt, or
+  searchable destination over expecting users to remember a deep URL. A feature
+  is not meaningfully available if it exists in the backend but users cannot
+  find, understand, configure, or revisit it.
+- Treat interface wording as part of the product contract. Use plain language
+  for the actual audience, stable terms from the active Industry Pack, and one
+  clear next action. Avoid API/database language, unexplained codes, internal
+  IDs, blame, vague “something went wrong” messages, and copy that assumes an
+  engineer is operating the product.
+- For status and error copy, prefer: what happened; what it means for the user;
+  what they can do next. Give the shortest useful explanation first, then put
+  technical detail, troubleshooting, or a reference ID behind progressive
+  disclosure or a support path. Do not over-explain routine states or hide
+  important consequences behind a tooltip.
+- Check wording at every transition, not only in isolated components: the page
+  title, primary action, field labels, helper text, validation, confirmation,
+  toast/banner, empty state, retry action, and next-page handoff must tell one
+  consistent story. “Success” must explain what is now true and what happens
+  next; “error” must preserve the user's work whenever safe.
+- User-story and flow evidence is required in addition to unit and route tests.
+  The reusable standard and review template live in
+  `docs/USER_STORY_AND_FLOW_STANDARD.md` and
+  `docs/templates/USER_STORY_FLOW_TEMPLATE.md`.
 
 ## Frontend rules
 
@@ -101,7 +148,11 @@ Run the gates proportional to the change, and record the result:
 - accessibility checks for changed UI;
 - migration forward/backward checks when schema changes;
 - Graphify update and Obsidian export when durable architecture relationships change.
+- Graphify query/update evidence for architecture, capability, and cross-surface
+  relationship decisions; the graph is part of the project's durable audit trail.
 - backend-to-frontend surface parity audit for every changed capability.
+- user-story/task-flow review and plain-language content/state audit for every
+  changed user-facing capability.
 
 Never silence a failing gate to make the pipeline green. Fix the defect or document an explicit, reviewed exception.
 

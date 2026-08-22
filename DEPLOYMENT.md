@@ -1,20 +1,46 @@
 # Booking — deployment status
 
-**Last verified: 2026-08-17.**
+**Last verified: 2026-08-22.**
 
-## Status: STAGING DEPLOYED; HTTPS LIVE
+## Status: API LIVE; WEB RELEASE DRIFT BLOCKS FEATURE ACCEPTANCE
 
-The approved server now runs the isolated Booking staging stack on localhost
-ports `3110` (API) and `3111` (web). Its nginx vhost and Let's Encrypt
-certificate are installed for the public hostname. The deployment applied all
-29 migrations, passed both health probes, served the web shell, and verified
-the configured NOVA OIDC redirect with S256 PKCE. A staging-only owner mapping
-and `booking-demo` workspace membership are present for the first real login
-check.
+The public hostname is reachable over HTTPS and the API is healthy: `/health/live`
+and `/health/ready` both returned 200 on 2026-08-22. The web service currently
+serves the legacy static shell at `/`, while the checked-in Next App Router
+routes return 404 (`/app`, `/app/transport`, `/trip/example-code`,
+`/ticket/example-token`, and `/auth/sign-in`). This is deployment drift, not
+a passing product smoke test: the current frontend build is not what users reach.
+
+The intended isolated Booking staging stack remains defined on localhost ports
+`3110` (API) and `3111` (web), behind the nginx vhost and Let's Encrypt
+certificate. The next release must prove that the deployed web image runs the
+Next/legacy bridge from `scripts/serve-web-production.mjs`, then repeat the
+route and authenticated smoke tests against the public hostname.
+
+The route-level release gate is `BOOKING_DEPLOYMENT_BASE_URL=<web-origin> npm
+run check:deployed-web`. It checks the complete checked-in Next page inventory,
+not only `/`, and fails when a route is missing, redirected unexpectedly, or
+served by the legacy web release. The staging deployment workflow runs the
+same gate against its local web origin before accepting the release.
+
+### Release revision integrity
+
+The workflow deploys the GitHub revision supplied by its `ref` input; it does
+not deploy the current uncommitted workstation tree. Before triggering it,
+the intended product changes must be reviewed as one coherent commit or pull
+request, pushed to GitHub, and verified from that immutable revision. Running
+the workflow against `main` while local changes are pending can produce a
+successful deployment of an older product and create false confidence.
+
+The required handoff is: choose the reviewed revision, run the staging workflow,
+confirm API readiness and the complete 23-route Next smoke gate, then execute
+the authenticated OIDC → tenant → real-data journey. Only after those checks
+pass should the public hostname be changed or accepted as the Booking release.
 
 Local verification follows this status: it does not start Docker Desktop or create a database implicitly. When a server database is provisioned, run the real integration lane with an explicit `TEST_DATABASE_URL`; until then the local lane reports the database proof as skipped rather than consuming workstation resources.
 
-`booking.niuautomations.com` resolves to `169.58.155.243`, but nothing is
+Historical note (superseded by the live verification above): the earlier record
+said that `booking.niuautomations.com` resolved to `169.58.155.243`, but nothing was
 serving it. That is not an oversight — deploying this today would put a public
 URL in front of something with nothing behind it.
 
@@ -25,7 +51,7 @@ What is missing, checked rather than assumed:
 | Dockerfiles | `infra/docker/api/Dockerfile`, `infra/docker/web/Dockerfile` |
 | staging compose file | `infra/compose-booking-staging.yaml` |
 | git repository | initialised; `main` is pushed to `https://github.com/Gabniu/niubooking` |
-| Size | 362 source files pass the 300-line gate; 34 ordered migrations |
+| Size | 489 source files pass the 300-line gate; 46 ordered migrations |
 | Migration runner | `scripts/run-migrations.mjs` with checksum-protected `npm run migrate` |
 | API probes | `/health/live` and database-backed `/health/ready` |
 | Communication worker | `apps/worker/src/main.ts`, internal `/health/live` and `/health/ready`, bounded outbox cadence, provider adapters, and a non-root image |

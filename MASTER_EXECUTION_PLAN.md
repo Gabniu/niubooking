@@ -392,6 +392,49 @@ Every slice must identify its applicable gates:
 
 Do not merge known failing gates. Quarantine is permitted only for externally flaky tests with an owner, expiry, and tracked remediation.
 
+### 12.1 Experience quality gate — user stories, flows, and language
+
+Every user-facing capability also requires a stable `STORY-*` user story and
+`FLOW-*` task-flow record. The flow must show the trigger, pages, decisions,
+mutations, handoffs, alternate paths, interruptions, and recovery states from a
+real user's point of view. Review the wording at every transition: labels,
+headings, helper text, validation, loading, empty, permission, offline,
+pending, success, conflict, and error states.
+
+Messages must be understandable to the intended audience without engineering
+knowledge. State what happened, what it means, and the clearest next action.
+Use progressive disclosure for technical detail; do not hide consequences or
+replace a missing explanation with “something went wrong.” Preserve entered
+work and distinguish empty, unavailable, denied, expired, and failed states.
+
+Simplifying a flow is not permission to remove a capability. Compare the
+before/after capability inventory and record explicit owner approval for any
+reordering, renaming, hiding, deferral, or removal. Use
+`docs/USER_STORY_AND_FLOW_STANDARD.md` and
+`docs/templates/USER_STORY_FLOW_TEMPLATE.md`; attach journey, accessibility,
+responsive, and live/deployed evidence to the stable IDs.
+
+For every retained capability, also prove discoverability: the intended user can
+find it without knowing an internal name, understand its outcome and current
+state, reach setup/configuration, revisit it later, change or disable it safely,
+and see what to do next. Contextual links, setup guidance, stable navigation,
+and search are valid complementary entrypoints; a backend endpoint or hidden
+deep link is not.
+
+### Current owner audit hold — 2026-08-22
+
+The repository gates are currently green for source-level, disconnected browser,
+mobile-export, route, parity, migration, and unit coverage. Release acceptance is
+still blocked: the public Booking hostname serves the legacy static shell while
+the checked-in Next routes return 404, and no authenticated production journey
+has been verified. Health endpoints alone are not web-release evidence. The next
+deployment must prove every public, auth, and staff route against the production
+bridge; `npm run check:deployed-web` now performs that 23-route check, but it
+still must be run against the next deployed image, followed by an authorized
+tenant journey with real OIDC and persistence.
+The owner audit in `docs/OWNER_AUDIT_2026-08-22.md` is the release checklist and
+must remain attached to the deployment record.
+
 ## 13. First implementation backlog
 
 1. Initialize repo boundaries, toolchain, CI, line-count check, and documentation lint.
@@ -422,7 +465,7 @@ The recommended defaults are recorded in `docs/DECISION_BRIEF_001_FOUNDATION.md`
 | Pack customization | Versioned reviewed packs with schema-bounded tenant overrides | ADR-0010 |
 | Commercial model | Capability entitlements behind Booking Essentials, Operations, Voice, and Premium | ADR-0011 |
 | Deployment | Portable containers; production provider/region gated by launch review | ADR-0012 |
-| Realtime fleet tracking | NIU telemetry authority, Traccar mobile SDK, optional private hardware forwarder, scoped staff/rider projections | ADR-0018 |
+| Realtime fleet tracking | NIU telemetry authority, Traccar mobile SDK, session-scoped hashed/revocable provider credentials, optional private hardware forwarder, scoped staff/rider projections | ADR-0018; BATCH-005 |
 | Transit interoperability | Versioned validated GTFS Schedule before GTFS-Realtime; stable public IDs; fixed, headway, flexible, fare, accessibility, and extension seams | ADR-0019 |
 
 The launch country, production provider/region, recovery targets, payment providers, exact pricing, quotas, taxes, and communication providers remain explicit business decisions. They do not block a local walking skeleton because their adapters and policy seams are defined, but they block real production data and payment traffic.

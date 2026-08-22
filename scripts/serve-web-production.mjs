@@ -15,7 +15,7 @@ function start(command, args, env = {}) {
 }
 
 function nextRequest(pathname) {
-  return pathname === "/" || pathname === "/index.html" || pathname === "/app" || pathname === "/app.html" || pathname.startsWith("/app/") || pathname.startsWith("/_next/") || pathname.startsWith("/auth/");
+  return pathname === "/" || pathname === "/index.html" || pathname === "/app" || pathname === "/app.html" || pathname.startsWith("/app/") || pathname.startsWith("/manage/") || pathname.startsWith("/book/") || pathname.startsWith("/feedback/") || pathname.startsWith("/reserve/") || pathname.startsWith("/trip/") || pathname.startsWith("/ticket/") || pathname.startsWith("/verify-contact/") || pathname.startsWith("/_next/") || pathname.startsWith("/auth/");
 }
 
 function proxy(request, response, port) {

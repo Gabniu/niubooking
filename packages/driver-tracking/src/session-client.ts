@@ -5,7 +5,7 @@ export interface DriverSessionFetcher {
 }
 
 export type DriverSessionStartState =
-  | { kind: "ready"; sessionId: string; expiresAt: string }
+  | { kind: "ready"; sessionId: string; expiresAt: string; traccarCredential: string }
   | { kind: "denied" | "error"; message: string };
 export type DriverSessionEndState =
   | { kind: "success"; endedAt: string }
@@ -20,8 +20,8 @@ export function createDriverSessionClient(fetcher: DriverSessionFetcher, baseUrl
   return {
     async start(tenantId: string, tripId: string, deviceId: string, durationMinutes = 480): Promise<DriverSessionStartState> {
       const response = await fetcher(`${baseUrl}/v1/tenants/${encodeURIComponent(tenantId)}/fleet/tracking-sessions`, { credentials: "include", method: "POST", headers, body: JSON.stringify({ tripId, deviceId, durationMinutes }) });
-      const body = (await response.json()) as { data?: { id?: string; expiresAt?: string } | null };
-      if (body.data?.id && body.data.expiresAt) return { kind: "ready", sessionId: body.data.id, expiresAt: body.data.expiresAt };
+      const body = (await response.json()) as { data?: { id?: string; expiresAt?: string; traccarCredential?: string } | null };
+      if (body.data?.id && body.data.expiresAt && body.data.traccarCredential?.startsWith("niu_traccar_v1.")) return { kind: "ready", sessionId: body.data.id, expiresAt: body.data.expiresAt, traccarCredential: body.data.traccarCredential };
       return safeMessage(response.status, "Tracking could not start. Check the assigned trip and device.");
     },
     async end(tenantId: string, sessionId: string, reason = "stopped from NIU Driver"): Promise<DriverSessionEndState> {

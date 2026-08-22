@@ -5,8 +5,12 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { BookingIllustration } from "./booking-illustration.js";
 import { loadWorkspaceContext, type WorkspaceContextState } from "../../src/workspace-context.js";
 import { fetchAuthorizedWorkspaces, type WorkspacesState } from "../../src/workspaces-client.js";
+import { workspaceDisplayName, workspaceReference } from "../../src/workspace-display.js";
 
-type WorkspaceState = { kind: "disconnected" | "loading"; message?: string } | WorkspaceContextState | { kind: "selecting"; workspaces: Extract<WorkspacesState, { kind: "ready" }>["workspaces"] };
+type WorkspaceState =
+  | { kind: "disconnected" | "loading"; message?: string }
+  | WorkspaceContextState
+  | { kind: "selecting"; workspaces: Extract<WorkspacesState, { kind: "ready" }>["workspaces"] };
 
 const apiBase = (process.env.NEXT_PUBLIC_API_BASE ?? "").replace(/\/$/, "");
 
@@ -18,11 +22,11 @@ function DisconnectedState({ state }: { state: WorkspaceState }) {
 }
 
 function WorkspacePicker({ workspaces }: { workspaces: Extract<WorkspacesState, { kind: "ready" }>["workspaces"] }) {
-  return <section className="workspace-picker" aria-labelledby="workspace-picker-title"><div><p className="eyebrow">Choose a workspace</p><h2 id="workspace-picker-title">Where would you like to work?</h2><p className="empty-copy">Select an organization you are authorized to access. Branch access and role are shown from your live account.</p></div><div className="workspace-picker-list">{workspaces.map((workspace) => <a className="workspace-choice" href={`?tenant=${encodeURIComponent(workspace.tenantId)}`} key={workspace.tenantId}><span><strong>{workspace.tenantId}</strong><small>{workspace.role} · {workspace.branchIds.length} branch{workspace.branchIds.length === 1 ? "" : "es"}</small></span><span aria-hidden="true">→</span></a>)}</div></section>;
+  return <section className="workspace-picker" aria-labelledby="workspace-picker-title"><div><p className="eyebrow">Choose a workspace</p><h2 id="workspace-picker-title">Where would you like to work?</h2><p className="empty-copy">Select an organization you are authorized to access. Branch access and role are shown from your live account.</p></div><div className="workspace-picker-list">{workspaces.map((workspace, index) => <a className="workspace-choice" href={`?tenant=${encodeURIComponent(workspace.tenantId)}`} key={workspace.tenantId}><span><strong>{workspaceDisplayName(index, workspaces.length)}</strong><small>{workspace.role} · {workspace.branchIds.length} branch{workspace.branchIds.length === 1 ? "" : "es"} · {workspaceReference(workspace.tenantId)}</small></span><span aria-hidden="true">→</span></a>)}</div></section>;
 }
 
 function ConnectedState({ state }: { state: Extract<WorkspaceState, { kind: "ready" }> }) {
-  return <section className="connected-state" aria-labelledby="connected-title"><div className="connected-state-heading"><div><p className="eyebrow">Workspace connected</p><h2 id="connected-title">{state.tenantId}</h2></div><span className="connected-badge">Live context</span></div><p className="connected-copy">Signed in as {state.role} across {state.branchCount} branch{state.branchCount === 1 ? "" : "es"}. Your workspace is now using the shared booking kernel.</p>{state.pack ? <div className="pack-context" style={{ "--pack-accent": state.pack.theme.accent, "--pack-soft": state.pack.theme.accentSoft } as CSSProperties}><div><p className="eyebrow">Active industry pack</p><strong>{state.pack.displayName}</strong><small>{state.pack.serviceTemplates.length} service template{state.pack.serviceTemplates.length === 1 ? "" : "s"} · {state.pack.resourceTypes.length} resource type{state.pack.resourceTypes.length === 1 ? "" : "s"}</small></div><span className="pack-swatch" aria-hidden="true" /></div> : <p className="connected-note">No industry pack is selected yet. Configure one when your organization is ready.</p>}<div className="connected-actions"><a className="primary-button" href="/app/schedule">Open schedule</a><a className="account-button" href="/app/pack-settings">Pack settings</a></div></section>;
+  return <section className="connected-state" aria-labelledby="connected-title"><div className="connected-state-heading"><div><p className="eyebrow">Workspace connected</p><h2 id="connected-title">Your authorized organization</h2><small>{workspaceReference(state.tenantId)}</small></div><span className="connected-badge">Live context</span></div><p className="connected-copy">Signed in as {state.role} across {state.branchCount} branch{state.branchCount === 1 ? "" : "es"}. Your workspace is now using the shared booking kernel.</p>{state.pack ? <div className="pack-context" style={{ "--pack-accent": state.pack.theme.accent, "--pack-soft": state.pack.theme.accentSoft } as CSSProperties}><div><p className="eyebrow">Active industry pack</p><strong>{state.pack.displayName}</strong><small>{state.pack.serviceTemplates.length} service template{state.pack.serviceTemplates.length === 1 ? "" : "s"} · {state.pack.resourceTypes.length} resource type{state.pack.resourceTypes.length === 1 ? "" : "s"}</small></div><span className="pack-swatch" aria-hidden="true" /></div> : <p className="connected-note">No industry pack is selected yet. Configure one when your organization is ready.</p>}<div className="connected-actions"><a className="primary-button" href="/app/schedule">Open schedule</a><a className="account-button" href="/app/pack-settings">Pack settings</a></div></section>;
 }
 
 export function WorkspaceHomeState() {

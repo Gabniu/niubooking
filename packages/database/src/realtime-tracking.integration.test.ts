@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { Pool } from "pg";
-import { assignFleetTripCrew, createDatabaseFleetTrackingAdmin, createFleetDeviceCredential, enrollFleetDevice, handoverFleetTrackingSession, startFleetTrackingSession } from "./realtime-tracking.js";
+import { assignFleetTripCrew, createDatabaseFleetTrackingAdmin, createFleetDeviceCredential, createFleetSessionCredential, enrollFleetDevice, handoverFleetTrackingSession, startFleetTrackingSession } from "./realtime-tracking.js";
 import { runMigrations } from "./migrations.js";
 import { withTenantTransaction } from "./pg-executor.js";
 
@@ -33,7 +33,7 @@ test("tracking persists history, resists replay, and isolates current state", { 
     await withTenantTransaction(pool, tenantId, async (executor) => {
       await assignFleetTripCrew(executor, { id: "assignment-1", tenantId, branchId: "branch-1", tripId: "trip-1", userId: "driver-1", role: "driver", actorId: "manager-1" });
       await enrollFleetDevice(executor, { id: "device-1", tenantId, branchId: "branch-1", userId: "driver-1", platform: "android", label: "Driver phone", credentialSecret: "integration-driver-secret-is-long-enough", actorId: "manager-1" });
-      await startFleetTrackingSession(executor, { id: "session-1", tenantId, tripId: "trip-1", deviceId: "device-1", driverUserId: "driver-1", expiresAt: new Date(now.getTime() + 3_600_000), actorId: "manager-1" });
+      await startFleetTrackingSession(executor, { id: "session-1", tenantId, tripId: "trip-1", deviceId: "device-1", driverUserId: "driver-1", expiresAt: new Date(now.getTime() + 3_600_000), traccarCredentialSecret: "session-secret-that-is-longer-than-32-characters", actorId: "manager-1" });
     });
     const trackingAdmin = createDatabaseFleetTrackingAdmin(pool);
     const credential = createFleetDeviceCredential(tenantId, "device-1", "integration-driver-secret-is-long-enough");
@@ -47,6 +47,9 @@ test("tracking persists history, resists replay, and isolates current state", { 
       receipts.push(result.receipt);
     }
     assert.deepEqual(receipts.map((receipt) => [receipt.decision, receipt.replayed]), [["advance_current", false], ["history_only", false], ["advance_current", true]]);
+    const providerResult = await trackingAdmin.ingestTraccarCredential(createFleetSessionCredential(tenantId, "session-1", "session-secret-that-is-longer-than-32-characters"), { eventId: "event-3", capturedAt: new Date(now.getTime() + 30_000), latitude: -1.2863, longitude: 36.8173, accuracyMetres: 7 });
+    assert.ok(providerResult && "receipt" in providerResult);
+    assert.equal(providerResult.receipt.sessionId, "session-1");
 
     const evidence = await withTenantTransaction(pool, tenantId, async (executor) => ({
       current: await executor.query<{ event_id: string }>("SELECT event_id FROM fleet_current_positions WHERE tenant_id = $1 AND session_id = 'session-1'", [tenantId]),
@@ -70,9 +73,9 @@ test("tracking persists history, resists replay, and isolates current state", { 
       await reader.query("ROLLBACK");
     } finally { reader.release(); }
 
-    await assert.rejects(() => withTenantTransaction(pool, tenantId, (executor) => startFleetTrackingSession(executor, { id: "session-conflict", tenantId, tripId: "trip-1", deviceId: "device-1", driverUserId: "driver-1", expiresAt: new Date(now.getTime() + 3_600_000) })), /fleet_active_session/iu);
+    await assert.rejects(() => withTenantTransaction(pool, tenantId, (executor) => startFleetTrackingSession(executor, { id: "session-conflict", tenantId, tripId: "trip-1", deviceId: "device-1", driverUserId: "driver-1", expiresAt: new Date(now.getTime() + 3_600_000), traccarCredentialSecret: "conflict-secret-that-is-longer-than-32-characters" })), /fleet_active_session/iu);
     await withTenantTransaction(pool, tenantId, async (executor) => {
-      const replacement = await handoverFleetTrackingSession(executor, { previousSessionId: "session-1", id: "session-2", tenantId, tripId: "trip-1", deviceId: "device-1", driverUserId: "driver-1", expiresAt: new Date(now.getTime() + 3_600_000), actorId: "manager-1" });
+      const replacement = await handoverFleetTrackingSession(executor, { previousSessionId: "session-1", id: "session-2", tenantId, tripId: "trip-1", deviceId: "device-1", driverUserId: "driver-1", expiresAt: new Date(now.getTime() + 3_600_000), traccarCredentialSecret: "replacement-secret-that-is-longer-than-32-characters", actorId: "manager-1" });
       assert.equal(replacement.status, "active");
     });
   } finally {

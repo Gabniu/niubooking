@@ -34,6 +34,7 @@
           "isAndroidForegroundServiceEnabled": true
         }
       ],
+      "./plugins/withTraccarClient",
       "expo-secure-store",
       [
         "expo-splash-screen",

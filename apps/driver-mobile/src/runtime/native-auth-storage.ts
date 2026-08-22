@@ -10,6 +10,13 @@ import type {
 
 const AUTH_KEY = 'niu-driver.native-auth.v1';
 const ACTIVE_SESSION_KEY = 'niu-driver.active-session.v1';
+const REFRESH_TOKEN_KEY = 'niu-driver.native-refresh.v1';
+
+export interface NativeRefreshTokenStorage {
+  read(): Promise<string | null>;
+  write(refreshToken: string): Promise<void>;
+  clear(): Promise<void>;
+}
 
 function isCredential(value: unknown): value is NativeAccessCredential {
   if (!value || typeof value !== 'object') return false;
@@ -26,6 +33,10 @@ function isActiveSession(value: unknown): value is DriverActiveSession {
   return typeof candidate.tenantId === 'string'
     && typeof candidate.tripId === 'string'
     && typeof candidate.sessionId === 'string'
+    && typeof candidate.deviceId === 'string'
+    && candidate.deviceId.length > 0
+    && typeof candidate.traccarCredential === 'string'
+    && candidate.traccarCredential.startsWith('niu_traccar_v1.')
     && typeof candidate.expiresAt === 'string'
     && Number.isFinite(Date.parse(candidate.expiresAt));
 }
@@ -72,6 +83,23 @@ export function createSecureActiveSessionStorage(key = ACTIVE_SESSION_KEY): Driv
     },
     write(session) {
       return SecureStore.setItemAsync(key, JSON.stringify(session));
+    },
+    clear() {
+      return SecureStore.deleteItemAsync(key);
+    },
+  };
+}
+
+export function createSecureNativeRefreshTokenStorage(key = REFRESH_TOKEN_KEY): NativeRefreshTokenStorage {
+  return {
+    async read() {
+      const stored = await SecureStore.getItemAsync(key);
+      if (stored?.trim()) return stored;
+      if (stored !== null) await SecureStore.deleteItemAsync(key);
+      return null;
+    },
+    write(refreshToken) {
+      return SecureStore.setItemAsync(key, refreshToken);
     },
     clear() {
       return SecureStore.deleteItemAsync(key);

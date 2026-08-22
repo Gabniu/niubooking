@@ -8,6 +8,7 @@ export interface DriverRuntimeConfig {
   readonly authIssuer: string;
   readonly authClientId: string;
   readonly authRedirectUri: string;
+  readonly authRefreshEnabled: boolean;
 }
 
 type RuntimeExtra = Partial<DriverRuntimeConfig>;
@@ -21,10 +22,19 @@ function httpsUrl(value: unknown): value is string {
   }
 }
 
+function osmandTelemetryUrl(value: unknown): value is string {
+  if (!httpsUrl(value)) return false;
+  try {
+    return new URL(value).pathname.replace(/\/+$/u, '') === '/v1/fleet/telemetry/osmand';
+  } catch {
+    return false;
+  }
+}
+
 export function readDriverRuntimeConfig(extra: unknown = Constants.expoConfig?.extra): DriverRuntimeConfig | null {
   if (!extra || typeof extra !== 'object') return null;
   const values = extra as RuntimeExtra;
-  if (!httpsUrl(values.apiBaseUrl) || !httpsUrl(values.telemetryEndpoint) || !httpsUrl(values.authIssuer)) return null;
+  if (!httpsUrl(values.apiBaseUrl) || !osmandTelemetryUrl(values.telemetryEndpoint) || !httpsUrl(values.authIssuer)) return null;
   if (!values.authClientId || !values.authRedirectUri?.startsWith('niudriver://')) return null;
   return {
     apiBaseUrl: values.apiBaseUrl,
@@ -32,5 +42,6 @@ export function readDriverRuntimeConfig(extra: unknown = Constants.expoConfig?.e
     authIssuer: values.authIssuer,
     authClientId: values.authClientId,
     authRedirectUri: values.authRedirectUri,
+    authRefreshEnabled: values.authRefreshEnabled === true,
   };
 }

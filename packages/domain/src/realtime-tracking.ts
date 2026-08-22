@@ -74,6 +74,18 @@ export interface ScopedVehiclePosition extends VehiclePosition {
   readonly vehicleResourceId: string;
 }
 
+/** A position received from a provider that has not supplied NIU session identity. */
+export interface FleetTelemetryObservation {
+  readonly eventId: string;
+  readonly capturedAt: Date;
+  readonly latitude: number;
+  readonly longitude: number;
+  readonly accuracyMetres: number;
+  readonly speedMetresPerSecond?: number;
+  readonly headingDegrees?: number;
+  readonly batteryPercent?: number;
+}
+
 export interface TelemetryReceipt {
   readonly tenantId: string;
   readonly eventId: string;

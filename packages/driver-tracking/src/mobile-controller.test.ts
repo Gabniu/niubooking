@@ -6,9 +6,10 @@ import { createDriverMobileController, createMemoryTelemetryQueue, type DriverAc
 import { createNativeAuthSession, type NativeAuthStorage } from "./native-auth.js";
 
 const credential = { accessToken: "native-token", expiresAt: "2030-01-01T00:10:00.000Z" };
+const traccarCredential = "niu_traccar_v1.tenant.session.session-secret-that-is-longer-than-32-characters";
 const sample = { eventId: "event-1", capturedAt: "2030-01-01T00:01:00.000Z", latitude: -1.2864, longitude: 36.8172, accuracyMetres: 8 };
 
-function controller(telemetryStatus: () => number, active: DriverActiveSession | null = null) {
+function controller(telemetryStatus: () => number, active: DriverActiveSession | null = null, capture?: { start(session: DriverActiveSession): Promise<void>; stop(): Promise<void> }, seenAuthorization?: string[]) {
   const storage: NativeAuthStorage = { async read() { return credential; }, async write() {}, async clear() {} };
   const activeStorage: DriverActiveSessionStorage = { async read() { return active; }, async write(next) { active = next; }, async clear() { active = null; } };
   const auth = createNativeAuthSession(storage, () => Date.parse("2030-01-01T00:00:00.000Z"));
@@ -21,9 +22,10 @@ function controller(telemetryStatus: () => number, active: DriverActiveSession |
     telemetryEndpoint: "https://booking.test/v1/fleet/telemetry",
     sessionFetcher: async (url) => ({
       status: 200,
-      json: async () => url.endsWith("/end") ? { data: { endedAt: "2030-01-01T00:02:00.000Z" } } : { data: { id: "session-1", expiresAt: "2030-01-01T00:10:00.000Z" } },
+      json: async () => url.endsWith("/end") ? { data: { endedAt: "2030-01-01T00:02:00.000Z" } } : { data: { id: "session-1", expiresAt: "2030-01-01T00:10:00.000Z", traccarCredential } },
     }),
-    telemetryFetcher: async () => ({ status: telemetryStatus() }),
+    telemetryFetcher: async (_url, init) => { seenAuthorization?.push(init.headers.authorization); return { status: telemetryStatus() }; },
+    ...(capture ? { capture } : {}),
   });
 }
 
@@ -78,9 +80,28 @@ test("keeps unauthenticated start recoverable without calling the API", async ()
 });
 
 test("restores an active session without exposing its session identifier", async () => {
-  const app = controller(() => 202, { tenantId: "tenant-1", tripId: "trip-1", sessionId: "session-1", expiresAt: "2099-01-01T00:00:00.000Z" });
+  const app = controller(() => 202, { tenantId: "tenant-1", tripId: "trip-1", sessionId: "session-1", deviceId: "device-1", traccarCredential, expiresAt: "2099-01-01T00:00:00.000Z" });
   const restored = await app.restore();
   assert.equal(restored.phase, "sharing");
   assert.equal(restored.tripId, "trip-1");
   assert.equal("sessionId" in restored, false);
+});
+
+test("passes only the session provider credential to the native capture lifecycle", async () => {
+  const calls: string[] = [];
+  const capture = { async start(active: DriverActiveSession) { calls.push(`start:${active.traccarCredential}`); }, async stop() { calls.push("stop"); } };
+  const app = controller(() => 202, null, capture);
+  await app.restore();
+  await app.start({ tenantId: "tenant-1", tripId: "trip-1", deviceId: "device-1" });
+  await app.stop();
+  assert.deepEqual(calls, [`start:${traccarCredential}`, "stop"]);
+});
+
+test("uses the session provider credential for fallback telemetry, not the OIDC token", async () => {
+  const seenAuthorization: string[] = [];
+  const app = controller(() => 202, null, undefined, seenAuthorization);
+  await app.restore();
+  await app.start({ tenantId: "tenant-1", tripId: "trip-1", deviceId: "device-1" });
+  await app.record(sample);
+  assert.deepEqual(seenAuthorization, [`Bearer ${traccarCredential}`]);
 });

@@ -10,6 +10,7 @@ import {
   validateFleetTripAssignment,
   type FleetDevice,
   type FleetDevicePlatform,
+  type FleetTelemetryObservation,
   type FleetTrackingSession,
   type FleetCrewAssignmentStatus,
   type FleetTripAssignment,
@@ -22,11 +23,15 @@ import {
 import type { SqlExecutor } from "./tenant-membership.js";
 import { appendAuditEvent } from "./audit-events.js";
 import { withTenantTransaction } from "./pg-executor.js";
+import { credentialHash, decodeFleetDeviceCredential, decodeFleetSessionCredential } from "./fleet-credentials.js";
 import type { Pool } from "pg";
+
+export { createFleetDeviceCredential, createFleetSessionCredential } from "./fleet-credentials.js";
 
 interface DeviceRow { id: string; tenant_id: string; branch_id: string; user_id: string | null; vehicle_resource_id: string | null; platform: FleetDevicePlatform; label: string; status: FleetDevice["status"]; enrolled_at: Date; revoked_at: Date | null; }
 interface AssignmentRow { id: string; tenant_id: string; branch_id: string; trip_id: string; user_id: string; role: FleetTripAssignment["role"]; status: FleetTripAssignment["status"]; assigned_at: Date; ended_at: Date | null; }
 interface SessionRow { id: string; tenant_id: string; branch_id: string; trip_id: string; device_id: string; driver_user_id: string; vehicle_resource_id: string; status: FleetTrackingSession["status"]; started_at: Date; expires_at: Date; ended_at: Date | null; }
+interface SessionCredentialRow extends SessionRow { traccar_credential_hash: string | null; }
 interface CrewStatusRow extends AssignmentRow { session_id: string | null; session_device_id: string | null; session_vehicle_resource_id: string | null; session_status: "active" | null; session_started_at: Date | null; session_expires_at: Date | null; }
 interface PositionRow { event_id: string; session_id: string; device_id: string; sequence: number; captured_at: Date; received_at: Date; latitude: number; longitude: number; accuracy_metres: number; speed_metres_per_second: number | null; heading_degrees: number | null; battery_percent: number | null; }
 interface ReceiptRow { tenant_id: string; event_id: string; session_id: string; device_id: string; decision: TelemetryReceipt["decision"]; reason_code: string | null; }
@@ -41,7 +46,6 @@ function mapAssignment(row: AssignmentRow): FleetTripAssignment { return { id: r
 function mapSession(row: SessionRow): FleetTrackingSession { return { id: row.id, tenantId: row.tenant_id, branchId: row.branch_id, tripId: row.trip_id, deviceId: row.device_id, driverUserId: row.driver_user_id, vehicleResourceId: row.vehicle_resource_id, status: row.status, startedAt: new Date(row.started_at), expiresAt: new Date(row.expires_at), endedAt: row.ended_at ? new Date(row.ended_at) : null }; }
 function mapPosition(row: PositionRow): VehiclePosition { return { eventId: row.event_id, sessionId: row.session_id, deviceId: row.device_id, sequence: Number(row.sequence), capturedAt: new Date(row.captured_at), receivedAt: new Date(row.received_at), latitude: row.latitude, longitude: row.longitude, accuracyMetres: row.accuracy_metres, ...(row.speed_metres_per_second === null ? {} : { speedMetresPerSecond: row.speed_metres_per_second }), ...(row.heading_degrees === null ? {} : { headingDegrees: row.heading_degrees }), ...(row.battery_percent === null ? {} : { batteryPercent: row.battery_percent }) }; }
 function mapReceipt(row: ReceiptRow, replayed: boolean): TelemetryReceipt { return { tenantId: row.tenant_id, eventId: row.event_id, sessionId: row.session_id, deviceId: row.device_id, decision: row.decision, reasons: row.reason_code ? row.reason_code.split("|") : [], replayed }; }
-function credentialHash(secret: string): string { return createHash("sha256").update(secret).digest("hex"); }
 
 export async function enrollFleetDevice(executor: SqlExecutor, input: { id: string; tenantId: string; branchId: string; userId?: string | null; vehicleResourceId?: string | null; platform: FleetDevicePlatform; label: string; credentialSecret: string; actorId?: string }): Promise<FleetDevice> {
   if (input.credentialSecret.length < 32) throw new Error("Device credential must contain at least 32 characters");
@@ -63,23 +67,24 @@ export async function assignFleetTripCrew(executor: SqlExecutor, input: { id: st
   return mapAssignment(rows[0]);
 }
 
-async function insertSession(executor: SqlExecutor, input: { id: string; tenantId: string; tripId: string; deviceId: string; driverUserId: string; expiresAt: Date; actorId?: string }, action: "fleet.tracking_started" | "fleet.tracking_handover"): Promise<FleetTrackingSession> {
+async function insertSession(executor: SqlExecutor, input: { id: string; tenantId: string; tripId: string; deviceId: string; driverUserId: string; expiresAt: Date; traccarCredentialSecret: string; actorId?: string }, action: "fleet.tracking_started" | "fleet.tracking_handover"): Promise<FleetTrackingSession> {
   const now = new Date();
   const errors = validateFleetTrackingSession({ ...input, now });
   if (errors.length) throw new Error(errors.join("; "));
+  if (input.traccarCredentialSecret.length < 32) throw new Error("Tracking provider credential must contain at least 32 characters");
   const scope = await executor.query<{ branch_id: string; vehicle_resource_id: string }>("SELECT trip.branch_id, trip.vehicle_resource_id FROM transport_trips trip JOIN transport_trip_assignments assignment ON assignment.tenant_id = trip.tenant_id AND assignment.trip_id = trip.id AND assignment.branch_id = trip.branch_id AND assignment.user_id = $4 AND assignment.role = 'driver' AND assignment.status = 'active' JOIN fleet_devices device ON device.tenant_id = trip.tenant_id AND device.id = $3 AND device.branch_id = trip.branch_id AND device.user_id = $4 AND device.status = 'enrolled' WHERE trip.tenant_id = $1 AND trip.id = $2 AND trip.branch_id IS NOT NULL AND trip.vehicle_resource_id IS NOT NULL FOR UPDATE OF trip, assignment, device", [input.tenantId, input.tripId, input.deviceId, input.driverUserId]);
   if (!scope[0]) throw new Error("Driver, device, branch, vehicle, and trip assignment must all match");
-  const rows = await executor.query<SessionRow>(`INSERT INTO fleet_tracking_sessions (id, tenant_id, branch_id, trip_id, device_id, driver_user_id, vehicle_resource_id, expires_at, started_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING ${sessionColumns}`, [input.id, input.tenantId, scope[0].branch_id, input.tripId, input.deviceId, input.driverUserId, scope[0].vehicle_resource_id, input.expiresAt, input.actorId ?? null]);
+  const rows = await executor.query<SessionRow>(`INSERT INTO fleet_tracking_sessions (id, tenant_id, branch_id, trip_id, device_id, driver_user_id, vehicle_resource_id, expires_at, traccar_credential_hash, started_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING ${sessionColumns}`, [input.id, input.tenantId, scope[0].branch_id, input.tripId, input.deviceId, input.driverUserId, scope[0].vehicle_resource_id, input.expiresAt, credentialHash(input.traccarCredentialSecret), input.actorId ?? null]);
   if (!rows[0]) throw new Error("Tracking session could not be started");
   await appendAuditEvent(executor, { tenantId: input.tenantId, actorType: input.actorId ? "user" : "system", actorId: input.actorId ?? null, action, entityType: "fleet_tracking_session", entityId: input.id, metadata: { branch_id: scope[0].branch_id, trip_id: input.tripId, device_id: input.deviceId } });
   return mapSession(rows[0]);
 }
 
-export async function startFleetTrackingSession(executor: SqlExecutor, input: { id: string; tenantId: string; tripId: string; deviceId: string; driverUserId: string; expiresAt: Date; actorId?: string }): Promise<FleetTrackingSession> {
+export async function startFleetTrackingSession(executor: SqlExecutor, input: { id: string; tenantId: string; tripId: string; deviceId: string; driverUserId: string; expiresAt: Date; traccarCredentialSecret: string; actorId?: string }): Promise<FleetTrackingSession> {
   return insertSession(executor, input, "fleet.tracking_started");
 }
 
-export async function handoverFleetTrackingSession(executor: SqlExecutor, input: { previousSessionId: string; id: string; tenantId: string; tripId: string; deviceId: string; driverUserId: string; expiresAt: Date; actorId?: string }): Promise<FleetTrackingSession> {
+export async function handoverFleetTrackingSession(executor: SqlExecutor, input: { previousSessionId: string; id: string; tenantId: string; tripId: string; deviceId: string; driverUserId: string; expiresAt: Date; traccarCredentialSecret: string; actorId?: string }): Promise<FleetTrackingSession> {
   const ended = await executor.query<{ id: string }>("UPDATE fleet_tracking_sessions SET status = 'ended', ended_at = now(), ended_by = $3, end_reason = 'handover' WHERE tenant_id = $1 AND id = $2 AND trip_id = $4 AND status = 'active' RETURNING id", [input.tenantId, input.previousSessionId, input.actorId ?? null, input.tripId]);
   if (!ended[0]) throw new Error("The active tracking session changed before handover");
   return insertSession(executor, input, "fleet.tracking_handover");
@@ -118,6 +123,19 @@ export async function ingestFleetPosition(executor: SqlExecutor, input: { tenant
     if (evaluation.decision === "advance_current") await executor.query("INSERT INTO fleet_current_positions (tenant_id, branch_id, trip_id, session_id, device_id, vehicle_resource_id, event_id, sequence, captured_at, received_at, latitude, longitude, accuracy_metres, speed_metres_per_second, heading_degrees, battery_percent) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) ON CONFLICT (tenant_id, session_id) DO UPDATE SET event_id = EXCLUDED.event_id, sequence = EXCLUDED.sequence, captured_at = EXCLUDED.captured_at, received_at = EXCLUDED.received_at, latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude, accuracy_metres = EXCLUDED.accuracy_metres, speed_metres_per_second = EXCLUDED.speed_metres_per_second, heading_degrees = EXCLUDED.heading_degrees, battery_percent = EXCLUDED.battery_percent WHERE (EXCLUDED.captured_at, EXCLUDED.sequence) > (fleet_current_positions.captured_at, fleet_current_positions.sequence)", values);
   }
   return mapReceipt(receipts[0], false);
+}
+
+export async function ingestTraccarCredential(executor: SqlExecutor, credential: string, observation: FleetTelemetryObservation): Promise<{ receipt: TelemetryReceipt; receivedAt: Date } | { kind: "inactive" } | null> {
+  const decoded = decodeFleetSessionCredential(credential);
+  if (!decoded) return null;
+  const sessions = await executor.query<SessionCredentialRow>(`SELECT session.${sessionColumns.replaceAll(", ", ", session.")}, session.traccar_credential_hash FROM fleet_tracking_sessions session JOIN fleet_devices device ON device.tenant_id = session.tenant_id AND device.id = session.device_id AND device.status = 'enrolled' WHERE session.tenant_id = $1 AND session.id = $2 FOR UPDATE OF session`, [decoded.tenantId, decoded.sessionId]);
+  if (!sessions[0]) return null;
+  const receivedAt = new Date();
+  if (sessions[0].traccar_credential_hash !== credentialHash(decoded.secret)) return null;
+  if (sessions[0].status !== "active" || sessions[0].expires_at <= receivedAt) return { kind: "inactive" };
+  const current = await executor.query<{ sequence: number }>("SELECT sequence FROM fleet_current_positions WHERE tenant_id = $1 AND session_id = $2 FOR UPDATE", [decoded.tenantId, sessions[0].id]);
+  const position: VehiclePosition = { ...observation, sessionId: sessions[0].id, deviceId: sessions[0].device_id, sequence: current[0] ? Number(current[0].sequence) + 1 : 0, receivedAt };
+  return { receipt: await ingestFleetPosition(executor, { tenantId: decoded.tenantId, position }), receivedAt };
 }
 
 export interface FleetCurrentProjection {
@@ -179,20 +197,6 @@ export async function readFleetSessionScope(executor: SqlExecutor, tenantId: str
   return rows[0] ? { branchId: rows[0].branch_id, driverUserId: rows[0].driver_user_id } : null;
 }
 
-function decodeCredential(credential: string): { tenantId: string; deviceId: string; secret: string } | null {
-  const [prefix, tenantPart, devicePart, secret] = credential.split(".");
-  if (prefix !== "niu_fleet_v1" || !tenantPart || !devicePart || !secret || secret.length < 32) return null;
-  try {
-    const tenantId = Buffer.from(tenantPart, "base64url").toString("utf8");
-    const deviceId = Buffer.from(devicePart, "base64url").toString("utf8");
-    return tenantId && deviceId ? { tenantId, deviceId, secret } : null;
-  } catch { return null; }
-}
-
-export function createFleetDeviceCredential(tenantId: string, deviceId: string, secret: string): string {
-  return `niu_fleet_v1.${Buffer.from(tenantId).toString("base64url")}.${Buffer.from(deviceId).toString("base64url")}.${secret}`;
-}
-
 export function createDatabaseFleetTrackingAdmin(pool: Pool) {
   return {
     enroll: (input: Parameters<typeof enrollFleetDevice>[1]) => withTenantTransaction(pool, input.tenantId, (executor) => enrollFleetDevice(executor, input)),
@@ -206,7 +210,7 @@ export function createDatabaseFleetTrackingAdmin(pool: Pool) {
     readTripBranch: (tenantId: string, tripId: string) => withTenantTransaction(pool, tenantId, (executor) => readFleetTripBranch(executor, tenantId, tripId)),
     readSessionScope: (tenantId: string, sessionId: string) => withTenantTransaction(pool, tenantId, (executor) => readFleetSessionScope(executor, tenantId, sessionId)),
     async ingestCredential(credential: string, position: Omit<VehiclePosition, "deviceId" | "receivedAt">): Promise<{ receipt: TelemetryReceipt; receivedAt: Date } | null> {
-      const decoded = decodeCredential(credential);
+      const decoded = decodeFleetDeviceCredential(credential);
       if (!decoded) return null;
       return withTenantTransaction(pool, decoded.tenantId, async (executor) => {
         const device = await executor.query<{ id: string }>("SELECT id FROM fleet_devices WHERE tenant_id = $1 AND id = $2 AND credential_hash = $3 AND status = 'enrolled' LIMIT 1", [decoded.tenantId, decoded.deviceId, credentialHash(decoded.secret)]);
@@ -215,6 +219,11 @@ export function createDatabaseFleetTrackingAdmin(pool: Pool) {
         const receipt = await ingestFleetPosition(executor, { tenantId: decoded.tenantId, position: { ...position, deviceId: decoded.deviceId, receivedAt } });
         return { receipt, receivedAt };
       });
+    },
+    async ingestTraccarCredential(credential: string, observation: FleetTelemetryObservation): Promise<{ receipt: TelemetryReceipt; receivedAt: Date } | { kind: "inactive" } | null> {
+      const decoded = decodeFleetSessionCredential(credential);
+      if (!decoded) return null;
+      return withTenantTransaction(pool, decoded.tenantId, (executor) => ingestTraccarCredential(executor, credential, observation));
     },
   };
 }
